@@ -3,9 +3,9 @@
  */
 
 #include "rpc_handlers_system.h"
-#include "rpc_response.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <furi_hal_version.h>
@@ -89,8 +89,7 @@ void power_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":{\"pct\":%" PRIu8 ",\"charging\":%s"
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"pct\":%" PRIu8 ",\"charging\":%s"
         ",\"voltage_mv\":%" PRIi32 ",\"current_ma\":%" PRIi32 "}}\n",
         id,
         pct,
@@ -111,16 +110,15 @@ void power_info_handler(uint32_t id, const char* json) {
 void datetime_get_handler(uint32_t id, const char* json) {
     UNUSED(json);
 
-    FuriHalRtcDateTime dt;
+    DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
 
     char resp[256];
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":{\"year\":%" PRIu16 ",\"month\":%" PRIu8 ",\"day\":%" PRIu8
-        ",\"hour\":%" PRIu8 ",\"minute\":%" PRIu8 ",\"second\":%" PRIu8 "}}\n",
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"year\":%" PRIu16 ",\"month\":%" PRIu8
+        ",\"day\":%" PRIu8 ",\"hour\":%" PRIu8 ",\"minute\":%" PRIu8 ",\"second\":%" PRIu8 "}}\n",
         id,
         dt.year,
         dt.month,
@@ -154,7 +152,7 @@ void datetime_set_handler(uint32_t id, const char* json) {
         return;
     }
 
-    FuriHalRtcDateTime dt = {
+    DateTime dt = {
         .year = (uint16_t)year,
         .month = (uint8_t)month,
         .day = (uint8_t)day,
@@ -205,8 +203,7 @@ void region_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":{\"region\":\"%s\",\"bands\":%s}}\n",
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"region\":\"%s\",\"bands\":%s}}\n",
         id,
         region_name,
         bands_buf);
@@ -239,7 +236,8 @@ void frequency_is_allowed_handler(uint32_t id, const char* json) {
         allowed ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " freq_allowed -> %s", id, allowed ? "y" : "n");
+    snprintf(
+        log_entry, sizeof(log_entry), "#%" PRIu32 " freq_allowed -> %s", id, allowed ? "y" : "n");
 
     rpc_send_response(resp, log_entry);
 }

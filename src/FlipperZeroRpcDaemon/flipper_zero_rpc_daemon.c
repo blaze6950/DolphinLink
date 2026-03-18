@@ -42,12 +42,12 @@
  *   rpc_gui        ViewPort, draw/input callbacks, setup/teardown
  */
 
-#include "rpc_resource.h"
-#include "rpc_stream.h"
-#include "rpc_transport.h"
-#include "rpc_cmd_log.h"
-#include "rpc_dispatch.h"
-#include "rpc_gui.h"
+#include "core/rpc_resource.h"
+#include "core/rpc_stream.h"
+#include "core/rpc_transport.h"
+#include "core/rpc_cmd_log.h"
+#include "core/rpc_dispatch.h"
+#include "core/rpc_gui.h"
 
 #include <furi.h>
 #include <furi_hal_usb_cdc.h>

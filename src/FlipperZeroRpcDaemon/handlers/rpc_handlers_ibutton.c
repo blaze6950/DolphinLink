@@ -14,11 +14,11 @@
  */
 
 #include "rpc_handlers_ibutton.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <lib/ibutton/ibutton_worker.h>
@@ -92,15 +92,17 @@ static void ibutton_worker_callback(void* ctx) {
         iButtonProtocolId proto_id = ibutton_key_get_protocol_id(key);
         const char* proto_name = ibutton_protocols_get_name(protocols, proto_id);
 
-        /* Get raw key data */
-        const uint8_t* data = ibutton_key_get_data(key);
-        size_t data_size = ibutton_key_get_data_size(key);
+        /* Get raw key data via editable data pointer */
+        iButtonEditableData editable = {0};
+        ibutton_protocols_get_editable_data(protocols, key, &editable);
 
         char hex[64] = {0};
         size_t hex_len = 0;
-        for(size_t i = 0; i < data_size && hex_len + 2 < sizeof(hex); i++) {
-            snprintf(hex + hex_len, sizeof(hex) - hex_len, "%02X", data[i]);
-            hex_len += 2;
+        if(editable.ptr && editable.size) {
+            for(size_t i = 0; i < editable.size && hex_len + 2 < sizeof(hex); i++) {
+                snprintf(hex + hex_len, sizeof(hex) - hex_len, "%02X", editable.ptr[i]);
+                hex_len += 2;
+            }
         }
 
         snprintf(

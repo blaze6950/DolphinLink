@@ -15,15 +15,17 @@
  */
 
 #include "rpc_handlers_subghz.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <furi_hal_subghz.h>
 #include <subghz/subghz_worker.h>
+#include <subghz/devices/devices.h>
+#include <subghz/devices/cc1101_int/cc1101_int_interconnect.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -104,9 +106,10 @@ void subghz_tx_handler(uint32_t id, const char* json) {
 
     resource_acquire(RESOURCE_SUBGHZ);
 
-    furi_hal_subghz_reset();
-    furi_hal_subghz_load_preset(FuriHalSubGhzPresetOok650Async);
-    furi_hal_subghz_set_frequency_and_path(freq);
+    const SubGhzDevice* dev = subghz_devices_get_by_name(SUBGHZ_DEVICE_CC1101_INT_NAME);
+    subghz_devices_reset(dev);
+    subghz_devices_load_preset(dev, FuriHalSubGhzPresetOok650Async, NULL);
+    subghz_devices_set_frequency(dev, freq);
     furi_hal_subghz_start_async_tx(subghz_tx_yield_callback, NULL);
 
     /* Poll until TX completes (each timing is in µs; 512 × ~1000 µs = ~512 ms max) */
@@ -115,7 +118,7 @@ void subghz_tx_handler(uint32_t id, const char* json) {
     }
 
     furi_hal_subghz_stop_async_tx();
-    furi_hal_subghz_sleep();
+    subghz_devices_sleep(dev);
 
     resource_release(RESOURCE_SUBGHZ);
 

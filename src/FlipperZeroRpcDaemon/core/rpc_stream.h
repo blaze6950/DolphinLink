@@ -31,6 +31,7 @@
 #include <nfc/nfc_scanner.h>
 #include <furi_hal_gpio.h>
 #include <lib/lfrfid/lfrfid_worker.h>
+#include <lib/toolbox/protocols/protocol_dict.h>
 #include <lib/ibutton/ibutton_worker.h>
 #include <lib/ibutton/ibutton_protocols.h>
 #include <stddef.h>
@@ -100,6 +101,7 @@ struct RpcStream {
 
         struct {
             LFRFIDWorker* worker;
+            ProtocolDict* dict;
         } lfrfid;
 
         struct {

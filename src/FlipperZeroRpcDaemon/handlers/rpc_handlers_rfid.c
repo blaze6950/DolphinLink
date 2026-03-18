@@ -14,14 +14,16 @@
  */
 
 #include "rpc_handlers_rfid.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <lib/lfrfid/lfrfid_worker.h>
+#include <lib/lfrfid/protocols/lfrfid_protocols.h>
+#include <lib/toolbox/protocols/protocol_dict.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -75,11 +77,11 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
 
     uint32_t stream_id = (uint32_t)(uintptr_t)ctx;
 
-    /* Find the worker to access the key data */
-    LFRFIDWorker* worker = NULL;
+    /* Find the slot to access the protocol dict */
+    ProtocolDict* dict = NULL;
     for(size_t i = 0; i < MAX_STREAMS; i++) {
         if(active_streams[i].active && active_streams[i].id == stream_id) {
-            worker = active_streams[i].hw.lfrfid.worker;
+            dict = active_streams[i].hw.lfrfid.dict;
             break;
         }
     }
@@ -87,10 +89,11 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
     StreamEvent ev;
     ev.stream_id = stream_id;
 
-    if(worker) {
-        /* Get raw key data bytes from the worker */
+    if(dict && protocol != PROTOCOL_NO) {
         uint8_t data[16] = {0};
-        size_t data_size = lfrfid_worker_read_raw_for_bit_count(worker, data, sizeof(data));
+        size_t data_size = protocol_dict_get_data_size(dict, (size_t)protocol);
+        if(data_size > sizeof(data)) data_size = sizeof(data);
+        protocol_dict_get_data(dict, (size_t)protocol, data, data_size);
 
         /* Build hex string */
         char hex[64] = {0};
@@ -100,18 +103,17 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
             hex_len += 2;
         }
 
+        const char* proto_name = protocol_dict_get_name(dict, (size_t)protocol);
+
         snprintf(
             ev.json_fragment,
             STREAM_FRAG_MAX,
-            "\"type\":\"%" PRIu32 "\",\"data\":\"%s\"",
-            (uint32_t)protocol,
+            "\"type\":\"%s\",\"data\":\"%s\"",
+            proto_name ? proto_name : "unknown",
             hex);
     } else {
         snprintf(
-            ev.json_fragment,
-            STREAM_FRAG_MAX,
-            "\"type\":\"%" PRIu32 "\"",
-            (uint32_t)protocol);
+            ev.json_fragment, STREAM_FRAG_MAX, "\"type\":\"%" PRIu32 "\"", (uint32_t)protocol);
     }
 
     furi_message_queue_put(stream_event_queue, &ev, 0);
@@ -119,10 +121,16 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
 
 static void lfrfid_teardown(size_t slot_idx) {
     LFRFIDWorker* worker = active_streams[slot_idx].hw.lfrfid.worker;
+    ProtocolDict* dict = active_streams[slot_idx].hw.lfrfid.dict;
     if(worker) {
         lfrfid_worker_stop(worker);
+        lfrfid_worker_stop_thread(worker);
         lfrfid_worker_free(worker);
         active_streams[slot_idx].hw.lfrfid.worker = NULL;
+    }
+    if(dict) {
+        protocol_dict_free(dict);
+        active_streams[slot_idx].hw.lfrfid.dict = NULL;
     }
 }
 
@@ -133,12 +141,14 @@ void lfrfid_read_start_handler(uint32_t id, const char* json) {
     int slot = stream_open(id, "lfrfid_read_start", RESOURCE_RFID, &stream_id);
     if(slot < 0) return;
 
-    LFRFIDWorker* worker = lfrfid_worker_alloc(NULL);
+    ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
+    LFRFIDWorker* worker = lfrfid_worker_alloc(dict);
     lfrfid_worker_start_thread(worker);
     lfrfid_worker_read_start(
         worker, LFRFIDWorkerReadTypeAuto, lfrfid_read_callback, (void*)(uintptr_t)stream_id);
 
     active_streams[slot].hw.lfrfid.worker = worker;
+    active_streams[slot].hw.lfrfid.dict = dict;
     active_streams[slot].teardown = lfrfid_teardown;
 
     stream_send_opened(id, stream_id, "lfrfid_read_start");

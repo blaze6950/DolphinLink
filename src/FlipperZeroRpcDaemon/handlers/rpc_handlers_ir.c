@@ -14,11 +14,11 @@
  */
 
 #include "rpc_handlers_ir.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <infrared_worker.h>
@@ -103,8 +103,9 @@ void ir_tx_handler(uint32_t id, const char* json) {
     ir_tx_done_sem = furi_semaphore_alloc(1, 0);
 
     InfraredWorker* worker = infrared_worker_alloc();
+    infrared_worker_set_decoded_signal(worker, &msg);
     infrared_worker_tx_set_get_signal_callback(
-        worker, infrared_worker_make_decoded_signal, (void*)&msg);
+        worker, infrared_worker_tx_get_signal_steady_callback, NULL);
     infrared_worker_tx_set_signal_sent_callback(worker, ir_tx_sent_callback, NULL);
     infrared_worker_tx_start(worker);
 
@@ -117,7 +118,12 @@ void ir_tx_handler(uint32_t id, const char* json) {
     ir_tx_done_sem = NULL;
 
     rpc_send_ok(id, "ir_tx");
-    FURI_LOG_I("RPC", "IR TX done protocol=%s addr=%" PRIu32 " cmd=%" PRIu32, protocol_name, address, command);
+    FURI_LOG_I(
+        "RPC",
+        "IR TX done protocol=%s addr=%" PRIu32 " cmd=%" PRIu32,
+        protocol_name,
+        address,
+        command);
 }
 
 /* =========================================================
@@ -130,23 +136,16 @@ static uint32_t ir_raw_timings[IR_RAW_MAX];
 static size_t ir_raw_count = 0;
 static size_t ir_raw_pos = 0;
 
-static InfraredStatus ir_raw_get_signal_callback(void* ctx, InfraredWorkerSignal* signal) {
+static InfraredWorkerGetSignalResponse
+    ir_raw_get_signal_callback(void* ctx, InfraredWorker* instance) {
     UNUSED(ctx);
-    if(ir_raw_pos >= ir_raw_count) return InfraredStatusDone;
+    if(ir_raw_pos >= ir_raw_count) return InfraredWorkerGetSignalResponseStop;
 
-    /* Emit one mark/space pair per call */
-    uint32_t duration = ir_raw_timings[ir_raw_pos++];
-    bool level = (ir_raw_pos % 2 == 1); /* odd indices = mark, even = space */
-    InfraredRawSignal raw = {
-        .timings = &duration,
-        .timings_size = 1,
-        .frequency = 38000,
-        .duty_cycle = 0.33f,
-    };
-    /* The first timing is always mark (level = true) */
-    if(ir_raw_pos == 1) level = true;
-    infrared_worker_set_raw_signal(signal, &raw, level);
-    return InfraredStatusOk;
+    /* Feed all remaining timings as a single raw burst */
+    infrared_worker_set_raw_signal(
+        instance, ir_raw_timings + ir_raw_pos, ir_raw_count - ir_raw_pos, 38000, 0.33f);
+    ir_raw_pos = ir_raw_count; /* consumed */
+    return InfraredWorkerGetSignalResponseNew;
 }
 
 static FuriSemaphore* ir_raw_tx_done_sem = NULL;

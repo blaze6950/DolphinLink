@@ -8,11 +8,11 @@
  */
 
 #include "rpc_handlers_nfc.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <nfc/nfc.h>

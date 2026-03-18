@@ -25,11 +25,11 @@
  */
 
 #include "rpc_handlers_storage.h"
-#include "rpc_globals.h"
-#include "rpc_base64.h"
-#include "rpc_response.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_globals.h"
+#include "../core/rpc_base64.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <storage/storage.h>
@@ -69,12 +69,11 @@ void storage_info_handler(uint32_t id, const char* json) {
     uint32_t total_kb = (uint32_t)(total_space / 1024);
     uint32_t free_kb = (uint32_t)(free_space / 1024);
 
-    char resp[256];
+    char resp[512];
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":{\"path\":\"%s\",\"total_kb\":%" PRIu32
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"path\":\"%s\",\"total_kb\":%" PRIu32
         ",\"free_kb\":%" PRIu32 "}}\n",
         id,
         path,
@@ -82,12 +81,7 @@ void storage_info_handler(uint32_t id, const char* json) {
         free_kb);
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(
-        log_entry,
-        sizeof(log_entry),
-        "#%" PRIu32 " storage_info %s",
-        id,
-        path);
+    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_info %.12s", id, path);
 
     rpc_send_response(resp, log_entry);
 }
@@ -134,8 +128,7 @@ void storage_list_handler(uint32_t id, const char* json) {
         "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"entries\":[",
         id);
 
-    while(count < STORAGE_LIST_MAX &&
-          storage_dir_read(dir, &fi, name, sizeof(name))) {
+    while(count < STORAGE_LIST_MAX && storage_dir_read(dir, &fi, name, sizeof(name))) {
         if(count > 0 && offset < buf_size - 1) {
             buf[offset++] = ',';
         }
@@ -162,7 +155,7 @@ void storage_list_handler(uint32_t id, const char* json) {
     }
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_list %s", id, path);
+    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_list %.12s", id, path);
 
     rpc_send_response(buf, log_entry);
     free(buf);
@@ -227,7 +220,13 @@ void storage_read_handler(uint32_t id, const char* json) {
     free(b64);
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_read %s (%zu B)", id, path, bytes_read);
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " storage_read %.10s (%zuB)",
+        id,
+        path,
+        bytes_read);
 
     rpc_send_response(resp, log_entry);
     free(resp);
@@ -351,14 +350,13 @@ void storage_stat_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":{\"size\":%" PRIu32 ",\"is_dir\":%s}}\n",
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"size\":%" PRIu32 ",\"is_dir\":%s}}\n",
         id,
         (uint32_t)fi.size,
         is_dir ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_stat %s", id, path);
+    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_stat %.12s", id, path);
 
     rpc_send_response(resp, log_entry);
 }

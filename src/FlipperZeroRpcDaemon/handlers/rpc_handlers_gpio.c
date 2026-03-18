@@ -12,11 +12,11 @@
  */
 
 #include "rpc_handlers_gpio.h"
-#include "rpc_response.h"
-#include "rpc_stream.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_stream.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <furi_hal_gpio.h>
@@ -86,7 +86,8 @@ void gpio_read_handler(uint32_t id, const char* json) {
         level ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " gpio_read pin=%s -> %d", id, label, (int)level);
+    snprintf(
+        log_entry, sizeof(log_entry), "#%" PRIu32 " gpio_read pin=%s -> %d", id, label, (int)level);
 
     rpc_send_response(resp, log_entry);
 }
@@ -155,7 +156,13 @@ void adc_read_handler(uint32_t id, const char* json) {
         mv);
 
     char log_entry[CMD_LOG_LINE_LEN];
-    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " adc_read pin=%s -> %" PRIi32 "mv", id, label, mv);
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " adc_read pin=%s -> %" PRIi32 "mv",
+        id,
+        label,
+        mv);
 
     rpc_send_response(resp, log_entry);
 }

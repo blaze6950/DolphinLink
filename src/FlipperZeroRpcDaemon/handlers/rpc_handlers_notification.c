@@ -20,11 +20,11 @@
  */
 
 #include "rpc_handlers_notification.h"
-#include "rpc_globals.h"
-#include "rpc_response.h"
-#include "rpc_resource.h"
-#include "rpc_json.h"
-#include "rpc_cmd_log.h"
+#include "../core/rpc_globals.h"
+#include "../core/rpc_response.h"
+#include "../core/rpc_resource.h"
+#include "../core/rpc_json.h"
+#include "../core/rpc_cmd_log.h"
 
 #include <furi.h>
 #include <furi_hal_light.h>

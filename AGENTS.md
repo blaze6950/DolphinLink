@@ -24,21 +24,36 @@ FlipperZero.NET/
 ├── src/
 │   ├── FlipperZeroRpcDaemon/               # Flipper Zero C application
 │   │   ├── flipper_zero_rpc_daemon.c       # Entry point: globals, on_rx_queue(), app main
-│   │   ├── rpc_resource.h                  # Header-only: ResourceMask type, acquire/release/reset
-│   │   ├── rpc_json.h / rpc_json.c         # JSON extraction helpers (json_extract_string/uint32)
-│   │   ├── rpc_transport.h / rpc_transport.c  # RxLine, cdc_send(), cdc_rx_callback() ISR
-│   │   ├── rpc_cmd_log.h / rpc_cmd_log.c   # Ring-buffer command log, cmd_log_push/reset
-│   │   ├── rpc_response.h / rpc_response.c # rpc_send_ok/error/response() — shared response helpers
-│   │   ├── rpc_stream.h / rpc_stream.c     # RpcStream table, alloc/find/close/reset helpers
-│   │   ├── rpc_dispatch.h / rpc_dispatch.c # RpcCommand struct, commands[] table, rpc_dispatch()
-│   │   ├── rpc_handlers.h / rpc_handlers.c # ping, ir_receive_start, gpio_watch_start, subghz_rx_start, nfc_scan_start, stream_close handlers
-│   │   ├── rpc_gui.h / rpc_gui.c           # AppState, draw/input callbacks, setup/teardown
-│   │   ├── application.fam                 # Flipper app manifest (entry point, stack 4KB, icon)
+│   │   ├── application.fam                 # Flipper app manifest (entry point, stack 8KB, icon)
 │   │   ├── flipper_zero_rpc_daemon.png     # 10x10 1-bit icon
 │   │   ├── images/                         # Image assets compiled into FAP
 │   │   ├── .github/workflows/build.yml     # CI: builds FAP via ufbt for dev + release SDK channels
 │   │   ├── .clang-format                   # C formatting rules
-│   │   └── .vscode/                        # VS Code settings, compile_commands.json (ufbt-generated)
+│   │   ├── .vscode/                        # VS Code settings, compile_commands.json (ufbt-generated)
+│   │   │
+│   │   ├── core/                           # Protocol infrastructure (transport, dispatch, streams)
+│   │   │   ├── rpc_globals.h               # Extern declarations for g_storage, g_notification
+│   │   │   ├── rpc_resource.h              # Header-only: ResourceMask type, acquire/release/reset
+│   │   │   ├── rpc_json.h / rpc_json.c     # JSON extraction helpers (json_extract_string/uint32/bool/array)
+│   │   │   ├── rpc_base64.h / rpc_base64.c # RFC 4648 Base64 encode/decode
+│   │   │   ├── rpc_transport.h / rpc_transport.c  # RxLine, cdc_send(), cdc_rx_callback() ISR
+│   │   │   ├── rpc_cmd_log.h / rpc_cmd_log.c      # Ring-buffer command log, cmd_log_push/reset
+│   │   │   ├── rpc_response.h / rpc_response.c    # rpc_send_ok/error/response() — shared response helpers
+│   │   │   ├── rpc_stream.h / rpc_stream.c        # RpcStream table, alloc/find/close/reset helpers
+│   │   │   ├── rpc_dispatch.h / rpc_dispatch.c    # RpcCommand struct, commands[] table, rpc_dispatch()
+│   │   │   └── rpc_gui.h / rpc_gui.c              # AppState, draw/input callbacks, setup/teardown
+│   │   │
+│   │   └── handlers/                       # One module per hardware subsystem
+│   │       ├── rpc_handlers.h / rpc_handlers.c                    # ping, stream_close
+│   │       ├── rpc_handlers_system.h / rpc_handlers_system.c      # device_info, power_info, datetime, region
+│   │       ├── rpc_handlers_gpio.h / rpc_handlers_gpio.c          # gpio_read/write, adc_read, gpio_set_5v, gpio_watch_start
+│   │       ├── rpc_handlers_ir.h / rpc_handlers_ir.c              # ir_tx, ir_tx_raw, ir_receive_start
+│   │       ├── rpc_handlers_subghz.h / rpc_handlers_subghz.c      # subghz_tx, subghz_get_rssi, subghz_rx_start
+│   │       ├── rpc_handlers_nfc.h / rpc_handlers_nfc.c            # nfc_scan_start
+│   │       ├── rpc_handlers_notification.h / rpc_handlers_notification.c  # led_set, vibro, speaker_start/stop, backlight
+│   │       ├── rpc_handlers_storage.h / rpc_handlers_storage.c    # storage_info/list/read/write/mkdir/remove/stat
+│   │       ├── rpc_handlers_rfid.h / rpc_handlers_rfid.c          # lfrfid_read_start
+│   │       └── rpc_handlers_ibutton.h / rpc_handlers_ibutton.c    # ibutton_read_start
 │   │
 │   └── FlipperZero.NET.Client/             # C# RPC client library
 │       ├── FlipperZero.NET.Client.csproj   # Targets net8.0; depends on System.IO.Ports 8.0.0
@@ -293,17 +308,19 @@ only touching `Commands/RpcCommands.cs` and `FlipperRpcClient.Commands.cs`.
 
 ### Step 1 — C Daemon
 
-1. Declare the handler in `rpc_handlers.h` and implement it in `rpc_handlers.c`:
+1. Declare the handler in `handlers/rpc_handlers.h` and implement it in `handlers/rpc_handlers.c`
+   (or create a new `handlers/rpc_handlers_<subsystem>.h/.c` pair for a new subsystem):
    ```c
    static void my_cmd_handler(uint32_t id, const char* json);
    ```
-2. Add a row to the `commands[]` table in `rpc_dispatch.c`:
+2. Add a row to the `commands[]` table in `core/rpc_dispatch.c`:
    ```c
    {"my_command", RESOURCE_FLAGS, my_cmd_handler},
    ```
+   And add `#include "../handlers/rpc_handlers_<subsystem>.h"` at the top of `rpc_dispatch.c`.
 3. Implement the handler using `json_extract_string` / `json_extract_uint32`
-   (from `rpc_json.h`) for argument parsing and `rpc_send_ok()` / `rpc_send_error()`
-   (from `rpc_response.h`) for responses.
+   (from `core/rpc_json.h`) for argument parsing and `rpc_send_ok()` / `rpc_send_error()`
+   (from `core/rpc_response.h`) for responses.
 4. For stream commands: check `stream_alloc_slot()` before calling
    `resource_acquire()`, store the slot, then send `{"id":N,"stream":M}\n`.
 
