@@ -20,8 +20,10 @@
  * interface 0 is reserved for the system RPC used by qFlipper). */
 #define RPC_CDC_IF 1
 
-/* Maximum bytes in one NDJSON line (including the trailing '\n'). */
-#define RX_LINE_MAX 256
+/* Maximum bytes in one NDJSON line (including the trailing '\n').
+ * 1024 bytes accommodates base64-encoded storage payloads (~700 bytes of
+ * binary data) and raw IR/SubGHz timing arrays. */
+#define RX_LINE_MAX 1024
 
 /** A complete '\n'-terminated JSON line, sized for fixed-size queue elements. */
 typedef struct {

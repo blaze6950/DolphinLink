@@ -96,3 +96,48 @@ bool json_extract_uint32(const char* json, const char* key, uint32_t* out) {
     *out = val;
     return true;
 }
+
+bool json_extract_bool(const char* json, const char* key, bool* out) {
+    const char* pos = json_find_value(json, key);
+    if(!pos) return false;
+
+    if(strncmp(pos, "true", 4) == 0) {
+        *out = true;
+        return true;
+    }
+    if(strncmp(pos, "false", 5) == 0) {
+        *out = false;
+        return true;
+    }
+    return false;
+}
+
+bool json_extract_uint32_array(
+    const char* json,
+    const char* key,
+    uint32_t* out,
+    size_t* out_count,
+    size_t max_count) {
+    *out_count = 0;
+    const char* pos = json_find_value(json, key);
+    if(!pos) return false;
+    if(*pos != '[') return false;
+    pos++; /* skip '[' */
+
+    while(*pos && *pos != ']' && *out_count < max_count) {
+        /* Skip whitespace and commas */
+        while(*pos == ' ' || *pos == '\t' || *pos == ',')
+            pos++;
+        if(*pos == ']' || *pos == '\0') break;
+
+        if(*pos < '0' || *pos > '9') return false; /* unexpected token */
+
+        uint32_t val = 0;
+        while(*pos >= '0' && *pos <= '9') {
+            val = val * 10 + (uint32_t)(*pos - '0');
+            pos++;
+        }
+        out[(*out_count)++] = val;
+    }
+    return (*out_count > 0);
+}

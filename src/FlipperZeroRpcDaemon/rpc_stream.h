@@ -30,6 +30,9 @@
 #include <nfc/nfc.h>
 #include <nfc/nfc_scanner.h>
 #include <furi_hal_gpio.h>
+#include <lib/lfrfid/lfrfid_worker.h>
+#include <lib/ibutton/ibutton_worker.h>
+#include <lib/ibutton/ibutton_protocols.h>
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -94,6 +97,16 @@ struct RpcStream {
             char frag_high[GPIO_FRAG_MAX]; /**< "pin":"N","level":true  */
             char frag_low[GPIO_FRAG_MAX]; /**< "pin":"N","level":false */
         } gpio;
+
+        struct {
+            LFRFIDWorker* worker;
+        } lfrfid;
+
+        struct {
+            iButtonWorker* worker;
+            iButtonProtocols* protocols;
+            iButtonKey* key;
+        } ibutton;
     } hw;
 };
 

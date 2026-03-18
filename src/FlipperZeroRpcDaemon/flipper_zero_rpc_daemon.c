@@ -21,12 +21,24 @@
  *   rpc_resource   Hardware resource bitmask (BLE, SubGHz, IR, NFC, …)
  *   rpc_stream     Active stream table, StreamEvent queue, g_event_loop
  *   rpc_json       Pure JSON extraction helpers
+ *   rpc_base64     Base64 encode / decode helpers
  *   rpc_transport  USB CDC send + ISR RX framing → rx_queue
  *   rpc_cmd_log    On-screen command log ring buffer
  *   rpc_response   Response formatting helpers (dedup cdc_send + cmd_log_push)
  *   rpc_dispatch   Command registry + dispatcher
- *   rpc_handlers   ping, ir_receive_start, gpio_watch_start,
- *                  subghz_rx_start, nfc_scan_start, stream_close
+ *   rpc_handlers           ping, stream_close
+ *   rpc_handlers_system    device_info, power_info, datetime_get/set, region_info,
+ *                          frequency_is_allowed
+ *   rpc_handlers_gpio      gpio_read, gpio_write, adc_read, gpio_set_5v,
+ *                          gpio_watch_start
+ *   rpc_handlers_ir        ir_tx, ir_tx_raw, ir_receive_start
+ *   rpc_handlers_subghz    subghz_tx, subghz_get_rssi, subghz_rx_start
+ *   rpc_handlers_nfc       nfc_scan_start
+ *   rpc_handlers_notification  led_set, vibro, speaker_start, speaker_stop, backlight
+ *   rpc_handlers_storage   storage_info, storage_list, storage_read, storage_write,
+ *                          storage_mkdir, storage_remove, storage_stat
+ *   rpc_handlers_rfid      lfrfid_read_start
+ *   rpc_handlers_ibutton   ibutton_read_start
  *   rpc_gui        ViewPort, draw/input callbacks, setup/teardown
  */
 
@@ -40,6 +52,9 @@
 #include <furi.h>
 #include <furi_hal_usb_cdc.h>
 #include <furi_hal_usb.h>
+#include <storage/storage.h>
+#include <notification/notification.h>
+#include <notification/notification_messages.h>
 
 /* =========================================================
  * Global state storage
@@ -48,6 +63,12 @@
 
 ResourceMask active_resources = 0;
 FuriMessageQueue* rx_queue = NULL;
+
+/** Storage service handle — opened at startup, closed on exit. */
+Storage* g_storage = NULL;
+
+/** Notification service handle — opened at startup, closed on exit. */
+NotificationApp* g_notification = NULL;
 
 /* =========================================================
  * Event-loop subscriber: rx_queue has a line ready
@@ -74,6 +95,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     resource_reset();
     stream_reset();
     cmd_log_reset();
+
+    /* --- Open shared service records --- */
+    g_storage = furi_record_open(RECORD_STORAGE);
+    g_notification = furi_record_open(RECORD_NOTIFICATION);
 
     /* --- Message queues --- */
     rx_queue = furi_message_queue_alloc(16, sizeof(RxLine));
@@ -134,6 +159,12 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
 
     rpc_gui_teardown(&app, gui);
     furi_record_close(RECORD_GUI);
+
+    /* Close shared service records */
+    furi_record_close(RECORD_STORAGE);
+    g_storage = NULL;
+    furi_record_close(RECORD_NOTIFICATION);
+    g_notification = NULL;
 
     /* Detach CDC callbacks before switching USB back */
     furi_hal_cdc_set_callbacks(RPC_CDC_IF, NULL, NULL);

@@ -15,10 +15,13 @@
 
 typedef uint32_t ResourceMask;
 
-#define RESOURCE_BLE    (1u << 0) /* reserved — BLE GAP observer not exposed in FAP SDK */
-#define RESOURCE_SUBGHZ (1u << 1)
-#define RESOURCE_IR     (1u << 2)
-#define RESOURCE_NFC    (1u << 3)
+#define RESOURCE_BLE     (1u << 0) /* reserved — BLE GAP observer not exposed in FAP SDK */
+#define RESOURCE_SUBGHZ  (1u << 1)
+#define RESOURCE_IR      (1u << 2)
+#define RESOURCE_NFC     (1u << 3)
+#define RESOURCE_SPEAKER (1u << 4)
+#define RESOURCE_RFID    (1u << 5)
+#define RESOURCE_IBUTTON (1u << 6)
 
 /* Module-level state — storage provided by flipper_zero_rpc_daemon.c */
 extern ResourceMask active_resources;
