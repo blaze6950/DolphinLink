@@ -1,5 +1,3 @@
-using FlipperZero.NET;
-
 namespace FlipperZero.NET.Client.IntegrationTests;
 
 /// <summary>

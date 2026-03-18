@@ -1,5 +1,3 @@
-using FlipperZero.NET;
-
 namespace FlipperZero.NET.Client.IntegrationTests;
 
 /// <summary>
@@ -27,31 +25,8 @@ public sealed class DeviceInfoTests(FlipperFixture fixture)
 
         Assert.False(string.IsNullOrWhiteSpace(response.Firmware),
             "DeviceInfoResponse.Firmware must not be empty");
-    }
-
-    /// <summary>
-    /// The response must include a non-empty model name identifying the
-    /// Flipper hardware variant.
-    /// Validates: deserialisation of the <c>model</c> field.
-    /// </summary>
-    [RequiresFlipperFact]
-    public async Task DeviceInfo_ReturnsNonEmptyModel()
-    {
-        var response = await Client.DeviceInfoAsync();
-
         Assert.False(string.IsNullOrWhiteSpace(response.Model),
             "DeviceInfoResponse.Model must not be empty");
-    }
-
-    /// <summary>
-    /// The response must include a non-empty device UID string.
-    /// Validates: deserialisation of the <c>uid</c> field.
-    /// </summary>
-    [RequiresFlipperFact]
-    public async Task DeviceInfo_ReturnsNonEmptyUid()
-    {
-        var response = await Client.DeviceInfoAsync();
-
         Assert.False(string.IsNullOrWhiteSpace(response.Uid),
             "DeviceInfoResponse.Uid must not be empty");
     }

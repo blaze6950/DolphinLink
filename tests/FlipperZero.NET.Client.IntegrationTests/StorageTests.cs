@@ -1,4 +1,3 @@
-using FlipperZero.NET;
 using System.Text;
 
 namespace FlipperZero.NET.Client.IntegrationTests;
