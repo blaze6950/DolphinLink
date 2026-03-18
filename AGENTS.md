@@ -23,7 +23,16 @@ FlipperZero.NET/
 │
 ├── src/
 │   ├── FlipperZeroRpcDaemon/               # Flipper Zero C application
-│   │   ├── flipper_zero_rpc_daemon.c       # Single-file daemon (all logic)
+│   │   ├── flipper_zero_rpc_daemon.c       # Entry point: globals, on_rx_queue(), app main
+│   │   ├── rpc_resource.h                  # Header-only: ResourceMask type, acquire/release/reset
+│   │   ├── rpc_json.h / rpc_json.c         # JSON extraction helpers (json_extract_string/uint32)
+│   │   ├── rpc_transport.h / rpc_transport.c  # RxLine, cdc_send(), cdc_rx_callback() ISR
+│   │   ├── rpc_cmd_log.h / rpc_cmd_log.c   # Ring-buffer command log, cmd_log_push/reset
+│   │   ├── rpc_response.h / rpc_response.c # rpc_send_ok/error/response() — shared response helpers
+│   │   ├── rpc_stream.h / rpc_stream.c     # RpcStream table, alloc/find/close/reset helpers
+│   │   ├── rpc_dispatch.h / rpc_dispatch.c # RpcCommand struct, commands[] table, rpc_dispatch()
+│   │   ├── rpc_handlers.h / rpc_handlers.c # ping, ble_scan_start, stream_close handlers
+│   │   ├── rpc_gui.h / rpc_gui.c           # AppState, draw/input callbacks, setup/teardown
 │   │   ├── application.fam                 # Flipper app manifest (entry point, stack 4KB, icon)
 │   │   ├── flipper_zero_rpc_daemon.png     # 10x10 1-bit icon
 │   │   ├── images/                         # Image assets compiled into FAP
@@ -141,14 +150,14 @@ are supported (`MAX_STREAMS`).
 ### C Daemon Threading Model
 
 ```
-USB ISR  (cdc_rx_callback)
+USB ISR  (cdc_rx_callback — rpc_transport.c)
   │  pulls data via furi_hal_cdc_receive()
   │  accumulates bytes into line buffer
   │  on '\n': pushes RxLine into FuriMessageQueue  [non-blocking, may drop]
   ▼
-FuriEventLoop  (main thread)
+FuriEventLoop  (main thread — flipper_zero_rpc_daemon.c)
   │  on_rx_queue fires when queue becomes readable
-  │  calls rpc_dispatch() → handler → cdc_send()
+  │  calls rpc_dispatch() (rpc_dispatch.c) → handler (rpc_handlers.c) → cdc_send() (rpc_transport.c)
   ▼
 USB TX  (furi_hal_cdc_send)
 ```
@@ -191,18 +200,25 @@ User code receives result / iterates IAsyncEnumerable<TEvent>
 | **Event loop callback signature** | `void(*)(FuriEventLoopObject* object, void* context)` — returns `void`, first parameter is `FuriEventLoopObject*`. |
 | **CdcCallbacks field names** | `tx_ep_callback`, `rx_ep_callback`, `state_callback`, `ctrl_line_callback`, `config_callback`. The field is `ctrl_line_callback`, NOT `control_line_callback`. |
 | **GUI with FuriEventLoop** | Use `ViewPort` + `gui_add_view_port()`. Do NOT use `ViewDispatcher` — it owns its own event loop and conflicts with `FuriEventLoop`. |
-| **USB lifecycle** | Save the previous USB config with `furi_hal_usb_get_config()` before calling `furi_hal_usb_set_config(&usb_cdc_single, NULL)`. Restore it on exit. Clear CDC callbacks before restoring. |
+| **USB lifecycle** | Save the previous USB config with `furi_hal_usb_get_config()` before calling `furi_hal_usb_set_config(&usb_cdc_dual, NULL)`. Use CDC interface 1 (`RPC_CDC_IF 1`) for app traffic — interface 0 is the system RPC used by qFlipper and must never be touched. Restore the previous config on exit. Clear CDC callbacks on interface 1 before restoring. Never use `usb_cdc_single` — it hijacks the system RPC channel. |
 | **Format specifiers** | Use `"%" PRIu32` / `"%" PRIx32` from `<inttypes.h>` for `uint32_t`. Never use `%lu` or `%u` — ARM Cortex-M type widths differ from host. |
 
 ### C Code Style
 
-- Single-file architecture: all daemon logic lives in `flipper_zero_rpc_daemon.c`.
-  No header files.
+- Multi-file module architecture: daemon logic is split across focused `rpc_*.h`/`rpc_*.c`
+  modules. `flipper_zero_rpc_daemon.c` is the entry point only (~120 lines).
+- Each module is named `rpc_<concern>` (e.g. `rpc_transport`, `rpc_dispatch`,
+  `rpc_handlers`). All modules expose only what their header declares; internal
+  helpers are `static`.
 - Flipper allman-adjacent style: braces on the same line for control flow.
   Follow `.clang-format` for formatting; `python -m ufbt lint` enforces it.
+  Auto-fix with `python -m ufbt format`.
 - Use `UNUSED(x)` for unused parameters.
-- All module-level variables are `static`.
-- Forward-declare handlers before the command registry table.
+- All module-level variables are `static`; globals shared across modules are
+  defined in `flipper_zero_rpc_daemon.c` and declared `extern` in the relevant
+  header (e.g. `active_resources` in `rpc_resource.h`, `rx_queue` in
+  `rpc_transport.h`).
+- Forward-declare handlers before the command registry table in `rpc_dispatch.c`.
 
 ---
 
@@ -276,13 +292,17 @@ only touching `Commands/RpcCommands.cs` and `FlipperRpcClient.Commands.cs`.
 
 ### Step 1 — C Daemon
 
-1. Declare the handler: `static void my_cmd_handler(uint32_t id, const char* json);`
-2. Add a row to `commands[]`:
+1. Declare the handler in `rpc_handlers.h` and implement it in `rpc_handlers.c`:
    ```c
-   {"my_command", RESOURCE_FLAGS, is_stream, my_cmd_handler},
+   static void my_cmd_handler(uint32_t id, const char* json);
+   ```
+2. Add a row to the `commands[]` table in `rpc_dispatch.c`:
+   ```c
+   {"my_command", RESOURCE_FLAGS, my_cmd_handler},
    ```
 3. Implement the handler using `json_extract_string` / `json_extract_uint32`
-   for argument parsing and `cdc_send()` for responses.
+   (from `rpc_json.h`) for argument parsing and `rpc_send_ok()` / `rpc_send_error()`
+   (from `rpc_response.h`) for responses.
 4. For stream commands: check `stream_alloc_slot()` before calling
    `resource_acquire()`, store the slot, then send `{"id":N,"stream":M}\n`.
 
@@ -316,6 +336,7 @@ only touching `Commands/RpcCommands.cs` and `FlipperRpcClient.Commands.cs`.
 |---|---|---|
 | ISR context violation | Calling logging, snprintf, or TX inside `rx_ep_callback` | Only `furi_hal_cdc_receive` + `furi_message_queue_put` in callback |
 | CDC callback wrong signature | Treating `rx_ep_callback` as data-delivery | Signature is `void(*)(void*)` — pull data with `furi_hal_cdc_receive()` |
+| Using `usb_cdc_single` | Hijacks CDC interface 0 (system RPC), breaking qFlipper | Always use `usb_cdc_dual` and CDC interface 1 (`RPC_CDC_IF 1`) for app traffic |
 | Wrong event loop subscribe name | Using `furi_event_loop_message_queue_subscribe` | Correct: `furi_event_loop_subscribe_message_queue` |
 | Wrong event loop unsubscribe name | Using `furi_event_loop_message_queue_unsubscribe` | Correct: `furi_event_loop_unsubscribe` (generic, works for all object types) |
 | Wrong event loop callback signature | Returning `bool`, taking `FuriMessageQueue*` | Must return `void`, first param is `FuriEventLoopObject*` |
