@@ -81,6 +81,27 @@ static void stream_close_by_index(size_t idx) {
 }
 
 /* =========================================================
+ * Command log — ring buffer displayed on screen
+ * ========================================================= */
+
+#define CMD_LOG_LINES   4
+#define CMD_LOG_LINE_LEN 40
+
+static char cmd_log[CMD_LOG_LINES][CMD_LOG_LINE_LEN];
+static size_t cmd_log_next = 0; /* next slot to write */
+static size_t cmd_log_count = 0; /* total entries written (saturates at CMD_LOG_LINES) */
+
+/* ViewPort handle for triggering redraws from handlers (main thread only) */
+static ViewPort* g_view_port = NULL;
+
+static void cmd_log_push(const char* entry) {
+    snprintf(cmd_log[cmd_log_next], CMD_LOG_LINE_LEN, "%s", entry);
+    cmd_log_next = (cmd_log_next + 1) % CMD_LOG_LINES;
+    if(cmd_log_count < CMD_LOG_LINES) cmd_log_count++;
+    if(g_view_port) view_port_update(g_view_port);
+}
+
+/* =========================================================
  * USB CDC transport
  * ========================================================= */
 
@@ -278,6 +299,10 @@ static void rpc_dispatch(const char* json) {
             "{\"id\":%" PRIu32 ",\"error\":\"missing_cmd\"}\n",
             request_id);
         cdc_send(err);
+
+        char log_entry[CMD_LOG_LINE_LEN];
+        snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " ??? -> err:missing_cmd", request_id);
+        cmd_log_push(log_entry);
         return;
     }
 
@@ -294,6 +319,15 @@ static void rpc_dispatch(const char* json) {
                     "{\"id\":%" PRIu32 ",\"error\":\"resource_busy\"}\n",
                     request_id);
                 cdc_send(err);
+
+                char log_entry[CMD_LOG_LINE_LEN];
+                snprintf(
+                    log_entry,
+                    sizeof(log_entry),
+                    "#%" PRIu32 " %.16s -> err:res_busy",
+                    request_id,
+                    cmd);
+                cmd_log_push(log_entry);
                 return;
             }
             commands[i].handler(request_id, json);
@@ -306,6 +340,15 @@ static void rpc_dispatch(const char* json) {
     snprintf(
         err, sizeof(err), "{\"id\":%" PRIu32 ",\"error\":\"unknown_command\"}\n", request_id);
     cdc_send(err);
+
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " %.16s -> err:unknown_cmd",
+        request_id,
+        cmd);
+    cmd_log_push(log_entry);
 }
 
 /* =========================================================
@@ -321,6 +364,10 @@ static void ping_handler(uint32_t id, const char* json) {
         "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"pong\":true}}\n",
         id);
     cdc_send(resp);
+
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " ping -> ok", id);
+    cmd_log_push(log_entry);
 }
 
 static void ble_scan_start_handler(uint32_t id, const char* json) {
@@ -336,6 +383,14 @@ static void ble_scan_start_handler(uint32_t id, const char* json) {
             "{\"id\":%" PRIu32 ",\"error\":\"stream_table_full\"}\n",
             id);
         cdc_send(err);
+
+        char log_entry[CMD_LOG_LINE_LEN];
+        snprintf(
+            log_entry,
+            sizeof(log_entry),
+            "#%" PRIu32 " ble_scan_start -> err:table_full",
+            id);
+        cmd_log_push(log_entry);
         return;
     }
 
@@ -356,6 +411,15 @@ static void ble_scan_start_handler(uint32_t id, const char* json) {
         stream_id);
     cdc_send(resp);
 
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " ble_scan_start -> s:%" PRIu32,
+        id,
+        stream_id);
+    cmd_log_push(log_entry);
+
     FURI_LOG_I("RPC", "BLE scan stream opened id=%" PRIu32, stream_id);
     /*
      * In a real implementation, start BLE scanning here and emit events
@@ -374,6 +438,14 @@ static void stream_close_handler(uint32_t id, const char* json) {
             "{\"id\":%" PRIu32 ",\"error\":\"missing_stream_id\"}\n",
             id);
         cdc_send(err);
+
+        char log_entry[CMD_LOG_LINE_LEN];
+        snprintf(
+            log_entry,
+            sizeof(log_entry),
+            "#%" PRIu32 " stream_close -> err:missing_id",
+            id);
+        cmd_log_push(log_entry);
         return;
     }
 
@@ -384,6 +456,14 @@ static void stream_close_handler(uint32_t id, const char* json) {
             char resp[128];
             snprintf(resp, sizeof(resp), "{\"id\":%" PRIu32 ",\"status\":\"ok\"}\n", id);
             cdc_send(resp);
+
+            char log_entry[CMD_LOG_LINE_LEN];
+            snprintf(
+                log_entry,
+                sizeof(log_entry),
+                "#%" PRIu32 " stream_close -> ok",
+                id);
+            cmd_log_push(log_entry);
 
             FURI_LOG_I("RPC", "stream %" PRIu32 " closed", stream_id);
             return;
@@ -397,6 +477,14 @@ static void stream_close_handler(uint32_t id, const char* json) {
         "{\"id\":%" PRIu32 ",\"error\":\"stream_not_found\"}\n",
         id);
     cdc_send(err);
+
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " stream_close -> err:not_found",
+        id);
+    cmd_log_push(log_entry);
 }
 
 /* =========================================================
@@ -414,20 +502,43 @@ static uint32_t count_active_streams(void) {
 
 static void draw_callback(Canvas* canvas, void* ctx) {
     UNUSED(ctx);
+
+    /* --- Header --- */
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str_aligned(canvas, 64, 10, AlignCenter, AlignTop, "RPC Daemon");
+    canvas_draw_str(canvas, 2, 10, "FlipperZero.NET RPC Daemon");
 
+    /* --- Status bar --- */
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignTop, "USB CDC JSON-RPC");
+    char status[48];
+    snprintf(
+        status,
+        sizeof(status),
+        "S:%" PRIu32 "  Res:0x%02" PRIx32,
+        count_active_streams(),
+        active_resources);
+    canvas_draw_str(canvas, 2, 21, status);
 
-    char buf[40];
-    snprintf(buf, sizeof(buf), "Active streams: %" PRIu32, count_active_streams());
-    canvas_draw_str_aligned(canvas, 64, 42, AlignCenter, AlignTop, buf);
+    /* --- Separator --- */
+    canvas_draw_line(canvas, 0, 24, 128, 24);
 
-    snprintf(buf, sizeof(buf), "Resources: 0x%02" PRIx32, active_resources);
-    canvas_draw_str_aligned(canvas, 64, 54, AlignCenter, AlignTop, buf);
+    /* --- Command log (oldest-to-newest, bottom-aligned) ---
+     * 4 lines, FontSecondary (~10px each), starting at y=34 */
+    canvas_set_font(canvas, FontSecondary);
+    size_t lines_to_show = cmd_log_count < CMD_LOG_LINES ? cmd_log_count : CMD_LOG_LINES;
+    /* oldest entry index: if buffer is full, it's cmd_log_next (the one about to be overwritten);
+     * if not full, it's 0. */
+    size_t start;
+    if(cmd_log_count >= CMD_LOG_LINES) {
+        start = cmd_log_next; /* oldest entry */
+    } else {
+        start = 0;
+    }
 
-    canvas_draw_str_aligned(canvas, 64, 64, AlignCenter, AlignTop, "BACK to exit");
+    for(size_t i = 0; i < lines_to_show; i++) {
+        size_t idx = (start + i) % CMD_LOG_LINES;
+        int y = 34 + (int)i * 10;
+        canvas_draw_str(canvas, 2, y, cmd_log[idx]);
+    }
 }
 
 /* Custom event IDs for the FuriEventLoop */
@@ -482,6 +593,9 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     memset(active_streams, 0, sizeof(active_streams));
     active_resources = 0;
     next_stream_id = 1;
+    cmd_log_next = 0;
+    cmd_log_count = 0;
+    memset(cmd_log, 0, sizeof(cmd_log));
 
     /* --- Message queues --- */
     rx_queue = furi_message_queue_alloc(16, sizeof(RxLine));
@@ -510,6 +624,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     view_port_draw_callback_set(app.view_port, draw_callback, NULL);
     view_port_input_callback_set(app.view_port, input_callback, &app);
     gui_add_view_port(gui, app.view_port, GuiLayerFullscreen);
+    g_view_port = app.view_port;
 
     /* --- Event loop --- */
     app.event_loop = furi_event_loop_alloc();
@@ -536,6 +651,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_unsubscribe(app.event_loop, app.input_queue);
     furi_event_loop_free(app.event_loop);
 
+    g_view_port = NULL;
     gui_remove_view_port(gui, app.view_port);
     view_port_free(app.view_port);
     furi_record_close(RECORD_GUI);
