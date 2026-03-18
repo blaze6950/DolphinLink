@@ -114,10 +114,17 @@ static FuriMessageQueue* rx_queue = NULL;
 static char isr_buf[RX_LINE_MAX];
 static uint16_t isr_pos = 0;
 
-/* Called from USB interrupt context — must be minimal and non-blocking. */
-static void cdc_rx_callback(const uint8_t* buf, uint32_t size, void* ctx) {
+/* Called from USB interrupt context when data is available on the RX endpoint.
+ * Signature must be void(*)(void*) — data is pulled via furi_hal_cdc_receive(). */
+static void cdc_rx_callback(void* ctx) {
     UNUSED(ctx);
-    for(uint32_t i = 0; i < size; i++) {
+
+    /* CDC_DATA_SZ = 64 bytes per USB full-speed bulk packet */
+    uint8_t buf[64];
+    int32_t size = furi_hal_cdc_receive(RPC_CDC_IF, buf, sizeof(buf));
+    if(size <= 0) return;
+
+    for(int32_t i = 0; i < size; i++) {
         char c = (char)buf[i];
 
         if(isr_pos >= RX_LINE_MAX - 1) {
@@ -440,9 +447,10 @@ static void input_callback(InputEvent* event, void* ctx) {
     }
 }
 
-/* FuriEventLoop subscriber: input_queue became readable */
-static bool on_input_queue(FuriMessageQueue* queue, void* ctx) {
-    UNUSED(queue);
+/* FuriEventLoop subscriber: input_queue became readable.
+ * Signature: void(*)(FuriEventLoopObject*, void*) */
+static void on_input_queue(FuriEventLoopObject* object, void* ctx) {
+    UNUSED(object);
     AppState* app = ctx;
     InputEvent event;
     while(furi_message_queue_get(app->input_queue, &event, 0) == FuriStatusOk) {
@@ -450,18 +458,17 @@ static bool on_input_queue(FuriMessageQueue* queue, void* ctx) {
             furi_event_loop_stop(app->event_loop);
         }
     }
-    return true; /* keep subscribed */
 }
 
-/* FuriEventLoop subscriber: rx_queue has a line ready */
-static bool on_rx_queue(FuriMessageQueue* queue, void* ctx) {
-    UNUSED(queue);
+/* FuriEventLoop subscriber: rx_queue has a line ready.
+ * Signature: void(*)(FuriEventLoopObject*, void*) */
+static void on_rx_queue(FuriEventLoopObject* object, void* ctx) {
+    UNUSED(object);
     UNUSED(ctx);
     RxLine line;
     while(furi_message_queue_get(rx_queue, &line, 0) == FuriStatusOk) {
         rpc_dispatch(line.data);
     }
-    return true; /* keep subscribed */
 }
 
 /* =========================================================
@@ -490,7 +497,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     CdcCallbacks cdc_cb = {
         .rx_ep_callback = cdc_rx_callback,
         .state_callback = NULL,
-        .control_line_callback = NULL,
+        .ctrl_line_callback = NULL,
         .config_callback = NULL,
     };
     furi_hal_cdc_set_callbacks(RPC_CDC_IF, &cdc_cb, NULL);
@@ -507,14 +514,14 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     /* --- Event loop --- */
     app.event_loop = furi_event_loop_alloc();
 
-    furi_event_loop_message_queue_subscribe(
+    furi_event_loop_subscribe_message_queue(
         app.event_loop,
         rx_queue,
         FuriEventLoopEventIn,
         on_rx_queue,
         NULL);
 
-    furi_event_loop_message_queue_subscribe(
+    furi_event_loop_subscribe_message_queue(
         app.event_loop,
         app.input_queue,
         FuriEventLoopEventIn,
@@ -525,8 +532,8 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_run(app.event_loop);
 
     /* --- Cleanup --- */
-    furi_event_loop_message_queue_unsubscribe(app.event_loop, rx_queue);
-    furi_event_loop_message_queue_unsubscribe(app.event_loop, app.input_queue);
+    furi_event_loop_unsubscribe(app.event_loop, rx_queue);
+    furi_event_loop_unsubscribe(app.event_loop, app.input_queue);
     furi_event_loop_free(app.event_loop);
 
     gui_remove_view_port(gui, app.view_port);
