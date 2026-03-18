@@ -40,7 +40,7 @@ void cdc_rx_callback(void* ctx) {
 
         if(c == '\n') {
             isr_buf[isr_pos] = '\0';
-            RxLine line;
+            static RxLine line;
             line.len = isr_pos;
             memcpy(line.data, isr_buf, isr_pos + 1); /* include NUL */
             /* Non-blocking put; drop on overflow rather than stall ISR */
