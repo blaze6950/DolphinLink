@@ -373,10 +373,4 @@ only touching `Commands/RpcCommands.cs` and `FlipperRpcClient.Commands.cs`.
   C command registry and C# command/response structs from it automatically.
 - **Client-side resource tracking**: Short-circuit `resource_busy` errors on
   the host without a round-trip, mirroring the daemon's bitmask logic.
-- **Real BLE scanning**: Wire up `furi_hal_bt_*` APIs in
-  `ble_scan_start_handler` to emit real scan events instead of a stub.
-- **Additional commands**: SubGHz, IR, GPIO, NFC — each follows the same
-  two-step pattern above.
 - **NuGet packaging**: Publish `FlipperZero.NET.Client` as a NuGet package.
-- **Integration tests**: Test harness that drives a real or emulated Flipper
-  and validates the full round-trip.
