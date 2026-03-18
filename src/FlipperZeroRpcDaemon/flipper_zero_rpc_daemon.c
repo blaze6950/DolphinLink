@@ -114,7 +114,12 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     FuriHalUsbInterface* prev_usb = furi_hal_usb_get_config();
     furi_hal_usb_set_config(&usb_cdc_dual, NULL);
 
+    /* Allocate TX thread + stream buffer + semaphore before registering
+     * callbacks, so cdc_tx_callback() is safe to fire immediately. */
+    cdc_transport_alloc();
+
     CdcCallbacks cdc_cb = {
+        .tx_ep_callback = cdc_tx_callback,
         .rx_ep_callback = cdc_rx_callback,
         .state_callback = NULL,
         .ctrl_line_callback = NULL,
@@ -166,8 +171,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_record_close(RECORD_NOTIFICATION);
     g_notification = NULL;
 
-    /* Detach CDC callbacks before switching USB back */
+    /* Detach CDC callbacks before tearing down the TX thread — this ensures
+     * no further tx_ep_callback firings can race with cdc_transport_free(). */
     furi_hal_cdc_set_callbacks(RPC_CDC_IF, NULL, NULL);
+    cdc_transport_free();
     furi_hal_usb_set_config(prev_usb, NULL);
 
     furi_message_queue_free(app.input_queue);

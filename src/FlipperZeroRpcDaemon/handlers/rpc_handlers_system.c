@@ -89,7 +89,7 @@ void power_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"pct\":%" PRIu8 ",\"charging\":%s"
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"charge\":%" PRIu8 ",\"charging\":%s"
         ",\"voltage_mv\":%" PRIi32 ",\"current_ma\":%" PRIi32 "}}\n",
         id,
         pct,

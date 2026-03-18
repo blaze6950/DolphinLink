@@ -1,14 +1,24 @@
 /**
  * rpc_transport.h — USB CDC transport layer
  *
- * Provides the outbound send function and the RX framing layer that
- * accumulates raw bytes from the CDC ISR into complete NDJSON lines,
- * then posts them to rx_queue for consumption on the main thread.
+ * Provides the outbound TX pipeline and the RX framing layer.
  *
- * Threading model:
- *   cdc_rx_callback() runs in USB interrupt context — only safe to call
- *   furi_hal_cdc_receive() and furi_message_queue_put() from there.
- *   cdc_send() must be called from the main thread only.
+ * TX pipeline (non-blocking for callers on the main thread):
+ *   cdc_send(json)
+ *     → furi_stream_buffer_send() into tx_stream   [blocks only if buffer full]
+ *   TX thread "RpcTx" (dedicated FuriThread, 512 B stack)
+ *     → drains tx_stream in ≤64-byte chunks
+ *     → paces each chunk with tx_semaphore (released by tx_ep_callback)
+ *     → handles ZLP when last chunk was exactly 64 bytes
+ *   cdc_tx_callback() [USB ISR]
+ *     → furi_semaphore_release(tx_semaphore)
+ *
+ * RX pipeline (USB ISR → main thread):
+ *   cdc_rx_callback() [USB ISR]
+ *     → furi_hal_cdc_receive() → byte accumulation
+ *     → on '\n': furi_message_queue_put(rx_queue, ...)
+ *   on_rx_queue() [FuriEventLoop, main thread]
+ *     → rpc_dispatch()
  */
 
 #pragma once
@@ -19,6 +29,11 @@
 /* CDC interface number (1 = second device in usb_cdc_dual;
  * interface 0 is reserved for the system RPC used by qFlipper). */
 #define RPC_CDC_IF 1
+
+/* Maximum USB CDC bulk-endpoint packet size (bytes).
+ * USB full-speed CDC uses 64-byte bulk endpoints.  furi_hal_cdc_send() must
+ * be called with payloads no larger than this value per call. */
+#define CDC_DATA_SZ 64
 
 /* Maximum bytes in one NDJSON line (including the trailing '\n').
  * 1024 bytes accommodates base64-encoded storage payloads (~700 bytes of
@@ -37,9 +52,29 @@ typedef struct {
  */
 extern FuriMessageQueue* rx_queue;
 
+/**
+ * Allocate and start the TX thread, stream buffer, and semaphore.
+ * Must be called after furi_hal_usb_set_config() and before
+ * furi_hal_cdc_set_callbacks() so that the TX endpoint is ready.
+ */
+void cdc_transport_alloc(void);
+
+/**
+ * Stop the TX thread and free all TX resources.
+ * Must be called after furi_hal_cdc_set_callbacks(RPC_CDC_IF, NULL, NULL)
+ * so that no further tx_ep_callback firings can occur.
+ */
+void cdc_transport_free(void);
+
 /** Send a NUL-terminated JSON string out over CDC interface 1.
- *  Must be called from the main thread only. */
+ *  Safe to call from the main thread; returns as soon as all bytes are
+ *  enqueued in the TX stream buffer (may block briefly if buffer is full). */
 void cdc_send(const char* json);
+
+/** CDC TX endpoint callback — registered in CdcCallbacks.tx_ep_callback.
+ *  Runs in USB interrupt context; releases tx_semaphore so the TX thread
+ *  can send the next chunk. */
+void cdc_tx_callback(void* ctx);
 
 /** CDC RX callback — registered with furi_hal_cdc_set_callbacks().
  *  Runs in USB interrupt context; accumulates bytes and enqueues complete lines. */
