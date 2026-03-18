@@ -2,7 +2,7 @@
  * rpc_handlers_system.h — System / device-info RPC handler declarations
  *
  * Commands handled here:
- *   device_info          — firmware version, model name, UID
+ *   device_info          — comprehensive device info: identity, firmware, hardware OTP, regulatory IDs
  *   power_info           — battery percentage, voltage, charging state
  *   datetime_get         — current RTC date/time
  *   datetime_set         — write RTC date/time

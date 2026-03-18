@@ -427,17 +427,42 @@ public readonly struct DeviceInfoCommand : IRpcCommand<DeviceInfoResponse>
 /// <summary>Response to <see cref="DeviceInfoCommand"/>.</summary>
 public readonly struct DeviceInfoResponse : IRpcCommandResponse
 {
-    [JsonPropertyName("firmware")]
-    public string? Firmware { get; init; }
+    // Identity
+    [JsonPropertyName("name")]            public string? Name { get; init; }
+    [JsonPropertyName("model")]           public string? Model { get; init; }
+    [JsonPropertyName("model_code")]      public string? ModelCode { get; init; }
 
-    [JsonPropertyName("model")]
-    public string? Model { get; init; }
+    // Firmware
+    [JsonPropertyName("firmware")]        public string? Firmware { get; init; }
+    [JsonPropertyName("firmware_origin")] public string? FirmwareOrigin { get; init; }
+    [JsonPropertyName("build_date")]      public string? BuildDate { get; init; }
+    [JsonPropertyName("git_hash")]        public string? GitHash { get; init; }
+    [JsonPropertyName("git_branch")]      public string? GitBranch { get; init; }
+    [JsonPropertyName("git_branch_num")]  public string? GitBranchNum { get; init; }
+    [JsonPropertyName("git_origin")]      public string? GitOrigin { get; init; }
+    [JsonPropertyName("dirty")]           public bool Dirty { get; init; }
 
-    [JsonPropertyName("hardware")]
-    public uint Hardware { get; init; }
+    // Hardware OTP
+    [JsonPropertyName("hardware")]        public uint Hardware { get; init; }
+    [JsonPropertyName("hw_target")]       public uint HwTarget { get; init; }
+    [JsonPropertyName("hw_body")]         public uint HwBody { get; init; }
+    [JsonPropertyName("hw_color")]        public uint HwColor { get; init; }
+    [JsonPropertyName("hw_connect")]      public uint HwConnect { get; init; }
+    [JsonPropertyName("hw_display")]      public uint HwDisplay { get; init; }
+    [JsonPropertyName("hw_region")]       public uint HwRegion { get; init; }
+    [JsonPropertyName("hw_region_name")]  public string? HwRegionName { get; init; }
+    [JsonPropertyName("hw_timestamp")]    public uint HwTimestamp { get; init; }
 
-    [JsonPropertyName("uid")]
-    public string? Uid { get; init; }
+    // Unique identifiers
+    [JsonPropertyName("uid")]             public string? Uid { get; init; }
+    [JsonPropertyName("ble_mac")]         public string? BleMac { get; init; }
+
+    // Regulatory
+    [JsonPropertyName("fcc_id")]          public string? FccId { get; init; }
+    [JsonPropertyName("ic_id")]           public string? IcId { get; init; }
+    [JsonPropertyName("mic_id")]          public string? MicId { get; init; }
+    [JsonPropertyName("srrc_id")]         public string? SrrcId { get; init; }
+    [JsonPropertyName("ncc_id")]          public string? NccId { get; init; }
 }
 
 // ---------------------------------------------------------------------------

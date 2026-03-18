@@ -28,7 +28,12 @@ public sealed partial class FlipperRpcClient
     // System / device info
     // -----------------------------------------------------------------------
 
-    /// <summary>Returns firmware version, model name, hardware revision, and UID.</summary>
+    /// <summary>
+    /// Returns comprehensive device information: identity (name, model, UID, BLE MAC),
+    /// firmware (version, origin, branch, git hash, build date), hardware OTP fields
+    /// (revision, target, body, color, region, display, manufacture timestamp),
+    /// and regulatory IDs (FCC, IC, MIC, SRRC, NCC).
+    /// </summary>
     public Task<DeviceInfoResponse> DeviceInfoAsync(CancellationToken ct = default)
         => SendAsync<DeviceInfoCommand, DeviceInfoResponse>(new DeviceInfoCommand(), ct);
 
