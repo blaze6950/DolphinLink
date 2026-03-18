@@ -65,6 +65,7 @@ static const RpcCommand commands[] = {
 
     /* ---- Notifications / LED / vibro / speaker ---- */
     {"led_set", 0, led_set_handler},
+    {"led_set_rgb", 0, led_set_rgb_handler},
     {"vibro", 0, vibro_handler},
     {"speaker_start", RESOURCE_SPEAKER, speaker_start_handler},
     {"speaker_stop", 0, speaker_stop_handler},

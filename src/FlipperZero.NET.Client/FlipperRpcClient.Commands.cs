@@ -195,10 +195,26 @@ public sealed partial class FlipperRpcClient
     /// <summary>
     /// Sets an LED colour channel intensity.
     /// </summary>
-    /// <param name="color">One of <c>"red"</c>, <c>"green"</c>, or <c>"blue"</c>.</param>
+    /// <param name="channel">The RGB channel to set.</param>
     /// <param name="value">Intensity 0–255.</param>
-    public Task<LedSetResponse> LedSetAsync(string color, byte value, CancellationToken ct = default)
-        => SendAsync<LedSetCommand, LedSetResponse>(new LedSetCommand(color, value), ct);
+    public Task<LedSetResponse> LedSetAsync(LedChannel channel, byte value, CancellationToken ct = default)
+        => SendAsync<LedSetCommand, LedSetResponse>(new LedSetCommand(channel, value), ct);
+
+    /// <summary>
+    /// Sets all three RGB LED channels atomically in a single round-trip.
+    /// </summary>
+    /// <param name="red">Red channel intensity 0–255.</param>
+    /// <param name="green">Green channel intensity 0–255.</param>
+    /// <param name="blue">Blue channel intensity 0–255.</param>
+    public Task<LedSetRgbResponse> LedSetRgbAsync(byte red, byte green, byte blue, CancellationToken ct = default)
+        => SendAsync<LedSetRgbCommand, LedSetRgbResponse>(new LedSetRgbCommand(red, green, blue), ct);
+
+    /// <summary>
+    /// Sets all three RGB LED channels atomically in a single round-trip.
+    /// </summary>
+    /// <param name="color">The RGB colour to set.</param>
+    public Task<LedSetRgbResponse> LedSetRgbAsync(RgbColor color, CancellationToken ct = default)
+        => SendAsync<LedSetRgbCommand, LedSetRgbResponse>(new LedSetRgbCommand(color.R, color.G, color.B), ct);
 
     /// <summary>Enables or disables the vibration motor.</summary>
     public Task<VibroResponse> VibroAsync(bool enable, CancellationToken ct = default)

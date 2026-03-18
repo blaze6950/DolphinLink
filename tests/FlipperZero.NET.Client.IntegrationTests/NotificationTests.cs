@@ -1,8 +1,11 @@
+using FlipperZero.NET.Commands;
+
 namespace FlipperZero.NET.Client.IntegrationTests;
 
 /// <summary>
 /// Integration tests for notification commands:
 /// <see cref="FlipperRpcClient.LedSetAsync"/>,
+/// <see cref="FlipperRpcClient.LedSetRgbAsync"/>,
 /// <see cref="FlipperRpcClient.VibroAsync"/>,
 /// <see cref="FlipperRpcClient.SpeakerStartAsync"/>,
 /// <see cref="FlipperRpcClient.SpeakerStopAsync"/>, and
@@ -23,32 +26,32 @@ public sealed class NotificationTests(FlipperFixture fixture)
 
     /// <summary>
     /// Setting the red LED to maximum intensity must succeed without throwing.
-    /// Validates: <c>led_set</c> happy-path with color "red".
+    /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Red"/>.
     /// </summary>
     [RequiresFlipperFact]
     public async Task LedSet_Red_Succeeds()
     {
-        await Client.LedSetAsync("red", 255);
+        await Client.LedSetAsync(LedChannel.Red, 255);
     }
 
     /// <summary>
     /// Setting the green LED to maximum intensity must succeed without throwing.
-    /// Validates: <c>led_set</c> happy-path with color "green".
+    /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Green"/>.
     /// </summary>
     [RequiresFlipperFact]
     public async Task LedSet_Green_Succeeds()
     {
-        await Client.LedSetAsync("green", 255);
+        await Client.LedSetAsync(LedChannel.Green, 255);
     }
 
     /// <summary>
     /// Setting the blue LED to maximum intensity must succeed without throwing.
-    /// Validates: <c>led_set</c> happy-path with color "blue".
+    /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Blue"/>.
     /// </summary>
     [RequiresFlipperFact]
     public async Task LedSet_Blue_Succeeds()
     {
-        await Client.LedSetAsync("blue", 255);
+        await Client.LedSetAsync(LedChannel.Blue, 255);
     }
 
     /// <summary>
@@ -58,22 +61,33 @@ public sealed class NotificationTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LedSet_ZeroValue_Succeeds()
     {
-        await Client.LedSetAsync("red", 0);
+        await Client.LedSetAsync(LedChannel.Red, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // led_set_rgb
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Setting all three LED channels to a specific colour in one call must
+    /// succeed without throwing.
+    /// Validates: <c>led_set_rgb</c> happy-path with a non-trivial colour.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task LedSetRgb_Succeeds()
+    {
+        await Client.LedSetRgbAsync(red: 255, green: 128, blue: 0);
     }
 
     /// <summary>
-    /// Passing an invalid color name to <c>led_set</c> must throw a
-    /// <see cref="FlipperRpcException"/> with the <c>invalid_color</c>
-    /// error code.
-    /// Validates: error path in the <c>led_set</c> handler.
+    /// Setting all three LED channels to zero in one call must succeed without
+    /// throwing.
+    /// Validates: <c>led_set_rgb</c> with all channels off (black).
     /// </summary>
     [RequiresFlipperFact]
-    public async Task LedSet_InvalidColor_ThrowsInvalidColor()
+    public async Task LedSetRgb_Black_Succeeds()
     {
-        var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.LedSetAsync("purple", 255));
-
-        Assert.Equal("invalid_color", ex.ErrorCode);
+        await Client.LedSetRgbAsync(red: 0, green: 0, blue: 0);
     }
 
     // -----------------------------------------------------------------------
@@ -85,18 +99,10 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Validates: <c>vibro</c> enable happy-path.
     /// </summary>
     [RequiresFlipperFact]
-    public async Task Vibro_Enable_Succeeds()
+    public async Task Vibro_EnableAndDisable_Succeeds()
     {
         await Client.VibroAsync(enable: true);
-    }
-
-    /// <summary>
-    /// Disabling the vibration motor must succeed without throwing.
-    /// Validates: <c>vibro</c> disable happy-path.
-    /// </summary>
-    [RequiresFlipperFact]
-    public async Task Vibro_Disable_Succeeds()
-    {
+        await Task.Delay(1000);
         await Client.VibroAsync(enable: false);
     }
 
@@ -112,6 +118,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     public async Task SpeakerStart_ValidFreqAndVolume_Succeeds()
     {
         await Client.SpeakerStartAsync(freq: 440, volume: 128);
+        await Task.Delay(1000);
         // Clean up
         await Client.SpeakerStopAsync();
     }

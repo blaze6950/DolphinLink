@@ -614,34 +614,92 @@ public readonly struct FrequencyIsAllowedResponse : IRpcCommandResponse
 }
 
 // ---------------------------------------------------------------------------
+// LED channel
+// ---------------------------------------------------------------------------
+
+/// <summary>Identifies a single RGB LED channel on the Flipper.</summary>
+public enum LedChannel
+{
+    /// <summary>Red channel.</summary>
+    Red,
+
+    /// <summary>Green channel.</summary>
+    Green,
+
+    /// <summary>Blue channel.</summary>
+    Blue,
+}
+
+// ---------------------------------------------------------------------------
 // LED set
 // ---------------------------------------------------------------------------
 
 /// <summary>Sets an LED colour channel intensity on the Flipper.</summary>
 public readonly struct LedSetCommand : IRpcCommand<LedSetResponse>
 {
-    /// <param name="color">One of <c>"red"</c>, <c>"green"</c>, or <c>"blue"</c>.</param>
+    /// <param name="channel">The RGB channel to set.</param>
     /// <param name="value">Intensity 0–255.</param>
-    public LedSetCommand(string color, byte value)
+    public LedSetCommand(LedChannel channel, byte value)
     {
-        Color = color;
+        Channel = channel;
         Value = value;
     }
 
-    public string Color { get; }
+    public LedChannel Channel { get; }
     public byte Value { get; }
 
     public string CommandName => "led_set";
 
     public void WriteArgs(Utf8JsonWriter writer)
     {
-        writer.WriteString("color", Color);
+        string wire = Channel switch
+        {
+            LedChannel.Red   => "red",
+            LedChannel.Green => "green",
+            LedChannel.Blue  => "blue",
+            _                => throw new ArgumentOutOfRangeException(nameof(Channel), Channel, null),
+        };
+        writer.WriteString("color", wire);
         writer.WriteNumber("value", Value);
     }
 }
 
 /// <summary>Response to <see cref="LedSetCommand"/>.</summary>
 public readonly struct LedSetResponse : IRpcCommandResponse { }
+
+// ---------------------------------------------------------------------------
+// LED set RGB
+// ---------------------------------------------------------------------------
+
+/// <summary>Sets all three RGB LED channels on the Flipper atomically in a single round-trip.</summary>
+public readonly struct LedSetRgbCommand : IRpcCommand<LedSetRgbResponse>
+{
+    /// <param name="red">Red channel intensity 0–255.</param>
+    /// <param name="green">Green channel intensity 0–255.</param>
+    /// <param name="blue">Blue channel intensity 0–255.</param>
+    public LedSetRgbCommand(byte red, byte green, byte blue)
+    {
+        Red = red;
+        Green = green;
+        Blue = blue;
+    }
+
+    public byte Red { get; }
+    public byte Green { get; }
+    public byte Blue { get; }
+
+    public string CommandName => "led_set_rgb";
+
+    public void WriteArgs(Utf8JsonWriter writer)
+    {
+        writer.WriteNumber("red", Red);
+        writer.WriteNumber("green", Green);
+        writer.WriteNumber("blue", Blue);
+    }
+}
+
+/// <summary>Response to <see cref="LedSetRgbCommand"/>.</summary>
+public readonly struct LedSetRgbResponse : IRpcCommandResponse { }
 
 // ---------------------------------------------------------------------------
 // Vibro

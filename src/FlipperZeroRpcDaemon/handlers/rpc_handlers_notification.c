@@ -2,6 +2,7 @@
  * rpc_handlers_notification.c — Notification / LED / vibro / speaker RPC handlers
  *
  * led_set        — set one of the RGB LED channels (Red/Green/Blue) to 0–255
+ * led_set_rgb    — set all three RGB channels atomically in one call
  * vibro          — enable or disable the vibration motor
  * speaker_start  — start a continuous tone; acquires RESOURCE_SPEAKER
  * speaker_stop   — stop the speaker; releases RESOURCE_SPEAKER
@@ -11,6 +12,7 @@
  *
  * JSON protocol:
  *   led_set:       {"id":N,"cmd":"led_set","color":"red"|"green"|"blue","value":0-255}
+ *   led_set_rgb:   {"id":N,"cmd":"led_set_rgb","red":0-255,"green":0-255,"blue":0-255}
  *   vibro:         {"id":N,"cmd":"vibro","enable":true|false}
  *   speaker_start: {"id":N,"cmd":"speaker_start","freq":440,"volume":128}
  *                    freq   — frequency in Hz (uint32, passed as float to the HAL)
@@ -64,6 +66,31 @@ void led_set_handler(uint32_t id, const char* json) {
     furi_hal_light_set(light, (uint8_t)value);
     rpc_send_ok(id, "led_set");
     FURI_LOG_I("RPC", "led_set color=%s value=%" PRIu32, color, value);
+}
+
+/* =========================================================
+ * led_set_rgb
+ * ========================================================= */
+
+void led_set_rgb_handler(uint32_t id, const char* json) {
+    uint32_t r = 0, g = 0, b = 0;
+    json_extract_uint32(json, "red", &r);
+    json_extract_uint32(json, "green", &g);
+    json_extract_uint32(json, "blue", &b);
+    if(r > 255) r = 255;
+    if(g > 255) g = 255;
+    if(b > 255) b = 255;
+
+    furi_hal_light_set(LightRed, (uint8_t)r);
+    furi_hal_light_set(LightGreen, (uint8_t)g);
+    furi_hal_light_set(LightBlue, (uint8_t)b);
+    rpc_send_ok(id, "led_set_rgb");
+    FURI_LOG_I(
+        "RPC",
+        "led_set_rgb r=%" PRIu32 " g=%" PRIu32 " b=%" PRIu32,
+        r,
+        g,
+        b);
 }
 
 /* =========================================================
