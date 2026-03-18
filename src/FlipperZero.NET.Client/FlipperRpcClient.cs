@@ -153,8 +153,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 {
                     OnSuccess = element =>
                     {
-                        var response = JsonSerializer.Deserialize<TResponse>(element.GetRawText());
-                        tcs.TrySetResult(response);
+                        var envelope = JsonSerializer.Deserialize<RpcResponse<TResponse>>(element.GetRawText());
+                        tcs.TrySetResult(envelope.Data);
                     },
                     OnError = code =>
                     {

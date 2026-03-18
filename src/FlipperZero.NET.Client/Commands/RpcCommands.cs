@@ -80,9 +80,4 @@ public readonly struct StreamCloseCommand : IRpcCommand<StreamCloseResponse>
 }
 
 /// <summary>Response to <see cref="StreamCloseCommand"/>.</summary>
-public readonly struct StreamCloseResponse : IRpcCommandResponse
-{
-    /// <summary><c>"ok"</c> on success.</summary>
-    [JsonPropertyName("status")]
-    public string? Status { get; init; }
-}
+public readonly struct StreamCloseResponse : IRpcCommandResponse { }
