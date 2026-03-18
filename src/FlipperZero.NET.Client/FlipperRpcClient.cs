@@ -90,7 +90,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// <summary>Active stream-id → stream state (for streaming commands).</summary>
     private readonly ConcurrentDictionary<uint, StreamState> _streams = new();
 
-    private uint _nextId = 1;
+    private uint _nextId = 0;
 
     private Task? _writerTask;
     private Task? _readerTask;
