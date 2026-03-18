@@ -1,33 +1,60 @@
+/*
+ * Flipper Zero RPC Daemon
+ *
+ * Transport : USB CDC (appears as COMx on the host)
+ * Framing   : NDJSON — one JSON object per line, terminated with '\n'
+ * Threading : CDC ISR → FuriMessageQueue → FuriEventLoop (main thread)
+ * GUI       : ViewPort rendered through Gui record (compatible with FuriEventLoop)
+ *
+ * Protocol (request):
+ *   {"id":<uint>,"cmd":"<name>"[,"stream":<uint>][,...args...]}
+ *
+ * Protocol (response – ok):
+ *   {"id":<uint>,"status":"ok"[,"data":{...}]}
+ *   {"id":<uint>,"stream":<uint>}          <- stream opened
+ *   {"id":<uint>,"event":{...},"stream":<uint>}  <- stream event
+ *
+ * Protocol (response – error):
+ *   {"id":<uint>,"error":"<code>"}
+ */
+
 #include <furi.h>
-#include <furi_hal_serial.h>
+#include <furi_hal_usb_cdc.h>
+#include <furi_hal_usb.h>
 #include <gui/gui.h>
-#include <gui/view.h>
-#include <gui/view_dispatcher.h>
+#include <gui/view_port.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 
-/* === РЕСУРСЫ (Resource Management) === */
+/* =========================================================
+ * Resource management
+ * ========================================================= */
+
 typedef uint32_t ResourceMask;
 
-#define RESOURCE_BLE    (1 << 0)
-#define RESOURCE_SUBGHZ (1 << 1)
-#define RESOURCE_IR     (1 << 2)
+#define RESOURCE_BLE    (1u << 0)
+#define RESOURCE_SUBGHZ (1u << 1)
+#define RESOURCE_IR     (1u << 2)
 
 static ResourceMask active_resources = 0;
 
-static bool can_acquire(ResourceMask mask) {
+static bool resource_can_acquire(ResourceMask mask) {
     return (active_resources & mask) == 0;
 }
 
-static void acquire(ResourceMask mask) {
+static void resource_acquire(ResourceMask mask) {
     active_resources |= mask;
 }
 
-static void release(ResourceMask mask) {
+static void resource_release(ResourceMask mask) {
     active_resources &= ~mask;
 }
 
-/* === СТРИМЫ === */
+/* =========================================================
+ * Stream table
+ * ========================================================= */
+
 typedef struct {
     uint32_t id;
     ResourceMask resources;
@@ -38,8 +65,173 @@ typedef struct {
 static RpcStream active_streams[MAX_STREAMS];
 static uint32_t next_stream_id = 1;
 
-/* === РЕГИСТР КОМАНД (hardcoded — как будто сгенерировано из JSON) === */
-typedef void (*RpcHandler)(uint32_t request_id, const char* args_json, FuriHalSerialHandle* serial);
+/* Returns slot index, or -1 if table is full. Does NOT acquire resources. */
+static int stream_alloc_slot(void) {
+    for(size_t i = 0; i < MAX_STREAMS; i++) {
+        if(!active_streams[i].active) return (int)i;
+    }
+    return -1;
+}
+
+static void stream_close_by_index(size_t idx) {
+    if(idx < MAX_STREAMS && active_streams[idx].active) {
+        resource_release(active_streams[idx].resources);
+        active_streams[idx].active = false;
+    }
+}
+
+/* =========================================================
+ * USB CDC transport
+ * ========================================================= */
+
+/* CDC interface number (0 = first CDC device in usb_cdc_single config) */
+#define RPC_CDC_IF 0
+
+/* Outbound send: called from main thread only */
+static void cdc_send(const char* json) {
+    size_t len = strlen(json);
+    furi_hal_cdc_send(RPC_CDC_IF, (uint8_t*)json, (uint32_t)len);
+    FURI_LOG_I("RPC", "TX: %s", json);
+}
+
+/* =========================================================
+ * RX line buffer — written from ISR, consumed on main thread
+ * We store complete '\n'-terminated lines in a message queue.
+ * Maximum line length is bounded so the queue element is fixed-size.
+ * ========================================================= */
+
+#define RX_LINE_MAX 256
+
+typedef struct {
+    char data[RX_LINE_MAX];
+    uint16_t len;
+} RxLine;
+
+static FuriMessageQueue* rx_queue = NULL;
+
+/* ISR-level accumulation buffer (single CDC interface, no re-entrancy needed
+ * because the CDC RX callback is serialised by the USB driver). */
+static char isr_buf[RX_LINE_MAX];
+static uint16_t isr_pos = 0;
+
+/* Called from USB interrupt context — must be minimal and non-blocking. */
+static void cdc_rx_callback(const uint8_t* buf, uint32_t size, void* ctx) {
+    UNUSED(ctx);
+    for(uint32_t i = 0; i < size; i++) {
+        char c = (char)buf[i];
+
+        if(isr_pos >= RX_LINE_MAX - 1) {
+            /* Line too long — discard and reset */
+            isr_pos = 0;
+        }
+
+        isr_buf[isr_pos++] = c;
+
+        if(c == '\n') {
+            isr_buf[isr_pos] = '\0';
+            RxLine line;
+            line.len = isr_pos;
+            memcpy(line.data, isr_buf, isr_pos + 1); /* include NUL */
+            /* Non-blocking put; drop on overflow rather than stall ISR */
+            furi_message_queue_put(rx_queue, &line, 0);
+            isr_pos = 0;
+        }
+    }
+}
+
+/* =========================================================
+ * Minimal JSON helpers
+ * =========================================================
+ *
+ * All helpers operate on a NUL-terminated string.
+ * They return true on success and fill the output buffer / value.
+ *
+ * json_extract_string(json, key, out, out_size)
+ *   Finds  "key":"value"  and copies value into out.
+ *
+ * json_extract_uint32(json, key, out)
+ *   Finds  "key":NNN  and stores the integer in *out.
+ * ========================================================= */
+
+static bool json_extract_string(const char* json, const char* key, char* out, size_t out_size) {
+    /* Build search token:  "key":  */
+    char token[72];
+    snprintf(token, sizeof(token), "\"%s\":", key);
+
+    const char* pos = strstr(json, token);
+    if(!pos) return false;
+
+    pos += strlen(token);
+
+    /* Skip whitespace */
+    while(*pos == ' ' || *pos == '\t') pos++;
+
+    if(*pos != '"') return false;
+    pos++; /* skip opening quote */
+
+    size_t i = 0;
+    while(*pos && *pos != '"' && i < out_size - 1) {
+        /* Handle simple escape sequences */
+        if(*pos == '\\' && *(pos + 1)) {
+            pos++;
+            switch(*pos) {
+            case '"':
+                out[i++] = '"';
+                break;
+            case '\\':
+                out[i++] = '\\';
+                break;
+            case 'n':
+                out[i++] = '\n';
+                break;
+            case 'r':
+                out[i++] = '\r';
+                break;
+            case 't':
+                out[i++] = '\t';
+                break;
+            default:
+                out[i++] = *pos;
+                break;
+            }
+        } else {
+            out[i++] = *pos;
+        }
+        pos++;
+    }
+    out[i] = '\0';
+    return (i > 0 || *pos == '"'); /* empty string is valid */
+}
+
+static bool json_extract_uint32(const char* json, const char* key, uint32_t* out) {
+    char token[72];
+    snprintf(token, sizeof(token), "\"%s\":", key);
+
+    const char* pos = strstr(json, token);
+    if(!pos) return false;
+
+    pos += strlen(token);
+
+    /* Skip whitespace */
+    while(*pos == ' ' || *pos == '\t') pos++;
+
+    /* Must start with a digit */
+    if(*pos < '0' || *pos > '9') return false;
+
+    uint32_t val = 0;
+    while(*pos >= '0' && *pos <= '9') {
+        val = val * 10 + (uint32_t)(*pos - '0');
+        pos++;
+    }
+    *out = val;
+    return true;
+}
+
+/* =========================================================
+ * Command registry
+ * ========================================================= */
+
+typedef void (*RpcHandler)(uint32_t request_id, const char* json);
 
 typedef struct {
     const char* name;
@@ -48,231 +240,312 @@ typedef struct {
     RpcHandler handler;
 } RpcCommand;
 
-static void ping_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial);
-static void
-    ble_scan_start_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial);
-static void stream_close_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial);
+/* Forward declarations */
+static void ping_handler(uint32_t id, const char* json);
+static void ble_scan_start_handler(uint32_t id, const char* json);
+static void stream_close_handler(uint32_t id, const char* json);
 
 static const RpcCommand commands[] = {
     {"ping", 0, false, ping_handler},
     {"ble_scan_start", RESOURCE_BLE, true, ble_scan_start_handler},
     {"stream_close", 0, false, stream_close_handler},
-    {NULL, 0, false, NULL} // конец таблицы
+    {NULL, 0, false, NULL},
 };
 
-/* === СЕРИАЛЬНЫЙ ПОРТ И БУФЕР === */
-static FuriHalSerialHandle* rpc_serial = NULL;
-static char rx_buffer[512];
-static size_t rx_pos = 0;
+/* =========================================================
+ * Dispatcher — runs on main thread
+ * ========================================================= */
 
-static void rpc_send_json(FuriHalSerialHandle* serial, const char* json) {
-    if(serial) {
-        furi_hal_serial_tx(serial, (uint8_t*)json, strlen(json));
-    }
-    FURI_LOG_I("RPC", "TX: %s", json);
-}
-
-/* === МИНИМАЛЬНЫЙ ПАРСЕР (token-based минимальный, без jsmn — для одного файла) === */
-static void parse_and_dispatch(const char* json, FuriHalSerialHandle* serial) {
+static void rpc_dispatch(const char* json) {
     uint32_t request_id = 0;
     char cmd[64] = {0};
 
-    // Извлекаем id
-    const char* id_pos = strstr(json, "\"id\":");
-    if(id_pos) sscanf(id_pos + 5, "%u", &request_id);
+    json_extract_uint32(json, "id", &request_id);
 
-    // Извлекаем cmd
-    const char* cmd_pos = strstr(json, "\"cmd\":");
-    if(cmd_pos) {
-        const char* start = strchr(cmd_pos + 7, '"');
-        if(start) {
-            const char* end = strchr(start + 1, '"');
-            if(end) strncpy(cmd, start + 1, end - start - 1);
-        }
+    if(!json_extract_string(json, "cmd", cmd, sizeof(cmd))) {
+        /* Malformed — no cmd field */
+        char err[128];
+        snprintf(
+            err,
+            sizeof(err),
+            "{\"id\":%" PRIu32 ",\"error\":\"missing_cmd\"}\n",
+            request_id);
+        cdc_send(err);
+        return;
     }
 
-    FURI_LOG_I("RPC", "Received cmd: %s (id=%u)", cmd, request_id);
+    FURI_LOG_I("RPC", "cmd=%s id=%" PRIu32, cmd, request_id);
 
-    // Поиск в реестре
     for(size_t i = 0; commands[i].name != NULL; i++) {
         if(strcmp(commands[i].name, cmd) == 0) {
-            // Проверка ресурсов
-            if(commands[i].resources && !can_acquire(commands[i].resources)) {
+            /* Resource pre-check in dispatcher */
+            if(commands[i].resources && !resource_can_acquire(commands[i].resources)) {
                 char err[128];
                 snprintf(
-                    err, sizeof(err), "{\"id\":%u,\"error\":\"resource_busy\"}\n", request_id);
-                rpc_send_json(serial, err);
+                    err,
+                    sizeof(err),
+                    "{\"id\":%" PRIu32 ",\"error\":\"resource_busy\"}\n",
+                    request_id);
+                cdc_send(err);
                 return;
             }
-
-            commands[i].handler(request_id, json, serial);
+            commands[i].handler(request_id, json);
             return;
         }
     }
 
-    // Неизвестная команда
+    /* Unknown command */
     char err[128];
-    snprintf(err, sizeof(err), "{\"id\":%u,\"error\":\"unknown_command\"}\n", request_id);
-    rpc_send_json(serial, err);
+    snprintf(
+        err, sizeof(err), "{\"id\":%" PRIu32 ",\"error\":\"unknown_command\"}\n", request_id);
+    cdc_send(err);
 }
 
-/* === RX CALLBACK (вызывается на каждый байт) === */
-static void rx_callback(FuriHalSerialHandle* handle, uint8_t data, void* ctx) {
-    UNUSED(ctx);
-    if(rx_pos >= sizeof(rx_buffer) - 1) rx_pos = 0; // переполнение — сброс
+/* =========================================================
+ * Handlers
+ * ========================================================= */
 
-    rx_buffer[rx_pos++] = (char)data;
-
-    // Команда заканчивается на \n (или просто } для JSON)
-    if(data == '\n' || data == '}') {
-        rx_buffer[rx_pos] = '\0';
-        parse_and_dispatch(rx_buffer, handle);
-        rx_pos = 0;
-    }
-}
-
-/* === ОБРАБОТЧИКИ (Handlers) === */
-static void ping_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial) {
-    UNUSED(args_json);
+static void ping_handler(uint32_t id, const char* json) {
+    UNUSED(json);
     char resp[128];
-    snprintf(resp, sizeof(resp), "{\"id\":%u,\"status\":\"ok\",\"data\":{\"pong\":true}}\n", id);
-    rpc_send_json(serial, resp);
+    snprintf(
+        resp,
+        sizeof(resp),
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"pong\":true}}\n",
+        id);
+    cdc_send(resp);
 }
 
-static void
-    ble_scan_start_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial) {
-    UNUSED(args_json);
-    if(!can_acquire(RESOURCE_BLE)) return;
+static void ble_scan_start_handler(uint32_t id, const char* json) {
+    UNUSED(json);
 
-    acquire(RESOURCE_BLE);
+    /* Find a free slot BEFORE acquiring resources */
+    int slot = stream_alloc_slot();
+    if(slot < 0) {
+        char err[128];
+        snprintf(
+            err,
+            sizeof(err),
+            "{\"id\":%" PRIu32 ",\"error\":\"stream_table_full\"}\n",
+            id);
+        cdc_send(err);
+        return;
+    }
+
+    /* Acquire resources (dispatcher already confirmed they are free) */
+    resource_acquire(RESOURCE_BLE);
 
     uint32_t stream_id = next_stream_id++;
-    for(size_t i = 0; i < MAX_STREAMS; i++) {
-        if(!active_streams[i].active) {
-            active_streams[i].id = stream_id;
-            active_streams[i].resources = RESOURCE_BLE;
-            active_streams[i].active = true;
-            break;
-        }
-    }
+    active_streams[slot].id = stream_id;
+    active_streams[slot].resources = RESOURCE_BLE;
+    active_streams[slot].active = true;
 
     char resp[128];
-    snprintf(resp, sizeof(resp), "{\"id\":%u,\"stream\":%u}\n", id, stream_id);
-    rpc_send_json(serial, resp);
+    snprintf(
+        resp,
+        sizeof(resp),
+        "{\"id\":%" PRIu32 ",\"stream\":%" PRIu32 "}\n",
+        id,
+        stream_id);
+    cdc_send(resp);
 
-    FURI_LOG_I("RPC", "BLE scan stream started: %u", stream_id);
-    // Здесь в реальном коде запустился бы BLE scan + callback
-    // Для демо — просто логируем
+    FURI_LOG_I("RPC", "BLE scan stream opened id=%" PRIu32, stream_id);
+    /*
+     * In a real implementation, start BLE scanning here and emit events
+     * like: {"event":{"addr":"AA:BB:CC:DD:EE:FF","rssi":-70},"stream":<id>}\n
+     * for each discovered device.
+     */
 }
 
-static void stream_close_handler(uint32_t id, const char* args_json, FuriHalSerialHandle* serial) {
+static void stream_close_handler(uint32_t id, const char* json) {
     uint32_t stream_id = 0;
-    const char* s_pos = strstr(args_json, "\"stream\":");
-    if(s_pos) sscanf(s_pos + 9, "%u", &stream_id);
+    if(!json_extract_uint32(json, "stream", &stream_id)) {
+        char err[128];
+        snprintf(
+            err,
+            sizeof(err),
+            "{\"id\":%" PRIu32 ",\"error\":\"missing_stream_id\"}\n",
+            id);
+        cdc_send(err);
+        return;
+    }
 
     for(size_t i = 0; i < MAX_STREAMS; i++) {
         if(active_streams[i].active && active_streams[i].id == stream_id) {
-            release(active_streams[i].resources);
-            active_streams[i].active = false;
+            stream_close_by_index(i);
 
             char resp[128];
-            snprintf(resp, sizeof(resp), "{\"id\":%u,\"status\":\"ok\"}\n", id);
-            rpc_send_json(serial, resp);
+            snprintf(resp, sizeof(resp), "{\"id\":%" PRIu32 ",\"status\":\"ok\"}\n", id);
+            cdc_send(resp);
 
-            FURI_LOG_I("RPC", "Stream %u closed", stream_id);
+            FURI_LOG_I("RPC", "stream %" PRIu32 " closed", stream_id);
             return;
         }
     }
 
     char err[128];
-    snprintf(err, sizeof(err), "{\"id\":%u,\"error\":\"stream_not_found\"}\n", id);
-    rpc_send_json(serial, err);
+    snprintf(
+        err,
+        sizeof(err),
+        "{\"id\":%" PRIu32 ",\"error\":\"stream_not_found\"}\n",
+        id);
+    cdc_send(err);
 }
 
-/* === GUI (статус даемона) === */
-static uint32_t stream_count = 0; // для отображения
+/* =========================================================
+ * GUI — ViewPort (compatible with FuriEventLoop)
+ * ========================================================= */
+
+/* Count active streams for the status display */
+static uint32_t count_active_streams(void) {
+    uint32_t n = 0;
+    for(size_t i = 0; i < MAX_STREAMS; i++) {
+        if(active_streams[i].active) n++;
+    }
+    return n;
+}
 
 static void draw_callback(Canvas* canvas, void* ctx) {
     UNUSED(ctx);
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str_aligned(canvas, 64, 20, AlignCenter, AlignTop, "RPC Daemon");
+    canvas_draw_str_aligned(canvas, 64, 10, AlignCenter, AlignTop, "RPC Daemon");
+
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignTop, "JSON RPC running");
-    canvas_draw_str_aligned(canvas, 64, 55, AlignCenter, AlignTop, "Connect via UART");
-    char buf[32];
-    snprintf(buf, sizeof(buf), "Active streams: %lu", stream_count);
-    canvas_draw_str_aligned(canvas, 64, 70, AlignCenter, AlignTop, buf);
-    canvas_draw_str_aligned(canvas, 64, 85, AlignCenter, AlignTop, "Press BACK to exit");
+    canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignTop, "USB CDC JSON-RPC");
+
+    char buf[40];
+    snprintf(buf, sizeof(buf), "Active streams: %" PRIu32, count_active_streams());
+    canvas_draw_str_aligned(canvas, 64, 42, AlignCenter, AlignTop, buf);
+
+    snprintf(buf, sizeof(buf), "Resources: 0x%02" PRIx32, active_resources);
+    canvas_draw_str_aligned(canvas, 64, 54, AlignCenter, AlignTop, buf);
+
+    canvas_draw_str_aligned(canvas, 64, 64, AlignCenter, AlignTop, "BACK to exit");
 }
 
-static bool input_callback(InputEvent* event, void* ctx) {
-    ViewDispatcher* view_dispatcher = ctx;
+/* Custom event IDs for the FuriEventLoop */
+#define EVT_INPUT_BACK 1u
+
+typedef struct {
+    FuriEventLoop* event_loop;
+    ViewPort* view_port;
+    FuriMessageQueue* input_queue;
+} AppState;
+
+static void input_callback(InputEvent* event, void* ctx) {
+    AppState* app = ctx;
+    /* We only care about BACK — post to input queue to decouple from GUI thread */
     if(event->type == InputTypeShort && event->key == InputKeyBack) {
-        view_dispatcher_stop(view_dispatcher);
-        return true;
+        furi_message_queue_put(app->input_queue, event, 0);
     }
-    return false;
 }
 
-/* === ОБНОВЛЕНИЕ СЧЁТЧИКА СТРИМОВ (таймер) === */
-static void update_stream_count_timer(void* ctx) {
+/* FuriEventLoop subscriber: input_queue became readable */
+static bool on_input_queue(FuriMessageQueue* queue, void* ctx) {
+    UNUSED(queue);
+    AppState* app = ctx;
+    InputEvent event;
+    while(furi_message_queue_get(app->input_queue, &event, 0) == FuriStatusOk) {
+        if(event.type == InputTypeShort && event.key == InputKeyBack) {
+            furi_event_loop_stop(app->event_loop);
+        }
+    }
+    return true; /* keep subscribed */
+}
+
+/* FuriEventLoop subscriber: rx_queue has a line ready */
+static bool on_rx_queue(FuriMessageQueue* queue, void* ctx) {
+    UNUSED(queue);
     UNUSED(ctx);
-    stream_count = 0;
-    for(size_t i = 0; i < MAX_STREAMS; i++) {
-        if(active_streams[i].active) stream_count++;
+    RxLine line;
+    while(furi_message_queue_get(rx_queue, &line, 0) == FuriStatusOk) {
+        rpc_dispatch(line.data);
     }
+    return true; /* keep subscribed */
 }
 
-/* === MAIN APP === */
+/* =========================================================
+ * Entry point
+ * ========================================================= */
+
 int32_t flipper_zero_rpc_daemon_app(void* p) {
     UNUSED(p);
+    FURI_LOG_I("RPC", "Flipper RPC Daemon starting");
 
-    FURI_LOG_I("RPC", "Flipper RPC Daemon started");
-
-    // Инициализация стримы
     memset(active_streams, 0, sizeof(active_streams));
+    active_resources = 0;
+    next_stream_id = 1;
 
-    // === SERIAL ===
-    rpc_serial = furi_hal_serial_alloc(FuriHalSerialIdUsart, 115200); // или FuriHalSerialIdLpuart
-    if(rpc_serial) {
-        furi_hal_serial_set_rx_callback(rpc_serial, rx_callback, NULL);
-        FURI_LOG_I("RPC", "Serial opened @ 115200");
-    } else {
-        FURI_LOG_E("RPC", "Failed to open serial!");
-    }
+    /* --- Message queues --- */
+    rx_queue = furi_message_queue_alloc(16, sizeof(RxLine));
 
-    // === GUI ===
+    AppState app;
+    app.input_queue = furi_message_queue_alloc(4, sizeof(InputEvent));
+
+    /* --- USB CDC setup --- */
+    /* Save whatever USB config is active so we can restore it on exit */
+    FuriHalUsbInterface* prev_usb = furi_hal_usb_get_config();
+    furi_hal_usb_set_config(&usb_cdc_single, NULL);
+
+    CdcCallbacks cdc_cb = {
+        .rx_ep_callback = cdc_rx_callback,
+        .state_callback = NULL,
+        .control_line_callback = NULL,
+        .config_callback = NULL,
+    };
+    furi_hal_cdc_set_callbacks(RPC_CDC_IF, &cdc_cb, NULL);
+
+    FURI_LOG_I("RPC", "USB CDC ready");
+
+    /* --- GUI --- */
     Gui* gui = furi_record_open(RECORD_GUI);
-    ViewDispatcher* view_dispatcher = view_dispatcher_alloc();
-    View* view = view_alloc();
+    app.view_port = view_port_alloc();
+    view_port_draw_callback_set(app.view_port, draw_callback, NULL);
+    view_port_input_callback_set(app.view_port, input_callback, &app);
+    gui_add_view_port(gui, app.view_port, GuiLayerFullscreen);
 
-    view_set_context(view, view_dispatcher);
-    view_set_draw_callback(view, draw_callback);
-    view_set_input_callback(view, input_callback);
+    /* --- Event loop --- */
+    app.event_loop = furi_event_loop_alloc();
 
-    view_dispatcher_attach_to_gui(view_dispatcher, gui, ViewDispatcherTypeFullscreen);
-    view_dispatcher_add_view(view_dispatcher, 0, view);
-    view_dispatcher_switch_to_view(view_dispatcher, 0);
+    furi_event_loop_message_queue_subscribe(
+        app.event_loop,
+        rx_queue,
+        FuriEventLoopEventIn,
+        on_rx_queue,
+        NULL);
 
-    // Таймер обновления счётчика
-    FuriTimer* timer = furi_timer_alloc(update_stream_count_timer, FuriTimerTypePeriodic, NULL);
-    furi_timer_start(timer, 1000);
+    furi_event_loop_message_queue_subscribe(
+        app.event_loop,
+        app.input_queue,
+        FuriEventLoopEventIn,
+        on_input_queue,
+        &app);
 
-    // Запуск главного цикла
-    view_dispatcher_run(view_dispatcher);
+    /* --- Run --- */
+    furi_event_loop_run(app.event_loop);
 
-    // === CLEANUP ===
-    furi_timer_free(timer);
-    view_dispatcher_remove_view(view_dispatcher, 0);
-    view_free(view);
-    view_dispatcher_free(view_dispatcher);
+    /* --- Cleanup --- */
+    furi_event_loop_message_queue_unsubscribe(app.event_loop, rx_queue);
+    furi_event_loop_message_queue_unsubscribe(app.event_loop, app.input_queue);
+    furi_event_loop_free(app.event_loop);
+
+    gui_remove_view_port(gui, app.view_port);
+    view_port_free(app.view_port);
     furi_record_close(RECORD_GUI);
 
-    if(rpc_serial) {
-        furi_hal_serial_set_rx_callback(rpc_serial, NULL, NULL);
-        furi_hal_serial_free(rpc_serial);
+    /* Detach CDC callbacks before switching USB back */
+    furi_hal_cdc_set_callbacks(RPC_CDC_IF, NULL, NULL);
+    furi_hal_usb_set_config(prev_usb, NULL);
+
+    furi_message_queue_free(app.input_queue);
+    furi_message_queue_free(rx_queue);
+    rx_queue = NULL;
+
+    /* Close all streams / release all resources */
+    for(size_t i = 0; i < MAX_STREAMS; i++) {
+        if(active_streams[i].active) stream_close_by_index(i);
     }
 
-    FURI_LOG_I("RPC", "Daemon stopped");
+    FURI_LOG_I("RPC", "Flipper RPC Daemon stopped");
     return 0;
 }
