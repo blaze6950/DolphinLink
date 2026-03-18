@@ -1,0 +1,76 @@
+using FlipperZero.NET;
+
+namespace FlipperZero.NET.Client.IntegrationTests;
+
+/// <summary>
+/// Integration tests for <see cref="FlipperRpcClient.DeviceInfoAsync"/>.
+///
+/// Run with a Flipper Zero connected:
+///   set FLIPPER_PORT=COM3
+///   dotnet test --filter "FullyQualifiedName~DeviceInfoTests"
+/// </summary>
+[Collection(FlipperCollection.Name)]
+public sealed class DeviceInfoTests(FlipperFixture fixture)
+{
+    private FlipperRpcClient Client => fixture.Client;
+
+    /// <summary>
+    /// <see cref="FlipperRpcClient.DeviceInfoAsync"/> must round-trip and
+    /// return a non-empty firmware version string.
+    /// Validates: JSON serialisation, request-id routing, response
+    /// deserialisation of the <c>firmware</c> field.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task DeviceInfo_ReturnsNonEmptyFirmware()
+    {
+        var response = await Client.DeviceInfoAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(response.Firmware),
+            "DeviceInfoResponse.Firmware must not be empty");
+    }
+
+    /// <summary>
+    /// The response must include a non-empty model name identifying the
+    /// Flipper hardware variant.
+    /// Validates: deserialisation of the <c>model</c> field.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task DeviceInfo_ReturnsNonEmptyModel()
+    {
+        var response = await Client.DeviceInfoAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(response.Model),
+            "DeviceInfoResponse.Model must not be empty");
+    }
+
+    /// <summary>
+    /// The response must include a non-empty device UID string.
+    /// Validates: deserialisation of the <c>uid</c> field.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task DeviceInfo_ReturnsNonEmptyUid()
+    {
+        var response = await Client.DeviceInfoAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(response.Uid),
+            "DeviceInfoResponse.Uid must not be empty");
+    }
+
+    /// <summary>
+    /// Calling <see cref="FlipperRpcClient.DeviceInfoAsync"/> multiple times
+    /// must return the same firmware, model, and UID values each time.
+    /// Validates: idempotency — device info is read-only and must be stable
+    /// across repeated round-trips.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task DeviceInfo_MultipleCalls_ReturnConsistentValues()
+    {
+        var first = await Client.DeviceInfoAsync();
+        var second = await Client.DeviceInfoAsync();
+
+        Assert.Equal(first.Firmware, second.Firmware);
+        Assert.Equal(first.Model, second.Model);
+        Assert.Equal(first.Uid, second.Uid);
+        Assert.Equal(first.Hardware, second.Hardware);
+    }
+}

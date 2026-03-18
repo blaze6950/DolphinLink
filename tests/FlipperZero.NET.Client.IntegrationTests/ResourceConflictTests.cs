@@ -134,4 +134,85 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
             }
         }
     }
+
+    /// <summary>
+    /// Sub-GHz RX (RESOURCE_SUBGHZ) and NFC scan (RESOURCE_NFC) use different
+    /// resource bits so both streams must open concurrently without conflict.
+    /// Validates: independent resource bits do not interfere.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task SubGhzAndNfc_BothOpenConcurrently_BothSucceed()
+    {
+        await using var subghz = await Client.SubGhzRxStartAsync();
+        await using var nfc = await Client.NfcScanStartAsync();
+
+        Assert.NotEqual(0u, subghz.StreamId);
+        Assert.NotEqual(0u, nfc.StreamId);
+        Assert.NotEqual(subghz.StreamId, nfc.StreamId);
+    }
+
+    /// <summary>
+    /// LF RFID (RESOURCE_RFID) and iButton (RESOURCE_IBUTTON) use different
+    /// resource bits so both streams must open concurrently without conflict.
+    /// Validates: independent resource bits do not interfere.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task LfRfidAndIButton_BothOpenConcurrently_BothSucceed()
+    {
+        await using var rfid = await Client.LfRfidReadStartAsync();
+        await using var ibutton = await Client.IButtonReadStartAsync();
+
+        Assert.NotEqual(0u, rfid.StreamId);
+        Assert.NotEqual(0u, ibutton.StreamId);
+        Assert.NotEqual(rfid.StreamId, ibutton.StreamId);
+    }
+
+    /// <summary>
+    /// IR receive (RESOURCE_IR) and LF RFID (RESOURCE_RFID) use different
+    /// resource bits so both streams must open concurrently without conflict.
+    /// Validates: independent resource bits do not interfere.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task IrAndLfRfid_BothOpenConcurrently_BothSucceed()
+    {
+        await using var ir = await Client.IrReceiveStartAsync();
+        await using var rfid = await Client.LfRfidReadStartAsync();
+
+        Assert.NotEqual(0u, ir.StreamId);
+        Assert.NotEqual(0u, rfid.StreamId);
+        Assert.NotEqual(ir.StreamId, rfid.StreamId);
+    }
+
+    /// <summary>
+    /// Sub-GHz RX (RESOURCE_SUBGHZ) and iButton (RESOURCE_IBUTTON) use
+    /// different resource bits so both streams must open concurrently without
+    /// conflict.
+    /// Validates: independent resource bits do not interfere.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task SubGhzAndIButton_BothOpenConcurrently_BothSucceed()
+    {
+        await using var subghz = await Client.SubGhzRxStartAsync();
+        await using var ibutton = await Client.IButtonReadStartAsync();
+
+        Assert.NotEqual(0u, subghz.StreamId);
+        Assert.NotEqual(0u, ibutton.StreamId);
+        Assert.NotEqual(subghz.StreamId, ibutton.StreamId);
+    }
+
+    /// <summary>
+    /// NFC scan (RESOURCE_NFC) and LF RFID (RESOURCE_RFID) use different
+    /// resource bits so both streams must open concurrently without conflict.
+    /// Validates: independent resource bits do not interfere.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task NfcAndLfRfid_BothOpenConcurrently_BothSucceed()
+    {
+        await using var nfc = await Client.NfcScanStartAsync();
+        await using var rfid = await Client.LfRfidReadStartAsync();
+
+        Assert.NotEqual(0u, nfc.StreamId);
+        Assert.NotEqual(0u, rfid.StreamId);
+        Assert.NotEqual(nfc.StreamId, rfid.StreamId);
+    }
 }
