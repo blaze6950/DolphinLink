@@ -31,7 +31,7 @@ FlipperZero.NET/
 │   │   ├── rpc_response.h / rpc_response.c # rpc_send_ok/error/response() — shared response helpers
 │   │   ├── rpc_stream.h / rpc_stream.c     # RpcStream table, alloc/find/close/reset helpers
 │   │   ├── rpc_dispatch.h / rpc_dispatch.c # RpcCommand struct, commands[] table, rpc_dispatch()
-│   │   ├── rpc_handlers.h / rpc_handlers.c # ping, ble_scan_start, stream_close handlers
+│   │   ├── rpc_handlers.h / rpc_handlers.c # ping, ir_receive_start, gpio_watch_start, subghz_rx_start, nfc_scan_start, stream_close handlers
 │   │   ├── rpc_gui.h / rpc_gui.c           # AppState, draw/input callbacks, setup/teardown
 │   │   ├── application.fam                 # Flipper app manifest (entry point, stack 4KB, icon)
 │   │   ├── flipper_zero_rpc_daemon.png     # 10x10 1-bit icon
@@ -112,7 +112,7 @@ One JSON object per line, terminated with `\n` only. Never trigger dispatch on
 **Request** (host → Flipper):
 ```json
 {"id":1,"cmd":"ping"}
-{"id":2,"cmd":"ble_scan_start"}
+{"id":2,"cmd":"ir_receive_start"}
 {"id":3,"cmd":"stream_close","stream":1}
 ```
 
@@ -142,10 +142,11 @@ Known error codes: `resource_busy`, `unknown_command`, `missing_cmd`,
 ### Resource Management
 
 The daemon tracks in-use hardware with a `ResourceMask` bitmask
-(`RESOURCE_BLE`, `RESOURCE_SUBGHZ`, `RESOURCE_IR`). Each command declares which
+(`RESOURCE_SUBGHZ`, `RESOURCE_IR`, `RESOURCE_NFC`). Each command declares which
 resources it needs. The dispatcher checks availability before invoking the
 handler. Releasing a stream releases its resources. Up to 8 concurrent streams
-are supported (`MAX_STREAMS`).
+are supported (`MAX_STREAMS`). `RESOURCE_BLE` (bit 0) is reserved but unused —
+BLE GAP observer is not exposed in the FAP SDK.
 
 ### C Daemon Threading Model
 
@@ -266,7 +267,7 @@ only touching `Commands/RpcCommands.cs` and `FlipperRpcClient.Commands.cs`.
 |---|---|
 | `FlipperZero.NET` | `FlipperRpcClient`, `FlipperRpcException`, `FlipperRpcTransport`, `RpcStream<T>` |
 | `FlipperZero.NET.Abstractions` | `IRpcCommand<T>`, `IRpcStreamCommand<T>`, `IRpcCommandResponse` |
-| `FlipperZero.NET.Commands` | `PingCommand`, `PingResponse`, `BleScanStartCommand`, `BleScanEvent`, `StreamCloseCommand`, `StreamCloseResponse` |
+| `FlipperZero.NET.Commands` | `PingCommand`, `PingResponse`, `IrReceiveStartCommand`, `IrReceiveEvent`, `GpioWatchStartCommand`, `GpioWatchEvent`, `SubGhzRxStartCommand`, `SubGhzRxEvent`, `NfcScanStartCommand`, `NfcScanEvent`, `StreamCloseCommand`, `StreamCloseResponse` |
 
 ### Dependencies
 

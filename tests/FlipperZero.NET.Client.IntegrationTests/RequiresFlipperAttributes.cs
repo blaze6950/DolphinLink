@@ -11,7 +11,7 @@ public sealed class RequiresFlipperFact : FactAttribute
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(FlipperFixture.EnvVar)))
         {
             // todo - for development/debugging, set a default port here so the tests run without needing to set the env var every time. Remove this before merging.
-            Environment.SetEnvironmentVariable(FlipperFixture.EnvVar, "COM3"); // Clear any whitespace value
+            Environment.SetEnvironmentVariable(FlipperFixture.EnvVar, "COM4"); // Clear any whitespace value
             //Skip = $"Set {FlipperFixture.EnvVar} environment variable to run Flipper integration tests.";
         }
     }

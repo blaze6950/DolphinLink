@@ -21,7 +21,10 @@
 
 static const RpcCommand commands[] = {
     {"ping", 0, ping_handler},
-    {"ble_scan_start", RESOURCE_BLE, ble_scan_start_handler},
+    {"ir_receive_start", RESOURCE_IR, ir_receive_start_handler},
+    {"gpio_watch_start", 0, gpio_watch_start_handler},
+    {"subghz_rx_start", RESOURCE_SUBGHZ, subghz_rx_start_handler},
+    {"nfc_scan_start", RESOURCE_NFC, nfc_scan_start_handler},
     {"stream_close", 0, stream_close_handler},
     {NULL, 0, NULL},
 };

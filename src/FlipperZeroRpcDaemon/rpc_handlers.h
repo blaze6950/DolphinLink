@@ -15,6 +15,14 @@
 
 #include <stdint.h>
 
+/* Simple request-response */
 void ping_handler(uint32_t id, const char* json);
-void ble_scan_start_handler(uint32_t id, const char* json);
+
+/* Streaming commands — each opens a hardware stream and returns a stream id */
+void ir_receive_start_handler(uint32_t id, const char* json);
+void gpio_watch_start_handler(uint32_t id, const char* json);
+void subghz_rx_start_handler(uint32_t id, const char* json);
+void nfc_scan_start_handler(uint32_t id, const char* json);
+
+/* Stream lifecycle */
 void stream_close_handler(uint32_t id, const char* json);

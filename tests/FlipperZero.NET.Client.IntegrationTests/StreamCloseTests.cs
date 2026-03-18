@@ -27,7 +27,7 @@ public sealed class StreamCloseTests(FlipperFixture fixture)
     {
         // Open the stream but don't use the await-using pattern, so
         // DisposeAsync won't auto-close it — we'll close manually.
-        var stream = await Client.BleScanStartAsync();
+        var stream = await Client.IrReceiveStartAsync();
         var streamId = stream.StreamId;
 
         // Manually close via the public API
@@ -57,21 +57,21 @@ public sealed class StreamCloseTests(FlipperFixture fixture)
     }
 
     /// <summary>
-    /// After an explicit stream_close the BLE resource must be released, so
-    /// we can immediately open a fresh scan.
+    /// After an explicit stream_close the IR resource must be released, so
+    /// we can immediately open a fresh IR receive stream.
     /// Validates: resource is freed on the daemon side after close.
     /// </summary>
     [RequiresFlipperFact]
-    public async Task StreamClose_AfterExplicitClose_CanReopenScan()
+    public async Task StreamClose_AfterExplicitClose_CanReopenStream()
     {
-        var stream = await Client.BleScanStartAsync();
+        var stream = await Client.IrReceiveStartAsync();
         await Client.StreamCloseAsync(stream.StreamId);
         await stream.DisposeAsync(); // Cleanup the handle
 
         // Give the Flipper a moment to release the resource
         await Task.Delay(200);
 
-        await using var second = await Client.BleScanStartAsync();
+        await using var second = await Client.IrReceiveStartAsync();
         Assert.NotEqual(0u, second.StreamId);
     }
 }

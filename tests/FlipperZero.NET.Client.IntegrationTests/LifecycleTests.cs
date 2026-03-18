@@ -74,8 +74,8 @@ public sealed class LifecycleTests
         await using var client = new FlipperRpcClient(_portName);
         client.Connect();
 
-        // Open a BLE scan stream — do NOT dispose it; let the client do it.
-        var stream = await client.BleScanStartAsync();
+        // Open an IR receive stream — do NOT dispose it; let the client do it.
+        var stream = await client.IrReceiveStartAsync();
         _ = stream; // intentionally leaked to test client-side cleanup
     }
 

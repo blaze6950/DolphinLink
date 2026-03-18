@@ -18,14 +18,15 @@
  *   {"id":<uint>,"error":"<code>"}
  *
  * Module layout:
- *   rpc_resource   Hardware resource bitmask (BLE, SubGHz, IR, …)
- *   rpc_stream     Active stream table (alloc / close / find)
+ *   rpc_resource   Hardware resource bitmask (BLE, SubGHz, IR, NFC, …)
+ *   rpc_stream     Active stream table, StreamEvent queue, g_event_loop
  *   rpc_json       Pure JSON extraction helpers
  *   rpc_transport  USB CDC send + ISR RX framing → rx_queue
  *   rpc_cmd_log    On-screen command log ring buffer
  *   rpc_response   Response formatting helpers (dedup cdc_send + cmd_log_push)
  *   rpc_dispatch   Command registry + dispatcher
- *   rpc_handlers   ping, ble_scan_start, stream_close handler implementations
+ *   rpc_handlers   ping, ir_receive_start, gpio_watch_start,
+ *                  subghz_rx_start, nfc_scan_start, stream_close
  *   rpc_gui        ViewPort, draw/input callbacks, setup/teardown
  */
 
@@ -76,6 +77,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
 
     /* --- Message queues --- */
     rx_queue = furi_message_queue_alloc(16, sizeof(RxLine));
+    stream_event_queue = furi_message_queue_alloc(32, sizeof(StreamEvent));
 
     AppState app;
     app.event_loop = NULL;
@@ -103,9 +105,13 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
 
     /* --- Event loop --- */
     app.event_loop = furi_event_loop_alloc();
+    g_event_loop = app.event_loop;
 
     furi_event_loop_subscribe_message_queue(
         app.event_loop, rx_queue, FuriEventLoopEventIn, on_rx_queue, NULL);
+
+    furi_event_loop_subscribe_message_queue(
+        app.event_loop, stream_event_queue, FuriEventLoopEventIn, on_stream_event, NULL);
 
     furi_event_loop_subscribe_message_queue(
         app.event_loop, app.input_queue, FuriEventLoopEventIn, on_input_queue, &app);
@@ -114,8 +120,16 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_run(app.event_loop);
 
     /* --- Cleanup --- */
+
+    /* Close all streams first — teardowns may unsubscribe their own queues */
+    stream_close_all();
+    resource_reset();
+
     furi_event_loop_unsubscribe(app.event_loop, rx_queue);
+    furi_event_loop_unsubscribe(app.event_loop, stream_event_queue);
     furi_event_loop_unsubscribe(app.event_loop, app.input_queue);
+
+    g_event_loop = NULL;
     furi_event_loop_free(app.event_loop);
 
     rpc_gui_teardown(&app, gui);
@@ -126,12 +140,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_hal_usb_set_config(prev_usb, NULL);
 
     furi_message_queue_free(app.input_queue);
+    furi_message_queue_free(stream_event_queue);
+    stream_event_queue = NULL;
     furi_message_queue_free(rx_queue);
     rx_queue = NULL;
-
-    /* Close all streams and release resources */
-    stream_close_all();
-    resource_reset();
 
     FURI_LOG_I("RPC", "Flipper RPC Daemon stopped");
     return 0;
