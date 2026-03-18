@@ -63,19 +63,36 @@ public sealed class LifecycleTests
     }
 
     /// <summary>
-    /// Disposing a client that has an open stream must close the stream
-    /// cleanly (the daemon releases the resource) and not throw.
-    /// Validates: <see cref="FlipperRpcClient.DisposeAsync"/> while a stream
-    /// is in-flight.
+    /// Disposing a client that has an open IR receive stream must close the
+    /// stream cleanly (the daemon releases the resource) and not throw.
+    /// Validates: <see cref="FlipperRpcClient.DisposeAsync"/> while an IR
+    /// stream is in-flight.
     /// </summary>
     [RequiresFlipperFact]
-    public async Task Dispose_WithOpenStream_DoesNotThrow()
+    public async Task Dispose_WithOpenIrStream_DoesNotThrow()
     {
         await using var client = new FlipperRpcClient(_portName);
         client.Connect();
 
         // Open an IR receive stream — do NOT dispose it; let the client do it.
         var stream = await client.IrReceiveStartAsync();
+        _ = stream; // intentionally leaked to test client-side cleanup
+    }
+
+    /// <summary>
+    /// Disposing a client that has an open GPIO watch stream must close the
+    /// stream cleanly (the daemon releases the stream slot) and not throw.
+    /// Validates: <see cref="FlipperRpcClient.DisposeAsync"/> while a GPIO
+    /// stream is in-flight.
+    /// </summary>
+    [RequiresFlipperFact]
+    public async Task Dispose_WithOpenGpioStream_DoesNotThrow()
+    {
+        await using var client = new FlipperRpcClient(_portName);
+        client.Connect();
+
+        // Open a GPIO watch stream — do NOT dispose it; let the client do it.
+        var stream = await client.GpioWatchStartAsync("6");
         _ = stream; // intentionally leaked to test client-side cleanup
     }
 
