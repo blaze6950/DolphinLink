@@ -163,8 +163,9 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
    ```c
    {"my_command", RESOURCE_FLAGS, my_cmd_handler},
    ```
-3. Implement: parse args with `json_extract_string`/`json_extract_uint32` (`core/rpc_json.h`), respond with `rpc_send_ok()`/`rpc_send_error()` (`core/rpc_response.h`).
-4. **Stream commands**: call `stream_alloc_slot()` first (return error if `-1`), then `resource_acquire()`, then send `{"id":N,"stream":M}\n`.
+3. **Capability negotiation**: add the command name to `SUPPORTED_COMMANDS[]` in `handlers/system/daemon_info.c` so the host detects it via `daemon_info`. If the change is a **breaking wire-format change**, also bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h`.
+4. Implement: parse args with `json_extract_string`/`json_extract_uint32` (`core/rpc_json.h`), respond with `rpc_send_ok()`/`rpc_send_error()` (`core/rpc_response.h`).
+5. **Stream commands**: call `stream_alloc_slot()` first (return error if `-1`), then `resource_acquire()`, then send `{"id":N,"stream":M}\n`.
 
 ### C# Client
 
@@ -186,4 +187,5 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
    public static Task<MyResponse> MyCommandAsync(this FlipperRpcClient client, CancellationToken ct = default)
        => client.SendAsync<MyCommand, MyResponse>(new MyCommand(), ct);
    ```
-3. `dotnet build` — must succeed with 0 warnings.
+3. Add integration tests in `tests/FlipperZero.NET.Client.IntegrationTests/<Subsystem>/MyCommandTests.cs` covering at minimum: happy-path round-trip, resource conflict (if applicable), and stream open/close lifecycle (for stream commands). Follow the `[Collection(FlipperCollection.Name)]`, `[RequiresFlipperFact]`, `[Trait("Category", "Hardware")]` conventions.
+4. `dotnet build` — must succeed with 0 warnings.

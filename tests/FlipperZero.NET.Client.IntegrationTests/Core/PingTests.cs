@@ -20,6 +20,7 @@ public sealed class PingTests(FlipperFixture fixture)
     /// Validates: JSON serialisation, request-id routing, response
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Ping_ReturnsTrue()
     {
@@ -33,6 +34,7 @@ public sealed class PingTests(FlipperFixture fixture)
     /// Validates: the outbound channel and id counter stay consistent across
     /// multiple round-trips.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Ping_MultipleTimes_AllReturnTrue()
     {
@@ -50,6 +52,7 @@ public sealed class PingTests(FlipperFixture fixture)
     /// Validates: concurrent request routing — each response lands on the
     /// correct <c>TaskCompletionSource</c> by request-id.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Ping_ConcurrentRequests_AllReturnTrue()
     {
@@ -69,6 +72,7 @@ public sealed class PingTests(FlipperFixture fixture)
     /// A ping with an already-cancelled token must throw
     /// <see cref="OperationCanceledException"/> without sending anything.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Ping_CancelledToken_ThrowsOperationCanceledException()
     {

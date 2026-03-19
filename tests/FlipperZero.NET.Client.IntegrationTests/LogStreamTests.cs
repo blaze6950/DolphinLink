@@ -25,6 +25,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
     /// <see cref="FlipperRpcClient.OnLogEntry"/>, with the expected field values
     /// and a positive round-trip time.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task OnLogEntry_PingProducesExpectedEntries()
     {
@@ -67,6 +68,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
     /// Two independently registered handlers must each receive entries for the
     /// same command — validates multicast delegate fan-out.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task OnLogEntry_MultipleHandlers_BothReceiveEntries()
     {
@@ -98,6 +100,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
     /// After unsubscribing, the handler must not receive entries for subsequent
     /// commands.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task OnLogEntry_UnsubscribeStopsDelivery()
     {

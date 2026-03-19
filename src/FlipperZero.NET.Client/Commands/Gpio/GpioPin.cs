@@ -42,7 +42,7 @@ internal sealed class GpioPinJsonConverter : JsonConverter<GpioPin>
     public override GpioPin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var s = reader.GetString();
-        if (s is not null && int.TryParse(s, out var n) && n >= 1 && n <= 8)
+        if (s is not null && int.TryParse(s, out var n) && n is >= 1 and <= 8)
         {
             return (GpioPin)n;
         }

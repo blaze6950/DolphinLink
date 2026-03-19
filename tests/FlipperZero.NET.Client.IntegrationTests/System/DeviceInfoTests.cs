@@ -21,6 +21,7 @@ public sealed class DeviceInfoTests(FlipperFixture fixture)
     /// Validates: JSON serialisation, request-id routing, response
     /// deserialisation of the <c>firmware</c> field.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task DeviceInfo_ReturnsNonEmptyFirmware()
     {
@@ -40,6 +41,7 @@ public sealed class DeviceInfoTests(FlipperFixture fixture)
     /// Validates: idempotency — device info is read-only and must be stable
     /// across repeated round-trips.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task DeviceInfo_MultipleCalls_ReturnConsistentValues()
     {

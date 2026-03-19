@@ -24,7 +24,8 @@
 
 void gpio_write_handler(uint32_t id, const char* json) {
     char label[8] = {0};
-    if(!json_extract_string(json, "pin", label, sizeof(label))) {
+    const char* cursor = json;
+    if(!json_extract_string_at(json, &cursor, "pin", label, sizeof(label))) {
         rpc_send_error(id, "missing_pin", "gpio_write");
         return;
     }
@@ -35,7 +36,7 @@ void gpio_write_handler(uint32_t id, const char* json) {
     }
 
     bool level = false;
-    if(!json_extract_bool(json, "level", &level)) {
+    if(!json_extract_bool_at(json, &cursor, "level", &level)) {
         rpc_send_error(id, "missing_level", "gpio_write");
         return;
     }

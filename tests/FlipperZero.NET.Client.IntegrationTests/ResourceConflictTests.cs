@@ -23,6 +23,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrAndGpio_BothOpenConcurrently_BothSucceed()
     {
@@ -40,6 +41,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrAndSubGhz_BothOpenConcurrently_BothSucceed()
     {
@@ -56,6 +58,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// resource bits so both streams must open concurrently without conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrAndNfc_BothOpenConcurrently_BothSucceed()
     {
@@ -74,6 +77,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// error code.
     /// Validates: the MAX_STREAMS (8) limit in the daemon's stream table.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StreamTableFull_NinthStream_ThrowsStreamTableFull()
     {
@@ -112,6 +116,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// resource bits so both streams must open concurrently without conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzAndNfc_BothOpenConcurrently_BothSucceed()
     {
@@ -128,6 +133,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// resource bits so both streams must open concurrently without conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LfRfidAndIButton_BothOpenConcurrently_BothSucceed()
     {
@@ -144,6 +150,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// resource bits so both streams must open concurrently without conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrAndLfRfid_BothOpenConcurrently_BothSucceed()
     {
@@ -161,6 +168,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzAndIButton_BothOpenConcurrently_BothSucceed()
     {
@@ -177,6 +185,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     /// resource bits so both streams must open concurrently without conflict.
     /// Validates: independent resource bits do not interfere.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task NfcAndLfRfid_BothOpenConcurrently_BothSucceed()
     {

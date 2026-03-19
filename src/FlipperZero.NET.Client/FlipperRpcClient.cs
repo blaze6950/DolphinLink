@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Commands.Core;
+using FlipperZero.NET.Commands.System;
 
 namespace FlipperZero.NET;
 
@@ -96,8 +97,15 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     // Fields
     // -------------------------------------------------------------------------
 
-    private readonly FlipperRpcTransport _transport;
+    private readonly IFlipperTransport _transport;
     private readonly Channel<RpcWorkItem> _outbound;
+
+    /// <summary>
+    /// The <see cref="DaemonInfoResponse"/> returned by the daemon during
+    /// <see cref="ConnectAsync"/>.  Only valid after <see cref="ConnectAsync"/>
+    /// has completed successfully.
+    /// </summary>
+    public DaemonInfoResponse DaemonInfo { get; private set; }
 
     /// <summary>Pending request-id → callbacks (for request/response commands).</summary>
     private readonly ConcurrentDictionary<uint, PendingRequest> _pending = new();
@@ -118,7 +126,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Monotonic clock started at <see cref="Connect"/> time.
+    /// Monotonic clock started at <see cref="ConnectAsync"/> time.
     /// Used to stamp all <see cref="RpcLogEntry"/> records.
     /// </summary>
     private readonly Stopwatch _clock = new();
@@ -136,10 +144,26 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     /// <param name="portName">
     /// Serial port name, e.g. <c>"COM3"</c> or <c>"/dev/ttyACM0"</c>.
+    /// Creates a <see cref="FlipperRpcTransport"/> (USB-CDC) internally.
     /// </param>
     public FlipperRpcClient(string portName)
+        : this(new FlipperRpcTransport(portName))
     {
-        _transport = new FlipperRpcTransport(portName);
+    }
+
+    /// <summary>
+    /// Creates a client using the supplied transport.
+    /// Use this overload to inject a custom transport (BLE, Wi-Fi, WASM/WebSerial bridge,
+    /// or an in-process fake for unit tests).
+    /// </summary>
+    /// <param name="transport">
+    /// A transport that has not yet been opened.
+    /// The client takes ownership: it will call <see cref="IFlipperTransport.Open"/>,
+    /// <see cref="IFlipperTransport.Close"/>, and <see cref="IAsyncDisposable.DisposeAsync"/>.
+    /// </param>
+    public FlipperRpcClient(IFlipperTransport transport)
+    {
+        _transport = transport;
         _outbound = Channel.CreateBounded<RpcWorkItem>(new BoundedChannelOptions(32)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -148,13 +172,65 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         });
     }
 
-    /// <summary>Opens the transport and starts background I/O loops.</summary>
-    public void Connect()
+    /// <summary>
+    /// Opens the transport, starts background I/O loops, and performs
+    /// capability negotiation with the connected Flipper daemon.
+    ///
+    /// Calls <c>daemon_info</c>, verifies that <see cref="DaemonInfoResponse.Name"/>
+    /// equals <c>"flipper_zero_rpc_daemon"</c>, and checks that the daemon's protocol
+    /// version is at least <paramref name="minProtocolVersion"/>.
+    ///
+    /// The result is stored in <see cref="DaemonInfo"/> for later inspection.
+    /// </summary>
+    /// <param name="minProtocolVersion">
+    /// Minimum acceptable protocol version (default <c>1</c>).
+    /// Throws <see cref="FlipperRpcException"/> if the daemon reports a lower version.
+    /// </param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The full <see cref="DaemonInfoResponse"/> for capability inspection.</returns>
+    /// <exception cref="FlipperRpcException">
+    /// Thrown if the daemon name does not match, or the protocol version is below
+    /// <paramref name="minProtocolVersion"/>.
+    /// </exception>
+    public async Task<DaemonInfoResponse> ConnectAsync(
+        int minProtocolVersion = 1,
+        CancellationToken ct = default)
     {
         _transport.Open();
         _clock.Start();
         _writerTask = Task.Run(() => WriterLoopAsync(_cts.Token));
         _readerTask = Task.Run(() => ReaderLoopAsync(_cts.Token));
+
+        DaemonInfo = await NegotiateAsync(minProtocolVersion, ct).ConfigureAwait(false);
+        return DaemonInfo;
+    }
+
+    private async Task<DaemonInfoResponse> NegotiateAsync(
+        int minProtocolVersion,
+        CancellationToken ct)
+    {
+        const string ExpectedName = "flipper_zero_rpc_daemon";
+
+        var info = await SendAsync<DaemonInfoCommand, DaemonInfoResponse>(
+            new DaemonInfoCommand(), ct).ConfigureAwait(false);
+
+        if(info.Name != ExpectedName)
+        {
+            throw new FlipperRpcException(
+                $"Capability negotiation failed: expected daemon name '{ExpectedName}', " +
+                $"got '{info.Name ?? "(null)"}'. " +
+                "Ensure the FlipperZero.NET RPC daemon FAP is running on the device.");
+        }
+
+        if(info.Version < minProtocolVersion)
+        {
+            throw new FlipperRpcException(
+                $"Capability negotiation failed: daemon protocol version {info.Version} " +
+                $"is below the required minimum {minProtocolVersion}. " +
+                "Please update the FlipperZero.NET RPC daemon FAP on the device.");
+        }
+
+        return info;
     }
 
     // -------------------------------------------------------------------------

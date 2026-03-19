@@ -21,6 +21,7 @@ public sealed class PowerInfoTests(FlipperFixture fixture)
     /// Validates: JSON serialisation, request-id routing, response
     /// deserialisation of the <c>charge</c> field.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task PowerInfo_ReturnsValidValues()
     {

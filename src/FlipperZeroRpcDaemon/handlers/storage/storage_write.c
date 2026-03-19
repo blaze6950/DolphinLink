@@ -38,7 +38,8 @@
 
 void storage_write_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    const char* cursor = json;
+    if(!json_extract_string_at(json, &cursor, "path", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_write");
         return;
     }
@@ -51,7 +52,7 @@ void storage_write_handler(uint32_t id, const char* json) {
         return;
     }
 
-    if(!json_extract_string(json, "data", b64, 1024)) {
+    if(!json_extract_string_at(json, &cursor, "data", b64, 1024)) {
         free(b64);
         rpc_send_error(id, "missing_data", "storage_write");
         return;

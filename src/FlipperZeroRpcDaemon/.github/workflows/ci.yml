@@ -1,0 +1,59 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  client:
+    name: C# Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: dotnet build --no-incremental -warnaserror
+
+      - name: Unit Tests
+        run: |
+          dotnet test \
+            --filter "FullyQualifiedName~UnitTests" \
+            --logger trx \
+            --results-directory ./test-results \
+            --no-build
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results/*.trx
+
+  daemon:
+    name: C Daemon (FAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install ufbt
+        run: pip install ufbt
+
+      - name: Build FAP
+        run: python -m ufbt
+        working-directory: src/FlipperZeroRpcDaemon
+
+      - name: Lint (clang-tidy)
+        run: python -m ufbt lint
+        working-directory: src/FlipperZeroRpcDaemon

@@ -22,6 +22,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// non-zero stream id (daemon defaults to 433.92 MHz).
     /// Validates: the stream-open handshake.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_ReturnsStreamWithNonZeroId()
     {
@@ -36,6 +37,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// Validates: the optional <c>"freq"</c> argument is forwarded to the
     /// daemon correctly.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_WithExplicitFreq_ReturnsStream()
     {
@@ -51,6 +53,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// Validates: stream event routing and <see cref="SubGhzRxEvent"/>
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_ReceivesAtLeastOneEvent()
     {
@@ -76,6 +79,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// SUBGHZ resource is released on the Flipper.
     /// Validates: <see cref="RpcStream{TEvent}.DisposeAsync"/> auto-close path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_Dispose_ClosesStreamCleanly()
     {
@@ -90,6 +94,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// Validates: the SUBGHZ resource bitmask is actually cleared after
     /// <c>stream_close</c> so a second stream can acquire it.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_AfterDispose_CanStartAgain()
     {
@@ -111,6 +116,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     /// Validates: SUBGHZ resource-bitmask exclusivity enforcement in the
     /// daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_WhenAlreadyActive_ThrowsResourceBusy()
     {

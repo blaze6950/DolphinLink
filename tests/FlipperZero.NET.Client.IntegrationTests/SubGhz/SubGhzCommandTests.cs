@@ -31,6 +31,7 @@ public sealed class SubGhzCommandTests(FlipperFixture fixture)
     /// call completes without error.
     /// Validates: <c>subghz_get_rssi</c> happy-path round-trip.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzGetRssi_ValidFreq_Succeeds()
     {
@@ -48,6 +49,7 @@ public sealed class SubGhzCommandTests(FlipperFixture fixture)
     /// throwing.
     /// Validates: <c>subghz_tx</c> happy-path round-trip.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SubGhzTx_ValidFreqAndTimings_Succeeds()
     {

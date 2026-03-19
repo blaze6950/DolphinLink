@@ -22,6 +22,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     /// <see cref="RpcStream{TEvent}"/> with a non-zero stream id.
     /// Validates: the stream-open handshake for LFRFID read.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_ReturnsStreamWithNonZeroId()
     {
@@ -37,6 +38,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     /// Validates: stream event routing and <see cref="LfRfidReadEvent"/>
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_ReceivesAtLeastOneEvent()
     {
@@ -62,6 +64,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     /// not throw.
     /// Validates: <see cref="RpcStream{TEvent}.DisposeAsync"/> auto-close path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_Dispose_ClosesStreamCleanly()
     {
@@ -75,6 +78,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     /// one.
     /// Validates: the RFID resource is released after stream_close.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_AfterDispose_CanStartAgain()
     {
@@ -94,6 +98,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     /// <c>resource_busy</c> error code.
     /// Validates: the RESOURCE_RFID bitmask enforcement in the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_WhenAlreadyActive_ThrowsResourceBusy()
     {

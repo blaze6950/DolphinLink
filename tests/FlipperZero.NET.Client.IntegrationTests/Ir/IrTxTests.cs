@@ -27,6 +27,7 @@ public sealed class IrTxTests(FlipperFixture fixture)
     /// without throwing.
     /// Validates: <c>ir_tx</c> happy-path round-trip with the NEC protocol.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrTx_ValidNecSignal_Succeeds()
     {
@@ -40,6 +41,7 @@ public sealed class IrTxTests(FlipperFixture fixture)
     /// error code.
     /// Validates: error path in the <c>ir_tx</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrTx_UnknownProtocol_ThrowsUnknownProtocol()
     {
@@ -57,6 +59,7 @@ public sealed class IrTxTests(FlipperFixture fixture)
     /// Transmitting a raw IR timing array must succeed without throwing.
     /// Validates: <c>ir_tx_raw</c> happy-path with a minimal NEC-like burst.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrTxRaw_ValidTimings_Succeeds()
     {
@@ -72,6 +75,7 @@ public sealed class IrTxTests(FlipperFixture fixture)
     /// <c>json_extract_uint32_array</c> returns false for an empty array.
     /// Validates: error path in the <c>ir_tx_raw</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrTxRaw_EmptyTimings_ThrowsMissingTimings()
     {

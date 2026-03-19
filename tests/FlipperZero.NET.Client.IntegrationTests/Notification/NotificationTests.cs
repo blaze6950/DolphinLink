@@ -30,6 +30,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Setting the red LED to maximum intensity must succeed without throwing.
     /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Red"/>.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSet_Red_Succeeds()
     {
@@ -40,6 +41,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Setting the green LED to maximum intensity must succeed without throwing.
     /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Green"/>.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSet_Green_Succeeds()
     {
@@ -50,6 +52,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Setting the blue LED to maximum intensity must succeed without throwing.
     /// Validates: <c>led_set</c> happy-path with <see cref="LedChannel.Blue"/>.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSet_Blue_Succeeds()
     {
@@ -60,6 +63,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Setting an LED to zero intensity must succeed without throwing.
     /// Validates: <c>led_set</c> with value=0 (off).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSet_ZeroValue_Succeeds()
     {
@@ -75,6 +79,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// succeed without throwing.
     /// Validates: <c>led_set_rgb</c> happy-path with a non-trivial colour.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSetRgb_Succeeds()
     {
@@ -93,6 +98,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// <paramref name="speed"/> is a tempo multiplier applied to every base delay:
     /// 1.0 = normal (≈ 8 s total), 0.5 = twice as fast, 2.0 = half speed.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task LedColorMelodyScenario_Succeeds()
     {
@@ -162,6 +168,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
         await Client.LedSetRgbAsync(0, 0, 0);
     }
 
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task LedComplexCheckScenario_Succeeds()
     {
@@ -208,6 +215,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// throwing.
     /// Validates: <c>led_set_rgb</c> with all channels off (black).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task LedSetRgb_Black_Succeeds()
     {
@@ -222,6 +230,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Enabling the vibration motor must succeed without throwing.
     /// Validates: <c>vibro</c> enable happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Vibro_EnableAndDisable_Succeeds()
     {
@@ -238,6 +247,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Starting the piezo speaker at A4 (440 Hz) must succeed without throwing.
     /// Validates: <c>speaker_start</c> happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SpeakerStart_ValidFreqAndVolume_Succeeds()
     {
@@ -251,6 +261,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Stopping the speaker when it is active must succeed without throwing.
     /// Validates: <c>speaker_stop</c> happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SpeakerStop_WhenActive_Succeeds()
     {
@@ -263,6 +274,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// throwing (the daemon's <c>speaker_stop</c> is idempotent).
     /// Validates: idempotent stop path in the <c>speaker_stop</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SpeakerStop_WhenNotActive_Succeeds()
     {
@@ -278,6 +290,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// <c>resource_busy</c> error code.
     /// Validates: the RESOURCE_SPEAKER bitmask enforcement in the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task SpeakerStart_WhenAlreadyActive_ThrowsResourceBusy()
     {
@@ -304,6 +317,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// throwing.
     /// Validates: <c>backlight</c> happy-path with value=255.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Backlight_MaxValue_Succeeds()
     {
@@ -314,6 +328,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// Setting the backlight to zero brightness must succeed without throwing.
     /// Validates: <c>backlight</c> happy-path with value=0.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Backlight_ZeroValue_Succeeds()
     {
@@ -325,6 +340,7 @@ public sealed class NotificationTests(FlipperFixture fixture)
     /// throwing.
     /// Validates: <c>backlight</c> happy-path with an intermediate value.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Backlight_MidValue_Succeeds()
     {

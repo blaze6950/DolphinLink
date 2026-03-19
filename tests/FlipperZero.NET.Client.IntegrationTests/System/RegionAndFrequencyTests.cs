@@ -22,6 +22,7 @@ public sealed class RegionAndFrequencyTests(FlipperFixture fixture)
     /// Validates: JSON serialisation, request-id routing, and deserialisation
     /// of the <c>region</c> field.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task RegionInfo_ReturnsNonEmptyRegion()
     {
@@ -38,6 +39,7 @@ public sealed class RegionAndFrequencyTests(FlipperFixture fixture)
     /// Validates: <c>frequency_is_allowed</c> allowed path and response
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task FrequencyIsAllowed_433MHz_ReturnsTrue()
     {
@@ -55,6 +57,7 @@ public sealed class RegionAndFrequencyTests(FlipperFixture fixture)
     /// 300–928 MHz.
     /// Validates: <c>frequency_is_allowed</c> denied path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task FrequencyIsAllowed_OutOfBandFreq_ReturnsFalse()
     {

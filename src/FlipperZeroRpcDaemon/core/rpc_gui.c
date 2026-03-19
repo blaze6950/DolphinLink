@@ -19,7 +19,7 @@ static void draw_callback(Canvas* canvas, void* ctx) {
 
     /* Header */
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 2, 10, "FlipperZero.NET RPC Daemon");
+    canvas_draw_str(canvas, 2, 10, "FlipperZero.NET Daemon");
 
     /* Status bar */
     canvas_set_font(canvas, FontSecondary);
@@ -71,7 +71,19 @@ void on_input_queue(FuriEventLoopObject* object, void* ctx) {
     AppState* app = ctx;
     InputEvent event;
     while(furi_message_queue_get(app->input_queue, &event, 0) == FuriStatusOk) {
-        if(event.type == InputTypeShort && event.key == InputKeyBack) {
+        /* Check whether any active stream has a custom exit combo. */
+        bool has_custom = false;
+        for(size_t i = 0; i < MAX_STREAMS; i++) {
+            if(active_streams[i].active && active_streams[i].hw.input.has_exit_combo) {
+                if(event.type == active_streams[i].hw.input.exit_type &&
+                   event.key == active_streams[i].hw.input.exit_key) {
+                    furi_event_loop_stop(app->event_loop);
+                }
+                has_custom = true;
+            }
+        }
+        /* Fall back to the default Back+Short combo when no custom combo is set. */
+        if(!has_custom && event.type == InputTypeShort && event.key == InputKeyBack) {
             furi_event_loop_stop(app->event_loop);
         }
     }

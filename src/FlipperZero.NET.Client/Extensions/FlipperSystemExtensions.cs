@@ -8,6 +8,26 @@ namespace FlipperZero.NET.Extensions;
 public static class FlipperSystemExtensions
 {
     /// <summary>
+    /// Queries the daemon's identity and full command capability list.
+    ///
+    /// Use this for ad-hoc capability queries after
+    /// <see cref="FlipperRpcClient.ConnectAsync"/>. The result of the initial
+    /// negotiation performed by <c>ConnectAsync</c> is already stored in
+    /// <see cref="FlipperRpcClient.DaemonInfo"/>; call this method only when
+    /// you need a fresh snapshot.
+    ///
+    /// To test whether a specific command is available, use
+    /// <see cref="DaemonInfoResponse.Supports(string)"/> or the generic
+    /// <see cref="DaemonInfoResponse.Supports{TCommand}"/> overload.
+    /// </summary>
+    /// <param name="client">The RPC client.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public static Task<DaemonInfoResponse> DaemonInfoAsync(
+        this FlipperRpcClient client,
+        CancellationToken ct = default)
+        => client.SendAsync<DaemonInfoCommand, DaemonInfoResponse>(new DaemonInfoCommand(), ct);
+
+    /// <summary>
     /// Returns comprehensive device information: identity (name, model, UID, BLE MAC),
     /// firmware (version, origin, branch, git hash, build date), hardware OTP fields
     /// (revision, target, body, color, region, display, manufacture timestamp),

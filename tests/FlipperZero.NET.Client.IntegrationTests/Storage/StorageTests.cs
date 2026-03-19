@@ -36,6 +36,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// capacity and a free count no larger than total.
     /// Validates: <c>storage_info</c> happy-path with the internal flash.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageInfo_InternalStorage_ReturnsPlausibleCapacity()
     {
@@ -50,6 +51,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// plausible values.
     /// Validates: <c>storage_info</c> happy-path with the external SD card.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageInfo_ExternalStorage_ReturnsPlausibleCapacity()
     {
@@ -65,6 +67,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// error code.
     /// Validates: error path in the <c>storage_info</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageInfo_InvalidPath_ThrowsStorageError()
     {
@@ -83,6 +86,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// array (may be empty if the volume is empty, but must not throw).
     /// Validates: <c>storage_list</c> happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageList_InternalStorage_ReturnsEntries()
     {
@@ -98,6 +102,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// code.
     /// Validates: error path in the <c>storage_list</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageList_NonExistentPath_ThrowsOpenFailed()
     {
@@ -117,6 +122,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// Validates: <c>storage_mkdir</c>, <c>storage_stat</c>, and
     /// <c>storage_remove</c> happy-paths in sequence.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageMkdir_StatThenRemove_RoundTrip()
     {
@@ -137,6 +143,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// code.
     /// Validates: duplicate-mkdir error path in the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageMkdir_AlreadyExists_ThrowsMkdirFailed()
     {
@@ -162,6 +169,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// with the <c>stat_failed</c> error code.
     /// Validates: error path in the <c>storage_stat</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageStat_NonExistentPath_ThrowsStatFailed()
     {
@@ -176,6 +184,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// with the <c>remove_failed</c> error code.
     /// Validates: error path in the <c>storage_remove</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageRemove_NonExistentPath_ThrowsRemoveFailed()
     {
@@ -194,6 +203,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// Validates: <c>storage_write</c> and <c>storage_read</c> round-trip
     /// with raw byte data.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageWriteThenRead_RoundTrip()
     {
@@ -229,6 +239,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// with a positive size.
     /// Validates: <c>storage_write</c> + <c>storage_stat</c> integration.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageWrite_ThenStat_ReportsFileWithPositiveSize()
     {
@@ -260,6 +271,7 @@ public sealed class StorageTests(FlipperFixture fixture)
     /// with the <c>open_failed</c> error code.
     /// Validates: error path in the <c>storage_read</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StorageRead_NonExistentFile_ThrowsOpenFailed()
     {

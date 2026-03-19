@@ -29,6 +29,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// The returned level is either true or false depending on hardware state.
     /// Validates: <c>gpio_read</c> happy-path round-trip.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioRead_ValidPin_ReturnsLevel()
     {
@@ -46,6 +47,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// Writing a high level to a valid GPIO pin must succeed without throwing.
     /// Validates: <c>gpio_write</c> happy-path, level=true.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWrite_ValidPinHigh_Succeeds()
     {
@@ -56,6 +58,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// Writing a low level to a valid GPIO pin must succeed without throwing.
     /// Validates: <c>gpio_write</c> happy-path, level=false.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWrite_ValidPinLow_Succeeds()
     {
@@ -71,6 +74,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// value and a raw value in the 12-bit range (0–4095).
     /// Validates: <c>adc_read</c> happy-path on pin 1.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task AdcRead_ValidAdcPin_ReturnsPlausibleVoltage()
     {
@@ -86,6 +90,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// Pin 4 does not support ADC on the Flipper Zero GPIO header.
     /// Validates: error path in the <c>adc_read</c> handler.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task AdcRead_NonAdcPin_ThrowsInvalidPin()
     {
@@ -103,6 +108,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// Enabling the 5 V header rail must succeed without throwing.
     /// Validates: <c>gpio_set_5v</c> enable happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioSet5v_Enable_Succeeds()
     {
@@ -113,6 +119,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     /// Disabling the 5 V header rail must succeed without throwing.
     /// Validates: <c>gpio_set_5v</c> disable happy-path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioSet5v_Disable_Succeeds()
     {

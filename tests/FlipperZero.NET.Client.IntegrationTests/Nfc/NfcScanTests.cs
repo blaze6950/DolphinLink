@@ -22,6 +22,7 @@ public sealed class NfcScanTests(FlipperFixture fixture)
     /// Validates: the stream-open handshake (Flipper responds with
     /// <c>{"id":N,"stream":M}</c>).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task NfcScanStart_ReturnsStreamWithNonZeroId()
     {
@@ -37,6 +38,7 @@ public sealed class NfcScanTests(FlipperFixture fixture)
     /// Validates: stream event routing and <see cref="NfcScanEvent"/>
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task NfcScanStart_ReceivesAtLeastOneEvent()
     {
@@ -61,6 +63,7 @@ public sealed class NfcScanTests(FlipperFixture fixture)
     /// resource is released on the Flipper.
     /// Validates: <see cref="RpcStream{TEvent}.DisposeAsync"/> auto-close path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task NfcScanStart_Dispose_ClosesStreamCleanly()
     {
@@ -75,6 +78,7 @@ public sealed class NfcScanTests(FlipperFixture fixture)
     /// Validates: the NFC resource bitmask is actually cleared after
     /// <c>stream_close</c> so a second scan can acquire it.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task NfcScanStart_AfterDispose_CanStartAgain()
     {
@@ -95,6 +99,7 @@ public sealed class NfcScanTests(FlipperFixture fixture)
     /// <c>resource_busy</c> error code.
     /// Validates: NFC resource-bitmask exclusivity enforcement in the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task NfcScanStart_WhenAlreadyActive_ThrowsResourceBusy()
     {

@@ -1,18 +1,18 @@
 using System.IO.Ports;
 using System.Text;
+using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Wraps a <see cref="SerialPort"/> for the Flipper USB-CDC connection.
-/// Provides line-oriented send/receive over NDJSON framing.
+/// USB-CDC <see cref="IFlipperTransport"/> implementation backed by <see cref="SerialPort"/>.
 ///
 /// Thread-safety contract:
 ///   - <see cref="SendLineAsync"/> is called exclusively by the writer loop (single writer).
 ///   - <see cref="ReadLineAsync"/> is called exclusively by the reader loop (single reader).
-///   - Open / close happen outside both loops.
+///   - <see cref="Open"/> and <see cref="Close"/> happen outside both loops.
 /// </summary>
-internal sealed class FlipperRpcTransport : IAsyncDisposable
+internal sealed class FlipperRpcTransport : IFlipperTransport
 {
     private readonly SerialPort _port;
     private StreamWriter? _writer;

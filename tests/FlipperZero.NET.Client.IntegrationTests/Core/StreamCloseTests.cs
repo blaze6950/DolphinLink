@@ -23,6 +23,7 @@ public sealed class StreamCloseTests(FlipperFixture fixture)
     /// Validates: the stream_close command/response round-trip when called
     /// directly rather than through <see cref="RpcStream{TEvent}.DisposeAsync"/>.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StreamClose_ExplicitClose_Succeeds()
     {
@@ -45,6 +46,7 @@ public sealed class StreamCloseTests(FlipperFixture fixture)
     /// <c>stream_not_found</c> error code.
     /// Validates: the daemon's "unknown stream id" error path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StreamClose_NonExistentStreamId_ThrowsStreamNotFound()
     {
@@ -62,6 +64,7 @@ public sealed class StreamCloseTests(FlipperFixture fixture)
     /// we can immediately open a fresh IR receive stream.
     /// Validates: resource is freed on the daemon side after close.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task StreamClose_AfterExplicitClose_CanReopenStream()
     {

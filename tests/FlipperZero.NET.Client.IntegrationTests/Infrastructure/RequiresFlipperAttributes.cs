@@ -1,10 +1,11 @@
 ﻿namespace FlipperZero.NET.Client.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// A <c>[Fact]</c> that is automatically skipped when
-/// <see cref="FlipperFixture.EnvVar"/> (<c>FLIPPER_PORT</c>) is not set.
+/// A fact that is automatically skipped when <see cref="FlipperFixture.EnvVar"/>
+/// (<c>FLIPPER_PORT</c>) is not set, or when the device is unreachable at
+/// runtime (via <see cref="FlipperFixture.Client"/> calling <see cref="Skip.IfNot"/>).
 /// </summary>
-public sealed class RequiresFlipperFact : FactAttribute
+public sealed class RequiresFlipperFact : SkippableFactAttribute
 {
     public RequiresFlipperFact()
     {
@@ -18,10 +19,11 @@ public sealed class RequiresFlipperFact : FactAttribute
 }
 
 /// <summary>
-/// A <c>[Theory]</c> that is automatically skipped when
-/// <see cref="FlipperFixture.EnvVar"/> (<c>FLIPPER_PORT</c>) is not set.
+/// A theory that is automatically skipped when <see cref="FlipperFixture.EnvVar"/>
+/// (<c>FLIPPER_PORT</c>) is not set, or when the device is unreachable at
+/// runtime (via <see cref="FlipperFixture.Client"/> calling <see cref="Skip.IfNot"/>).
 /// </summary>
-public sealed class RequiresFlipperTheory : TheoryAttribute
+public sealed class RequiresFlipperTheory : SkippableTheoryAttribute
 {
     public RequiresFlipperTheory()
     {

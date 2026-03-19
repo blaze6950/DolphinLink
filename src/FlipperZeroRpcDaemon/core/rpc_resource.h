@@ -22,6 +22,7 @@ typedef uint32_t ResourceMask;
 #define RESOURCE_SPEAKER (1u << 4)
 #define RESOURCE_RFID    (1u << 5)
 #define RESOURCE_IBUTTON (1u << 6)
+#define RESOURCE_GUI     (1u << 7) /* exclusive canvas session (ui_screen_acquire) */
 
 /* Module-level state — storage provided by flipper_zero_rpc_daemon.c */
 extern ResourceMask active_resources;
@@ -44,4 +45,9 @@ static inline void resource_release(ResourceMask mask) {
 /** Resets all resources to idle.  Call during init and cleanup. */
 static inline void resource_reset(void) {
     active_resources = 0;
+}
+
+/** Returns true if ALL of the bits in @p mask are currently held. */
+static inline bool resource_is_held(ResourceMask mask) {
+    return (active_resources & mask) == mask;
 }

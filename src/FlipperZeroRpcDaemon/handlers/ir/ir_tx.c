@@ -35,12 +35,13 @@ void ir_tx_handler(uint32_t id, const char* json) {
     char protocol_name[32] = {0};
     uint32_t address = 0, command = 0;
 
-    if(!json_extract_string(json, "protocol", protocol_name, sizeof(protocol_name))) {
+    const char* cursor = json;
+    if(!json_extract_string_at(json, &cursor, "protocol", protocol_name, sizeof(protocol_name))) {
         rpc_send_error(id, "missing_protocol", "ir_tx");
         return;
     }
-    json_extract_uint32(json, "address", &address);
-    json_extract_uint32(json, "command", &command);
+    json_extract_uint32_at(json, &cursor, "address", &address);
+    json_extract_uint32_at(json, &cursor, "command", &command);
 
     InfraredProtocol protocol = infrared_get_protocol_by_name(protocol_name);
     if(protocol == InfraredProtocolUnknown) {

@@ -9,15 +9,7 @@ namespace FlipperZero.NET.Abstractions;
 /// <typeparam name="TEvent">
 /// The strongly-typed event payload pushed by the Flipper for each stream message.
 /// </typeparam>
-public interface IRpcStreamCommand<TEvent>
+public interface IRpcStreamCommand<TEvent> : IRpcCommandBase
     where TEvent : struct, IRpcCommandResponse
 {
-    /// <summary>Name of the command, e.g. <c>"ble_scan_start"</c>.</summary>
-    string CommandName { get; }
-
-    /// <summary>
-    /// Serialise any command-specific arguments into the JSON object body.
-    /// Same contract as <see cref="IRpcCommand{TResponse}.WriteArgs"/>.
-    /// </summary>
-    void WriteArgs(System.Text.Json.Utf8JsonWriter writer);
 }

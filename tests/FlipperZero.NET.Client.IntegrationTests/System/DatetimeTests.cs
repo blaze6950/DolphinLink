@@ -23,6 +23,7 @@ public sealed class DatetimeTests(FlipperFixture fixture)
     /// Validates: JSON serialisation, request-id routing, and deserialisation
     /// of the six date/time fields emitted by the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task DatetimeGet_ReturnsPlausibleDate()
     {
@@ -49,6 +50,7 @@ public sealed class DatetimeTests(FlipperFixture fixture)
     /// seconds field to account for RTC tick latency and round-trip time).
     /// Validates: <c>datetime_set</c> write path and end-to-end RTC round-trip.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task DatetimeSet_ThenGet_ReflectsNewValue()
     {
@@ -85,6 +87,7 @@ public sealed class DatetimeTests(FlipperFixture fixture)
     /// confirming the RTC is not permanently corrupted by this class's tests.
     /// Validates: restore path of <c>datetime_set</c>.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task DatetimeSet_ThenRestored_YearMatchesOriginal()
     {

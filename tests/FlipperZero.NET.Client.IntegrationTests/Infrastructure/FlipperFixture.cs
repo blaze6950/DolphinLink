@@ -13,13 +13,17 @@ namespace FlipperZero.NET.Client.IntegrationTests.Infrastructure;
 ///   Windows : set FLIPPER_PORT=COM3
 ///   Linux   : export FLIPPER_PORT=/dev/ttyACM0
 ///
-/// If the variable is not set, <see cref="IsAvailable"/> is <c>false</c> and
-/// all tests that depend on this fixture will skip via <see cref="RequiresFlipperFact"/>
-/// or <see cref="RequiresFlipperTheory"/>.
+/// If the variable is not set, or the device cannot be reached,
+/// <see cref="IsAvailable"/> is <c>false</c> and all tests that depend on this
+/// fixture will skip via <see cref="RequiresFlipperFact"/> or
+/// <see cref="RequiresFlipperTheory"/>.
 /// </summary>
 public sealed class FlipperFixture : IAsyncLifetime
 {
     public const string EnvVar = "FLIPPER_PORT";
+
+    private const string SkipReason =
+        $"Flipper not available. Set {EnvVar} to a valid port and ensure the device is connected.";
 
     /// <summary>
     /// <c>true</c> when <c>FLIPPER_PORT</c> is set and the client connected
@@ -33,10 +37,19 @@ public sealed class FlipperFixture : IAsyncLifetime
     public string? PortName { get; private set; }
 
     /// <summary>
-    /// The connected client. Only valid when <see cref="IsAvailable"/> is
-    /// <c>true</c>.
+    /// The connected client. Accessing this property skips the current test
+    /// (via <see cref="Skip"/>) when <see cref="IsAvailable"/> is <c>false</c>.
     /// </summary>
-    public FlipperRpcClient Client { get; private set; } = null!;
+    public FlipperRpcClient Client
+    {
+        get
+        {
+            Skip.IfNot(IsAvailable, SkipReason);
+            return _client!;
+        }
+    }
+
+    private FlipperRpcClient? _client;
 
     public async Task InitializeAsync()
     {
@@ -48,19 +61,28 @@ public sealed class FlipperFixture : IAsyncLifetime
             return;
         }
 
-        Client = new FlipperRpcClient(PortName);
-        Client.Connect();
+        try
+        {
+            _client = new FlipperRpcClient(PortName);
+            await _client.ConnectAsync().ConfigureAwait(false);
 
-        // Verify connectivity with a ping before running any tests.
-        var pong = await Client.PingAsync(CancellationToken.None).ConfigureAwait(false);
-        IsAvailable = pong;
+            // Verify connectivity with a ping before running any tests.
+            var pong = await _client.PingAsync(CancellationToken.None).ConfigureAwait(false);
+            IsAvailable = pong;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or TimeoutException or InvalidOperationException)
+        {
+            // Port exists in env var but device is unavailable (wrong port, unplugged, etc.)
+            // Tests will be skipped rather than crashing the entire collection.
+            IsAvailable = false;
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (Client is not null)
+        if (_client is not null)
         {
-            await Client.DisposeAsync().ConfigureAwait(false);
+            await _client.DisposeAsync().ConfigureAwait(false);
         }
     }
 

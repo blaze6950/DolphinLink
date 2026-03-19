@@ -22,6 +22,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// Validates: the stream-open handshake (Flipper responds with
     /// <c>{"id":N,"stream":M}</c>).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrReceiveStart_ReturnsStreamWithNonZeroId()
     {
@@ -37,6 +38,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// Validates: stream event routing and <see cref="IrReceiveEvent"/>
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task IrReceiveStart_ReceivesAtLeastOneEvent()
     {
@@ -61,6 +63,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// freed on the Flipper.
     /// Validates: <see cref="RpcStream{TEvent}.DisposeAsync"/> auto-close path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrReceiveStart_Dispose_ClosesStreamCleanly()
     {
@@ -75,6 +78,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// Validates: the IR resource is actually released after stream_close so
     /// a second receive can acquire it.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrReceiveStart_AfterDispose_CanStartAgain()
     {
@@ -95,6 +99,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// <c>resource_busy</c> error code.
     /// Validates: the resource-bitmask enforcement in the daemon.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task IrReceiveStart_WhenAlreadyActive_ThrowsResourceBusy()
     {

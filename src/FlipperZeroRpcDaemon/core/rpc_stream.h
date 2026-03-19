@@ -34,6 +34,8 @@
 #include <lib/toolbox/protocols/protocol_dict.h>
 #include <lib/ibutton/ibutton_worker.h>
 #include <lib/ibutton/ibutton_protocols.h>
+#include <input/input.h>
+#include <gui/view_port.h>
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -109,6 +111,20 @@ struct RpcStream {
             iButtonProtocols* protocols;
             iButtonKey* key;
         } ibutton;
+
+        struct {
+            FuriPubSubSubscription* subscription;
+            /** When true, the stream has a custom exit key combo. */
+            bool has_exit_combo;
+            /** Key that triggers daemon exit (default: InputKeyBack). */
+            InputKey exit_key;
+            /** Event type that triggers exit (default: InputTypeShort). */
+            InputType exit_type;
+        } input;
+
+        struct {
+            ViewPort* host_viewport; /**< Secondary ViewPort used for host canvas draws */
+        } canvas;
     } hw;
 };
 

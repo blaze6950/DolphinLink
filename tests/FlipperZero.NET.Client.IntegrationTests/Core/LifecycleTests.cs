@@ -42,6 +42,7 @@ public sealed class LifecycleTests
     /// A freshly created and immediately disposed client must not throw.
     /// Validates: dispose on a client that was never connected.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Dispose_BeforeConnect_DoesNotThrow()
     {
@@ -54,11 +55,12 @@ public sealed class LifecycleTests
     /// throw during disposal.
     /// Validates: graceful shutdown of both background loops.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Dispose_AfterSuccessfulPing_DoesNotThrow()
     {
         await using var client = new FlipperRpcClient(_portName);
-        client.Connect();
+        await client.ConnectAsync();
 
         var pong = await client.PingAsync();
         Assert.True(pong);
@@ -70,11 +72,12 @@ public sealed class LifecycleTests
     /// Validates: <see cref="FlipperRpcClient.DisposeAsync"/> while an IR
     /// stream is in-flight.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Dispose_WithOpenIrStream_DoesNotThrow()
     {
         await using var client = new FlipperRpcClient(_portName);
-        client.Connect();
+        await client.ConnectAsync();
 
         // Open an IR receive stream — do NOT dispose it; let the client do it.
         var stream = await client.IrReceiveStartAsync();
@@ -87,11 +90,12 @@ public sealed class LifecycleTests
     /// Validates: <see cref="FlipperRpcClient.DisposeAsync"/> while a GPIO
     /// stream is in-flight.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Dispose_WithOpenGpioStream_DoesNotThrow()
     {
         await using var client = new FlipperRpcClient(_portName);
-        client.Connect();
+        await client.ConnectAsync();
 
         // Open a GPIO watch stream — do NOT dispose it; let the client do it.
         var stream = await client.GpioWatchStartAsync(GpioPin.Pin6);
@@ -102,11 +106,12 @@ public sealed class LifecycleTests
     /// Calling <see cref="FlipperRpcClient.DisposeAsync"/> more than once must
     /// be safe (idempotent).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task Dispose_CalledTwice_DoesNotThrow()
     {
         var client = new FlipperRpcClient(_portName);
-        client.Connect();
+        await client.ConnectAsync();
         await client.PingAsync();
 
         await client.DisposeAsync();

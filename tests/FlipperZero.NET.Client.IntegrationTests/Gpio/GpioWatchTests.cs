@@ -22,6 +22,7 @@ public sealed class GpioWatchTests(FlipperFixture fixture)
     /// Validates: the stream-open handshake (Flipper responds with
     /// <c>{"id":N,"stream":M}</c>).
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWatchStart_ReturnsStreamWithNonZeroId()
     {
@@ -37,6 +38,7 @@ public sealed class GpioWatchTests(FlipperFixture fixture)
     /// Validates: stream event routing and <see cref="GpioWatchEvent"/>
     /// deserialisation.
     /// </summary>
+    [Trait("Category", "Manual")]
     [RequiresFlipperFact]
     public async Task GpioWatchStart_ReceivesAtLeastOneEvent()
     {
@@ -62,6 +64,7 @@ public sealed class GpioWatchTests(FlipperFixture fixture)
     /// freed on the Flipper.
     /// Validates: <see cref="RpcStream{TEvent}.DisposeAsync"/> auto-close path.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWatchStart_Dispose_ClosesStreamCleanly()
     {
@@ -77,6 +80,7 @@ public sealed class GpioWatchTests(FlipperFixture fixture)
     /// Validates: GPIO pins have no resource-mask exclusion, so they can be
     /// freely re-acquired after close.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWatchStart_AfterDispose_CanStartAgain()
     {
@@ -97,6 +101,7 @@ public sealed class GpioWatchTests(FlipperFixture fixture)
     /// coexist.
     /// Validates: independent pin streams do not interfere with each other.
     /// </summary>
+    [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
     public async Task GpioWatchStart_TwoPinsConcurrently_BothSucceed()
     {
