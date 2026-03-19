@@ -180,3 +180,21 @@ void cdc_rx_callback(void* ctx) {
         }
     }
 }
+
+/* =========================================================
+ * CDC control-line (DTR/RTS) change notification
+ * ========================================================= */
+
+FuriMessageQueue* cdc_ctrl_queue = NULL;
+
+/* Called from USB interrupt context when the host changes DTR/RTS.
+ * context is cdc_ctrl_queue (passed via furi_hal_cdc_set_callbacks).
+ * Only ISR-safe operations: furi_message_queue_put with timeout 0. */
+void cdc_ctrl_line_callback(void* context, CdcCtrlLine ctrl_lines) {
+    FuriMessageQueue* q = (FuriMessageQueue*)context;
+    if(!q) return;
+    CdcCtrlEvent ev = {.ctrl_lines = (uint8_t)ctrl_lines};
+    /* Non-blocking; drop if the queue is full (capacity 2 is enough for
+     * connect + disconnect without loss under normal conditions). */
+    furi_message_queue_put(q, &ev, 0);
+}

@@ -24,6 +24,7 @@
 #pragma once
 
 #include <furi.h>
+#include <furi_hal_usb_cdc.h>
 #include <stdint.h>
 
 /* CDC interface number (1 = second device in usb_cdc_dual;
@@ -79,3 +80,28 @@ void cdc_tx_callback(void* ctx);
 /** CDC RX callback — registered with furi_hal_cdc_set_callbacks().
  *  Runs in USB interrupt context; accumulates bytes and enqueues complete lines. */
 void cdc_rx_callback(void* ctx);
+
+/* -------------------------------------------------------------------------
+ * CDC control-line (DTR/RTS) change notification
+ * ------------------------------------------------------------------------- */
+
+/**
+ * One CDC control-line state change event, posted from the USB ISR to the
+ * main thread via cdc_ctrl_queue.
+ */
+typedef struct {
+    uint8_t ctrl_lines; /**< Bitmask: bit 0 = DTR (CdcCtrlLineDTR), bit 1 = RTS */
+} CdcCtrlEvent;
+
+/**
+ * Message queue filled by cdc_ctrl_line_callback() and drained by the
+ * event loop on the main thread.
+ * Storage provided by flipper_zero_rpc_daemon.c.
+ */
+extern FuriMessageQueue* cdc_ctrl_queue;
+
+/** CDC control-line callback — registered in CdcCallbacks.ctrl_line_callback.
+ *  Runs in USB interrupt context; posts a CdcCtrlEvent to cdc_ctrl_queue.
+ *  context is the cdc_ctrl_queue pointer (passed via furi_hal_cdc_set_callbacks).
+ *  Signature matches CdcCallbacks.ctrl_line_callback: void(*)(void*, CdcCtrlLine). */
+void cdc_ctrl_line_callback(void* context, CdcCtrlLine ctrl_lines);

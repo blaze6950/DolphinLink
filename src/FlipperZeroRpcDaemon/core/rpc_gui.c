@@ -56,10 +56,11 @@ static void draw_callback(Canvas* canvas, void* ctx) {
 
 static void input_callback(InputEvent* event, void* ctx) {
     AppState* app = ctx;
-    /* Only care about BACK — post to input queue to decouple from GUI thread */
-    if(event->type == InputTypeShort && event->key == InputKeyBack) {
-        furi_message_queue_put(app->input_queue, event, 0);
-    }
+    /* Forward every key event to the main thread via the input queue.
+     * on_input_queue() decides which combo triggers exit — this keeps
+     * the GUI thread ISR-safe (only furi_message_queue_put here) and
+     * allows custom exit combos on any key, not just Back+Short. */
+    furi_message_queue_put(app->input_queue, event, 0);
 }
 
 /* -------------------------------------------------------------------------

@@ -84,6 +84,35 @@ static void on_rx_queue(FuriEventLoopObject* object, void* ctx) {
 }
 
 /* =========================================================
+ * Event-loop subscriber: CDC control-line (DTR/RTS) changed
+ * ========================================================= */
+
+/**
+ * Called on the main thread when the host toggles DTR/RTS (e.g. serial port
+ * opened or closed, host application crashed, USB cable pulled).
+ *
+ * When DTR drops (host disconnected), close all active streams so that any
+ * custom exit combos are cleared and the default Back+Short exit is restored.
+ * The daemon itself keeps running — the next client connection can open new
+ * streams without needing a Flipper reboot.
+ */
+static void on_ctrl_line_queue(FuriEventLoopObject* object, void* ctx) {
+    UNUSED(object);
+    UNUSED(ctx);
+    CdcCtrlEvent ev;
+    while(furi_message_queue_get(cdc_ctrl_queue, &ev, 0) == FuriStatusOk) {
+        bool dtr = (ev.ctrl_lines & CdcCtrlLineDTR) != 0;
+        FURI_LOG_I("RPC", "DTR %s", dtr ? "asserted" : "released");
+        if(!dtr) {
+            /* Host disconnected — tear down all open streams so hardware
+             * resources and the exit-combo suppression are released. */
+            stream_close_all();
+            resource_reset();
+        }
+    }
+}
+
+/* =========================================================
  * Entry point
  * ========================================================= */
 
@@ -103,11 +132,17 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     /* --- Message queues --- */
     rx_queue = furi_message_queue_alloc(16, sizeof(RxLine));
     stream_event_queue = furi_message_queue_alloc(32, sizeof(StreamEvent));
+    /* Capacity 2: one connect + one disconnect event is the maximum burst.
+     * Must be allocated before furi_hal_cdc_set_callbacks() which fires the
+     * callback immediately with the current ctrl-line state. */
+    cdc_ctrl_queue = furi_message_queue_alloc(2, sizeof(CdcCtrlEvent));
 
     AppState app;
     app.event_loop = NULL;
     app.view_port = NULL;
-    app.input_queue = furi_message_queue_alloc(4, sizeof(InputEvent));
+    /* Capacity 8: each button tap generates ~3 events (press/short/release);
+     * 8 slots comfortably absorbs two rapid taps without dropping events. */
+    app.input_queue = furi_message_queue_alloc(8, sizeof(InputEvent));
 
     /* --- USB CDC setup --- */
     /* Save whatever USB config is active so we can restore it on exit */
@@ -122,10 +157,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
         .tx_ep_callback = cdc_tx_callback,
         .rx_ep_callback = cdc_rx_callback,
         .state_callback = NULL,
-        .ctrl_line_callback = NULL,
+        .ctrl_line_callback = cdc_ctrl_line_callback,
         .config_callback = NULL,
     };
-    furi_hal_cdc_set_callbacks(RPC_CDC_IF, &cdc_cb, NULL);
+    furi_hal_cdc_set_callbacks(RPC_CDC_IF, &cdc_cb, cdc_ctrl_queue);
 
     FURI_LOG_I("RPC", "USB CDC ready");
 
@@ -146,6 +181,9 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_subscribe_message_queue(
         app.event_loop, app.input_queue, FuriEventLoopEventIn, on_input_queue, &app);
 
+    furi_event_loop_subscribe_message_queue(
+        app.event_loop, cdc_ctrl_queue, FuriEventLoopEventIn, on_ctrl_line_queue, NULL);
+
     /* --- Run (blocks until Back is pressed) --- */
     furi_event_loop_run(app.event_loop);
 
@@ -158,6 +196,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_unsubscribe(app.event_loop, rx_queue);
     furi_event_loop_unsubscribe(app.event_loop, stream_event_queue);
     furi_event_loop_unsubscribe(app.event_loop, app.input_queue);
+    furi_event_loop_unsubscribe(app.event_loop, cdc_ctrl_queue);
 
     g_event_loop = NULL;
     furi_event_loop_free(app.event_loop);
@@ -182,6 +221,8 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     stream_event_queue = NULL;
     furi_message_queue_free(rx_queue);
     rx_queue = NULL;
+    furi_message_queue_free(cdc_ctrl_queue);
+    cdc_ctrl_queue = NULL;
 
     FURI_LOG_I("RPC", "Flipper RPC Daemon stopped");
     return 0;
