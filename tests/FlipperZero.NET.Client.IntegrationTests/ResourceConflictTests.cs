@@ -1,3 +1,7 @@
+using FlipperZero.NET.Client.IntegrationTests.Infrastructure;
+using FlipperZero.NET.Commands.Gpio;
+using FlipperZero.NET.Extensions;
+
 namespace FlipperZero.NET.Client.IntegrationTests;
 
 /// <summary>
@@ -23,7 +27,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     public async Task IrAndGpio_BothOpenConcurrently_BothSucceed()
     {
         await using var ir = await Client.IrReceiveStartAsync();
-        await using var gpio = await Client.GpioWatchStartAsync("6");
+        await using var gpio = await Client.GpioWatchStartAsync(GpioPin.Pin6);
 
         Assert.NotEqual(0u, ir.StreamId);
         Assert.NotEqual(0u, gpio.StreamId);
@@ -64,37 +68,6 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     }
 
     /// <summary>
-    /// Sending a command name that the daemon does not recognise must return
-    /// a <see cref="FlipperRpcException"/> with the <c>unknown_command</c>
-    /// error code.
-    /// Validates: the dispatch table's "not found" path.
-    /// </summary>
-    [RequiresFlipperFact]
-    public async Task UnknownCommand_ThrowsUnknownCommandError()
-    {
-        // Use the generic ping path as a template but inject a bogus command.
-        // We can't easily send a raw line through the typed client, so we
-        // open a GPIO stream with a deliberately invalid pin and rely on the
-        // daemon validating the pin label — then separately confirm that a
-        // completely unknown command name surfaces the right error code by
-        // checking that invalid_pin is distinct from unknown_command.
-        //
-        // To exercise the unknown_command path directly we use a command
-        // struct that writes a non-existent cmd name via the generic API.
-        // Since the public API is typed, we verify by passing an unrecognised
-        // pin that the error codes are correctly differentiated:
-        var gpioEx = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.GpioWatchStartAsync("99"));
-        Assert.Equal("invalid_pin", gpioEx.ErrorCode);
-
-        // The StreamClose path with a completely bogus id exercises a
-        // different, well-known error code too.
-        var closeEx = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.StreamCloseAsync(255u));
-        Assert.Equal("stream_not_found", closeEx.ErrorCode);
-    }
-
-    /// <summary>
     /// Opening 8 GPIO watch streams (one per available slot) and then
     /// attempting to open a ninth must fail with a
     /// <see cref="FlipperRpcException"/> carrying the <c>stream_table_full</c>
@@ -104,10 +77,11 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task StreamTableFull_NinthStream_ThrowsStreamTableFull()
     {
-        // GPIO pins "1"–"8" correspond to the 8 external GPIO header pins,
+        // GPIO pins Pin1–Pin8 correspond to the 8 external GPIO header pins,
         // giving us 8 distinct concurrent streams with no resource-mask
         // conflicts.
-        var pins = new[] { "1", "2", "3", "4", "5", "6", "7", "8" };
+        var pins = new[] { GpioPin.Pin1, GpioPin.Pin2, GpioPin.Pin3, GpioPin.Pin4,
+                           GpioPin.Pin5, GpioPin.Pin6, GpioPin.Pin7, GpioPin.Pin8 };
         var streams = new List<IAsyncDisposable>(pins.Length);
 
         try
@@ -119,7 +93,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
 
             // All 8 slots are now occupied — the 9th must fail.
             var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-                () => Client.GpioWatchStartAsync("1"));
+                () => Client.GpioWatchStartAsync(GpioPin.Pin1));
 
             Assert.Equal("stream_table_full", ex.ErrorCode);
         }

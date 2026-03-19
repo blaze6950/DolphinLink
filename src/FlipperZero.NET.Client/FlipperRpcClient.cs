@@ -1,8 +1,9 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Commands.Core;
 
 namespace FlipperZero.NET;
 
@@ -29,6 +30,13 @@ namespace FlipperZero.NET;
 /// returns an <see cref="RpcStream{TEvent}"/>.  The stream id returned by the
 /// Flipper is resolved in the reader loop; subsequent event messages are pushed
 /// into the stream's internal channel.
+///
+/// Logging
+/// -------
+/// Subscribe to <see cref="OnLogEntry"/> to receive <see cref="RpcLogEntry"/>
+/// records for every command sent and response received.  Handlers are invoked
+/// synchronously on the client's I/O loop threads and must return quickly and
+/// must not throw.
 /// </summary>
 public sealed partial class FlipperRpcClient : IAsyncDisposable
 {
@@ -46,6 +54,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     {
         public required uint RequestId { get; init; }
         public required string Json { get; init; }
+        public required string CommandName { get; init; }
 
         /// <summary>
         /// Called by the writer loop immediately after enqueuing
@@ -63,6 +72,12 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         public required Action<JsonElement> OnSuccess { get; init; }
         /// <summary>Called when an <c>"error"</c> response arrives.</summary>
         public required Action<string> OnError { get; init; }
+        /// <summary>
+        /// Stopwatch ticks recorded when the command line was sent.
+        /// Set by the writer loop immediately after <see cref="FlipperRpcTransport.SendLineAsync"/>;
+        /// read by <see cref="DispatchLine"/> to compute round-trip time.
+        /// </summary>
+        public long SentTicks { get; set; }
     }
 
     /// <summary>
@@ -90,11 +105,30 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// <summary>Active stream-id → stream state (for streaming commands).</summary>
     private readonly ConcurrentDictionary<uint, StreamState> _streams = new();
 
+    private static readonly JsonSerializerOptions _jsonOptions = JsonSerializerOptions.Default;
+
     private uint _nextId = 0;
 
     private Task? _writerTask;
     private Task? _readerTask;
     private readonly CancellationTokenSource _cts = new();
+
+    // -------------------------------------------------------------------------
+    // Logging
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Monotonic clock started at <see cref="Connect"/> time.
+    /// Used to stamp all <see cref="RpcLogEntry"/> records.
+    /// </summary>
+    private readonly Stopwatch _clock = new();
+
+    /// <summary>
+    /// Raised for every command sent and response received by the client's I/O
+    /// loops.  Handlers are invoked synchronously on the I/O loop threads and
+    /// must return quickly and must not throw.
+    /// </summary>
+    public event Action<RpcLogEntry>? OnLogEntry;
 
     // -------------------------------------------------------------------------
     // Construction / lifecycle
@@ -118,19 +152,20 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     public void Connect()
     {
         _transport.Open();
+        _clock.Start();
         _writerTask = Task.Run(() => WriterLoopAsync(_cts.Token));
         _readerTask = Task.Run(() => ReaderLoopAsync(_cts.Token));
     }
 
     // -------------------------------------------------------------------------
-    // Core generic API (internal — public surface is in FlipperRpcClient.Commands.cs)
+    // Core generic API
     // -------------------------------------------------------------------------
 
     /// <summary>
     /// Sends a request/response command and returns the typed response.
     /// No boxing: <typeparamref name="TCommand"/> is passed as a generic parameter.
     /// </summary>
-    internal async Task<TResponse> SendAsync<TCommand, TResponse>(
+    public async Task<TResponse> SendAsync<TCommand, TResponse>(
         TCommand command,
         CancellationToken ct = default)
         where TCommand : struct, IRpcCommand<TResponse>
@@ -143,17 +178,20 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
         await using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
+        var commandName = command.CommandName;
+
         var workItem = new RpcWorkItem
         {
             RequestId = id,
-            Json = SerialiseMessage(id, command.CommandName, command.WriteArgs),
+            CommandName = commandName,
+            Json = SerialiseMessage(id, commandName, command.WriteArgs),
             Register = () =>
             {
                 _pending[id] = new PendingRequest
                 {
                     OnSuccess = element =>
                     {
-                        var envelope = JsonSerializer.Deserialize<RpcResponse<TResponse>>(element.GetRawText());
+                        var envelope = JsonSerializer.Deserialize<RpcResponse<TResponse>>(element.GetRawText(), _jsonOptions);
                         tcs.TrySetResult(envelope.Data);
                     },
                     OnError = code =>
@@ -173,7 +211,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// Returns an <see cref="RpcStream{TEvent}"/> that produces events via
     /// <c>await foreach</c> and releases Flipper resources when disposed.
     /// </summary>
-    internal async Task<RpcStream<TEvent>> SendStreamAsync<TCommand, TEvent>(
+    public async Task<RpcStream<TEvent>> SendStreamAsync<TCommand, TEvent>(
         TCommand command,
         CancellationToken ct = default)
         where TCommand : struct, IRpcStreamCommand<TEvent>
@@ -196,10 +234,13 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
         await using var reg = ct.Register(() => streamIdTcs.TrySetCanceled(ct));
 
+        var commandName = command.CommandName;
+
         var workItem = new RpcWorkItem
         {
             RequestId = id,
-            Json = SerialiseMessage(id, command.CommandName, command.WriteArgs),
+            CommandName = commandName,
+            Json = SerialiseMessage(id, commandName, command.WriteArgs),
             Register = () =>
             {
                 _pending[id] = new PendingRequest
@@ -259,8 +300,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         // Send stream_close to the Flipper (fire-and-forget-ish; ignore errors)
         try
         {
-            var closeCmd = new Commands.StreamCloseCommand(streamId);
-            await SendAsync<Commands.StreamCloseCommand, Commands.StreamCloseResponse>(closeCmd, ct)
+            var closeCmd = new StreamCloseCommand(streamId);
+            await SendAsync<StreamCloseCommand, StreamCloseResponse>(closeCmd, ct)
                 .ConfigureAwait(false);
         }
         catch(OperationCanceledException) { /* disposing — acceptable */ }
@@ -280,14 +321,41 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 // Register pending state BEFORE sending so the reader loop
                 // cannot receive the response before we're registered.
                 item.Register();
+
+                // Stamp the send time for round-trip tracking.
+                var sentTicks = _clock.ElapsedTicks;
+                if(_pending.TryGetValue(item.RequestId, out var pr))
+                {
+                    pr.SentTicks = sentTicks;
+                }
+
                 await _transport.SendLineAsync(item.Json, ct).ConfigureAwait(false);
+
+                // Emit a CommandSent log entry.
+                OnLogEntry?.Invoke(new RpcLogEntry
+                {
+                    Source = RpcLogSource.Client,
+                    Kind = RpcLogKind.CommandSent,
+                    RequestId = item.RequestId,
+                    CommandName = item.CommandName,
+                    RawJson = item.Json,
+                    Elapsed = TimeSpan.FromTicks(sentTicks),
+                });
             }
         }
         catch(OperationCanceledException) { /* normal shutdown */ }
         catch(Exception ex)
         {
             // Fault all pending requests
-            FaultAll(new FlipperRpcException("Writer loop failed.", ex));
+            var faultEx = new FlipperRpcException("Writer loop failed.", ex);
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.Error,
+                Status = ex.Message,
+                Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
+            });
+            FaultAll(faultEx);
         }
     }
 
@@ -319,6 +387,13 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         catch(OperationCanceledException) { /* normal shutdown */ }
         catch(Exception ex)
         {
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.Error,
+                Status = ex.Message,
+                Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
+            });
             FaultAll(new FlipperRpcException("Reader loop failed.", ex));
         }
     }
@@ -337,11 +412,22 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             return;
         }
 
+        var receivedTicks = _clock.ElapsedTicks;
+
         // Stream event: {"event":{...},"stream":<id>}
         if(root.TryGetProperty("event", out var eventElement)
             && root.TryGetProperty("stream", out var streamProp)
             && streamProp.TryGetUInt32(out var streamId))
         {
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.StreamEventReceived,
+                StreamId = streamId,
+                RawJson = line,
+                Elapsed = TimeSpan.FromTicks(receivedTicks),
+            });
+
             if(_streams.TryGetValue(streamId, out var streamState))
             {
                 // Offer to the channel; if the channel is full the write will
@@ -373,12 +459,43 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             return; // No one waiting — ignore
         }
 
+        // Compute round-trip time
+        TimeSpan? roundTrip = null;
+        if(pending.SentTicks > 0)
+        {
+            roundTrip = TimeSpan.FromTicks(receivedTicks - pending.SentTicks);
+        }
+
+        string? status = null;
         if(root.TryGetProperty("error", out var errorProp))
         {
-            pending.OnError(errorProp.GetString() ?? "unknown_error");
+            status = errorProp.GetString() ?? "unknown_error";
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.ResponseReceived,
+                RequestId = requestId,
+                Status = status,
+                RawJson = line,
+                Elapsed = TimeSpan.FromTicks(receivedTicks),
+                RoundTrip = roundTrip,
+            });
+            pending.OnError(status);
         }
         else
         {
+            // Detect stream-open response vs plain ok
+            status = root.TryGetProperty("stream", out _) ? "stream_opened" : "ok";
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.ResponseReceived,
+                RequestId = requestId,
+                Status = status,
+                RawJson = line,
+                Elapsed = TimeSpan.FromTicks(receivedTicks),
+                RoundTrip = roundTrip,
+            });
             pending.OnSuccess(root);
         }
     }
@@ -436,6 +553,13 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         {
             await _writerTask.ConfigureAwait(false);
         }
+
+        // Close the port before awaiting the reader task. On Windows,
+        // SerialPort.BaseStream.ReadAsync ignores the cancellation token, so
+        // the reader loop can be permanently stuck in ReadLineAsync even after
+        // _cts is cancelled. Closing the port forces the underlying read to
+        // throw immediately, which exits the reader loop and unblocks the await below.
+        _transport.Close();
 
         if(_readerTask is not null)
         {

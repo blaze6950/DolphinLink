@@ -3,16 +3,51 @@
  */
 
 #include "rpc_dispatch.h"
-#include "../handlers/rpc_handlers.h"
-#include "../handlers/rpc_handlers_system.h"
-#include "../handlers/rpc_handlers_gpio.h"
-#include "../handlers/rpc_handlers_ir.h"
-#include "../handlers/rpc_handlers_subghz.h"
-#include "../handlers/rpc_handlers_nfc.h"
-#include "../handlers/rpc_handlers_notification.h"
-#include "../handlers/rpc_handlers_storage.h"
-#include "../handlers/rpc_handlers_rfid.h"
-#include "../handlers/rpc_handlers_ibutton.h"
+/* Core */
+#include "../handlers/core/ping.h"
+#include "../handlers/core/stream_close.h"
+/* System */
+#include "../handlers/system/device_info.h"
+#include "../handlers/system/power_info.h"
+#include "../handlers/system/datetime_get.h"
+#include "../handlers/system/datetime_set.h"
+#include "../handlers/system/region_info.h"
+#include "../handlers/system/frequency_is_allowed.h"
+/* GPIO */
+#include "../handlers/gpio/gpio_read.h"
+#include "../handlers/gpio/gpio_write.h"
+#include "../handlers/gpio/adc_read.h"
+#include "../handlers/gpio/gpio_set_5v.h"
+#include "../handlers/gpio/gpio_watch_start.h"
+/* IR */
+#include "../handlers/ir/ir_tx.h"
+#include "../handlers/ir/ir_tx_raw.h"
+#include "../handlers/ir/ir_receive_start.h"
+/* Sub-GHz */
+#include "../handlers/subghz/subghz_tx.h"
+#include "../handlers/subghz/subghz_get_rssi.h"
+#include "../handlers/subghz/subghz_rx_start.h"
+/* NFC */
+#include "../handlers/nfc/nfc_scan_start.h"
+/* Notification */
+#include "../handlers/notification/led_set.h"
+#include "../handlers/notification/led_set_rgb.h"
+#include "../handlers/notification/vibro.h"
+#include "../handlers/notification/speaker_start.h"
+#include "../handlers/notification/speaker_stop.h"
+#include "../handlers/notification/backlight.h"
+/* Storage */
+#include "../handlers/storage/storage_info.h"
+#include "../handlers/storage/storage_list.h"
+#include "../handlers/storage/storage_read.h"
+#include "../handlers/storage/storage_write.h"
+#include "../handlers/storage/storage_mkdir.h"
+#include "../handlers/storage/storage_remove.h"
+#include "../handlers/storage/storage_stat.h"
+/* RFID */
+#include "../handlers/rfid/lfrfid_read_start.h"
+/* iButton */
+#include "../handlers/ibutton/ibutton_read_start.h"
 #include "rpc_json.h"
 #include "rpc_response.h"
 #include "rpc_resource.h"

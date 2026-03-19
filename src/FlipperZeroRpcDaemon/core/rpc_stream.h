@@ -174,3 +174,31 @@ void stream_reset(void);
  * over CDC.  Registered by the entry point.
  */
 void on_stream_event(FuriEventLoopObject* object, void* ctx);
+
+/* -------------------------------------------------------------------------
+ * Shared stream-open helpers — used by all stream-command handlers
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Allocate a stream slot, acquire @p res, populate the slot, and return
+ * the slot index.
+ *
+ * On failure (table full) sends an error response and returns -1.
+ * The caller must NOT proceed if -1 is returned.
+ *
+ * @param id            Request ID for error responses.
+ * @param cmd_name      Command name string (for error logging).
+ * @param res           ResourceMask to acquire (0 = none).
+ * @param stream_id_out Filled with the new stream's ID on success.
+ * @return Slot index [0, MAX_STREAMS), or -1 on failure.
+ */
+int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* stream_id_out);
+
+/**
+ * Send the stream-opened response: {"id":<request_id>,"stream":<stream_id>}\n
+ *
+ * @param request_id The original request ID.
+ * @param stream_id  The newly allocated stream ID.
+ * @param cmd_name   Command name string (for the command log).
+ */
+void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd_name);

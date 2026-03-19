@@ -1,9 +1,22 @@
 /**
  * rpc_stream.c — Active stream table management implementation
+ *
+ * Provides the shared stream table (active_streams[], next_stream_id,
+ * stream_event_queue, g_event_loop) and the two helpers used by every
+ * stream-command handler:
+ *
+ *   stream_open()        — allocate slot, acquire resource, assign ID
+ *   stream_send_opened() — emit {"id":N,"stream":M}\n over CDC
+ *
+ * These were previously copy-pasted as static functions into every handler
+ * file.  They are now the single canonical implementations.
  */
 
 #include "rpc_stream.h"
 #include "rpc_transport.h"
+#include "rpc_response.h"
+#include "rpc_resource.h"
+#include "rpc_cmd_log.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -87,4 +100,39 @@ void on_stream_event(FuriEventLoopObject* object, void* ctx) {
             ev.stream_id);
         cdc_send(buf);
     }
+}
+
+/* -------------------------------------------------------------------------
+ * Shared stream-open helpers
+ * ------------------------------------------------------------------------- */
+
+int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* stream_id_out) {
+    int slot = stream_alloc_slot();
+    if(slot < 0) {
+        rpc_send_error(id, "stream_table_full", cmd_name);
+        return -1;
+    }
+    resource_acquire(res);
+    uint32_t stream_id = next_stream_id++;
+    active_streams[slot].id = stream_id;
+    active_streams[slot].resources = res;
+    active_streams[slot].active = true;
+    active_streams[slot].teardown = NULL;
+    *stream_id_out = stream_id;
+    return slot;
+}
+
+void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd_name) {
+    char resp[128];
+    snprintf(
+        resp, sizeof(resp), "{\"id\":%" PRIu32 ",\"stream\":%" PRIu32 "}\n", request_id, stream_id);
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(
+        log_entry,
+        sizeof(log_entry),
+        "#%" PRIu32 " %.14s->s:%" PRIu32,
+        request_id,
+        cmd_name,
+        stream_id);
+    rpc_send_response(resp, log_entry);
 }

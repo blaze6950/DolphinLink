@@ -11,4 +11,13 @@
         <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Commands\RpcCommands.cs" />
+      <Compile Remove="FlipperRpcClient.Commands.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="System.Text.Json" />
+    </ItemGroup>
+
 </Project>

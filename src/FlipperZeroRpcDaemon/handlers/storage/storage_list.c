@@ -1,0 +1,108 @@
+﻿/**
+ * storage_list.c — RPC handler implementation for the "storage_list" command
+ *
+ * Opens a directory and reads up to STORAGE_LIST_MAX (64) entries.  Each entry
+ * is serialised as {"name":"...","is_dir":bool,"size":N} into a heap buffer
+ * (each entry can be up to ~290 bytes; 64 × 290 ≈ 18 560 bytes).
+ *
+ * Wire format (request):
+ *   {"id":N,"cmd":"storage_list","path":"/int"}
+ *
+ * Wire format (response — success):
+ *   {"id":N,"status":"ok","data":{"entries":[...]}}
+ *
+ * Wire format (response — error):
+ *   {"id":N,"error":"missing_path"}   — "path" field absent
+ *   {"id":N,"error":"open_failed"}    — directory could not be opened
+ *   {"id":N,"error":"out_of_memory"}  — heap allocation failed
+ *
+ * Resources: none (0).
+ * Thread: main (FuriEventLoop).
+ */
+
+#include "storage_list.h"
+#include "../../core/rpc_globals.h"
+#include "../../core/rpc_response.h"
+#include "../../core/rpc_json.h"
+#include "../../core/rpc_cmd_log.h"
+
+#include <furi.h>
+#include <storage/storage.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <inttypes.h>
+
+#define PATH_MAX_LEN     256
+#define STORAGE_LIST_MAX 64
+
+void storage_list_handler(uint32_t id, const char* json) {
+    char path[PATH_MAX_LEN] = {0};
+    if(!json_extract_string(json, "path", path, sizeof(path))) {
+        rpc_send_error(id, "missing_path", "storage_list");
+        return;
+    }
+
+    File* dir = storage_file_alloc(g_storage);
+    if(!storage_dir_open(dir, path)) {
+        storage_file_free(dir);
+        rpc_send_error(id, "open_failed", "storage_list");
+        return;
+    }
+
+    /* Build a JSON array of entries inline into a heap buffer */
+    /* Each entry: {"name":"...","is_dir":false,"size":1234} max ~290 chars */
+    /* 64 entries × 290 = ~18 560 — allocate on heap */
+    size_t buf_size = STORAGE_LIST_MAX * 290 + 128;
+    char* buf = malloc(buf_size);
+    if(!buf) {
+        storage_dir_close(dir);
+        storage_file_free(dir);
+        rpc_send_error(id, "out_of_memory", "storage_list");
+        return;
+    }
+
+    FileInfo fi;
+    char name[256];
+    size_t offset = 0;
+    size_t count = 0;
+
+    /* Header */
+    offset += snprintf(
+        buf + offset,
+        buf_size - offset,
+        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"entries\":[",
+        id);
+
+    while(count < STORAGE_LIST_MAX && storage_dir_read(dir, &fi, name, sizeof(name))) {
+        if(count > 0 && offset < buf_size - 1) {
+            buf[offset++] = ',';
+        }
+        bool is_dir = (fi.flags & FSF_DIRECTORY) != 0;
+        offset += snprintf(
+            buf + offset,
+            buf_size - offset,
+            "{\"name\":\"%s\",\"is_dir\":%s,\"size\":%" PRIu32 "}",
+            name,
+            is_dir ? "true" : "false",
+            (uint32_t)fi.size);
+        count++;
+    }
+
+    storage_dir_close(dir);
+    storage_file_free(dir);
+
+    if(offset < buf_size - 3) {
+        buf[offset++] = ']';
+        buf[offset++] = '}';
+        buf[offset++] = '}';
+        buf[offset++] = '\n';
+        buf[offset] = '\0';
+    }
+
+    char log_entry[CMD_LOG_LINE_LEN];
+    snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_list %.12s", id, path);
+
+    rpc_send_response(buf, log_entry);
+    free(buf);
+}

@@ -49,6 +49,31 @@ internal sealed class FlipperRpcTransport : IAsyncDisposable
     }
 
     /// <summary>
+    /// Closes the serial port without disposing it.
+    /// Calling this unblocks any <see cref="ReadLineAsync"/> that is stuck waiting
+    /// for data — on Windows, <see cref="SerialPort"/> ignores cancellation tokens
+    /// on the underlying <c>BaseStream.ReadAsync</c>, so closing the port is the
+    /// only reliable way to wake the reader loop during shutdown.
+    /// Safe to call concurrently with <see cref="ReadLineAsync"/>; the resulting
+    /// exception is swallowed by <see cref="ReadLineAsync"/>'s catch-all and returned
+    /// as <c>null</c> (EOF).
+    /// </summary>
+    public void Close()
+    {
+        try
+        {
+            if (_port.IsOpen)
+            {
+                _port.Close();
+            }
+        }
+        catch
+        {
+            // Best-effort: ignore errors during shutdown close.
+        }
+    }
+
+    /// <summary>
     /// Writes a single JSON line followed by <c>\n</c> and flushes the buffer.
     /// Must only be called from the writer loop.
     /// </summary>
@@ -93,7 +118,15 @@ internal sealed class FlipperRpcTransport : IAsyncDisposable
     {
         if (_writer is not null)
         {
-            await _writer.DisposeAsync().ConfigureAwait(false);
+            // If the port was already closed (via Close()), StreamWriter.DisposeAsync
+            // will attempt to flush the underlying SerialStream and throw
+            // ObjectDisposedException. Suppress it — there is nothing to flush
+            // once the port is shut down.
+            try
+            {
+                await _writer.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException) { }
         }
 
         _reader?.Dispose();

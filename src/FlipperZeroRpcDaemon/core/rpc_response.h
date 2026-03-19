@@ -40,7 +40,8 @@ void rpc_send_ok(uint32_t id, const char* cmd_name);
  * Send an arbitrary pre-formatted JSON response and log it.
  *
  * Use this when the success response contains a custom data payload that
- * rpc_send_ok() cannot express (e.g. the stream-opened response).
+ * rpc_send_ok() cannot express (e.g. ping with pong data, gpio_read with
+ * a value, or a stream-opened response).
  *
  * @param json_line  Complete '\n'-terminated JSON line to send over CDC.
  * @param log_entry  Short string to display in the on-screen log.

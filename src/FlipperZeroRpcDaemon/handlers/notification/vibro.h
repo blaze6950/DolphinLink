@@ -1,0 +1,28 @@
+﻿/**
+ * vibro.h — RPC handler declaration for the "vibro" command
+ *
+ * Enables or disables the Flipper Zero vibration motor.
+ *
+ * Wire format (request):
+ *   {"id":N,"cmd":"vibro","enable":true|false}
+ *
+ * Wire format (response — success):
+ *   {"id":N,"status":"ok"}
+ *
+ * Wire format (response — error):
+ *   {"id":N,"error":"missing_enable"}  — "enable" field absent
+ *
+ * Resources: none (0).
+ */
+
+#pragma once
+
+#include <stdint.h>
+
+/**
+ * Handle the "vibro" RPC command.
+ *
+ * @param id   Request ID from the JSON message.
+ * @param json Full JSON line (null-terminated) received from the host.
+ */
+void vibro_handler(uint32_t id, const char* json);
