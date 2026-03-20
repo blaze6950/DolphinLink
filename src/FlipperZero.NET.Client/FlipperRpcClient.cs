@@ -13,6 +13,15 @@ namespace FlipperZero.NET;
 ///
 /// Architecture
 /// ============
+///
+/// <code>
+///   IFlipperTransport   (raw: Serial, BLE, TCP, …)
+///       ↑
+///   HeartbeatTransport  (keep-alive, disconnect detection)
+///       ↑
+///   FlipperRpcClient    (this class — RPC logic only)
+/// </code>
+///
 /// All outbound commands are serialised through a bounded
 /// <see cref="Channel{T}"/> (capacity 32).  A single writer loop dequeues work
 /// items and sends them over the transport, guaranteeing no interleaving on the
@@ -31,6 +40,14 @@ namespace FlipperZero.NET;
 /// returns an <see cref="RpcStream{TEvent}"/>.  The stream id returned by the
 /// Flipper is resolved in the reader loop; subsequent event messages are pushed
 /// into the stream's internal channel.
+///
+/// Heartbeat / keep-alive
+/// ----------------------
+/// Handled entirely by <see cref="HeartbeatTransport"/>. This class has no
+/// knowledge of heartbeat timing, watchdog logic, or keep-alive frames.
+/// When the transport detects a silent disconnect it raises its
+/// <see cref="HeartbeatTransport.Disconnected"/> event, which triggers
+/// <see cref="FaultAll"/>.
 ///
 /// Logging
 /// -------
@@ -98,6 +115,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     // -------------------------------------------------------------------------
 
     private readonly IFlipperTransport _transport;
+    private readonly HeartbeatTransport _heartbeat;
     private readonly Channel<RpcWorkItem> _outbound;
 
     /// <summary>
@@ -120,6 +138,20 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     private Task? _writerTask;
     private Task? _readerTask;
     private readonly CancellationTokenSource _cts = new();
+
+    /// <summary>
+    /// Cancelled when the connection to the Flipper is lost (transport EOF,
+    /// read error, heartbeat timeout, or explicit <see cref="DisposeAsync"/>).
+    /// Consumers can pass <see cref="Disconnected"/> to <c>await foreach</c>
+    /// or <c>Task.WhenAny</c> to react immediately when the device disappears.
+    /// </summary>
+    private readonly CancellationTokenSource _disconnectCts = new();
+
+    /// <summary>
+    /// A <see cref="CancellationToken"/> that is cancelled the moment the
+    /// connection to the Flipper is lost.
+    /// </summary>
+    public CancellationToken Disconnected => _disconnectCts.Token;
 
     // -------------------------------------------------------------------------
     // Logging
@@ -144,7 +176,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     /// <param name="portName">
     /// Serial port name, e.g. <c>"COM3"</c> or <c>"/dev/ttyACM0"</c>.
-    /// Creates a <see cref="FlipperRpcTransport"/> (USB-CDC) internally.
+    /// Creates a <see cref="FlipperRpcTransport"/> (USB-CDC) internally,
+    /// wrapped in a <see cref="HeartbeatTransport"/> with default timing.
     /// </param>
     public FlipperRpcClient(string portName)
         : this(new FlipperRpcTransport(portName))
@@ -155,6 +188,11 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// Creates a client using the supplied transport.
     /// Use this overload to inject a custom transport (BLE, Wi-Fi, WASM/WebSerial bridge,
     /// or an in-process fake for unit tests).
+    ///
+    /// The transport is automatically wrapped in a <see cref="HeartbeatTransport"/>
+    /// with default timing (3 s heartbeat interval, 10 s timeout).
+    /// Use <see cref="FlipperRpcClient(IFlipperTransport,TimeSpan,TimeSpan)"/>
+    /// to override the heartbeat timing.
     /// </summary>
     /// <param name="transport">
     /// A transport that has not yet been opened.
@@ -162,8 +200,38 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// <see cref="IFlipperTransport.Close"/>, and <see cref="IAsyncDisposable.DisposeAsync"/>.
     /// </param>
     public FlipperRpcClient(IFlipperTransport transport)
+        : this(transport,
+               HeartbeatTransport.DefaultHeartbeatInterval,
+               HeartbeatTransport.DefaultTimeout)
     {
-        _transport = transport;
+    }
+
+    /// <summary>
+    /// Creates a client using the supplied transport with explicit heartbeat timing.
+    /// </summary>
+    /// <param name="transport">Raw transport, not yet opened.</param>
+    /// <param name="heartbeatInterval">
+    /// How long outbound silence is allowed before a keep-alive frame is sent.
+    /// </param>
+    /// <param name="timeout">
+    /// How long inbound silence is allowed before the connection is declared lost.
+    /// Must be strictly greater than <paramref name="heartbeatInterval"/>.
+    /// </param>
+    public FlipperRpcClient(
+        IFlipperTransport transport,
+        TimeSpan heartbeatInterval,
+        TimeSpan timeout)
+    {
+        _heartbeat = new HeartbeatTransport(transport, heartbeatInterval, timeout);
+
+        // Subscribe to the transport-level disconnect event.
+        // HeartbeatTransport fires this when the inbound channel is silent for
+        // longer than `timeout`, or when sending a keep-alive frame fails.
+        // We translate it into a FaultAll so all pending RPC work fails fast.
+        _heartbeat.Disconnected += OnHeartbeatDisconnected;
+
+        _transport = _heartbeat;
+
         _outbound = Channel.CreateBounded<RpcWorkItem>(new BoundedChannelOptions(32)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -171,6 +239,10 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             SingleWriter = false,
         });
     }
+
+    // -------------------------------------------------------------------------
+    // ConnectAsync
+    // -------------------------------------------------------------------------
 
     /// <summary>
     /// Opens the transport, starts background I/O loops, and performs
@@ -358,7 +430,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         return new RpcStream<TEvent>(
             resolvedStreamId,
             eventChannel.Reader,
-            closeAsync: streamId => CloseStreamAsync(streamId, ct));
+            closeAsync: streamId => CloseStreamAsync(streamId, ct),
+            disconnectToken: _disconnectCts.Token);
     }
 
     // -------------------------------------------------------------------------
@@ -448,12 +521,19 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 var line = await _transport.ReadLineAsync(ct).ConfigureAwait(false);
                 if(line is null)
                 {
-                    break; // port disconnected
+                    // Transport returned EOF — the Flipper disconnected (USB
+                    // pulled, daemon stopped, port closed by OS, etc.).
+                    // Fault all pending requests and open streams immediately
+                    // so consumers are not left hanging indefinitely.
+                    FaultAll(new FlipperRpcException("Connection lost."));
+                    break;
                 }
 
                 line = line.Trim();
                 if(line.Length == 0)
                 {
+                    // HeartbeatTransport already filters out keep-alive frames
+                    // before they reach here. This is defence-in-depth only.
                     continue;
                 }
 
@@ -474,6 +554,10 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         }
     }
 
+    // -------------------------------------------------------------------------
+    // DispatchLine
+    // -------------------------------------------------------------------------
+
     private void DispatchLine(string line)
     {
         JsonElement root;
@@ -489,6 +573,23 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         }
 
         var receivedTicks = _clock.ElapsedTicks;
+
+        // Graceful daemon exit: {"disconnect":true}
+        // Sent by the daemon immediately before cleanup.  Fault all pending
+        // work so consumers exit cleanly without waiting for a timeout.
+        if(root.TryGetProperty("disconnect", out _))
+        {
+            OnLogEntry?.Invoke(new RpcLogEntry
+            {
+                Source = RpcLogSource.Client,
+                Kind = RpcLogKind.Error,
+                Status = "Daemon disconnected.",
+                RawJson = line,
+                Elapsed = TimeSpan.FromTicks(receivedTicks),
+            });
+            FaultAll(new FlipperRpcException("Daemon disconnected."));
+            return;
+        }
 
         // Stream event: {"event":{...},"stream":<id>}
         if(root.TryGetProperty("event", out var eventElement)
@@ -598,8 +699,30 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         return Encoding.UTF8.GetString(ms.ToArray());
     }
 
+    /// <summary>
+    /// Called by <see cref="HeartbeatTransport.Disconnected"/> when the
+    /// transport-level keep-alive detects a silent connection loss.
+    /// Translates the transport event into an RPC-level fault.
+    /// </summary>
+    private void OnHeartbeatDisconnected()
+    {
+        OnLogEntry?.Invoke(new RpcLogEntry
+        {
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.Error,
+            Status = "Connection lost — heartbeat timeout.",
+            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
+        });
+        FaultAll(new FlipperRpcException("Connection lost — heartbeat timeout."));
+    }
+
     private void FaultAll(Exception ex)
     {
+        // Signal the disconnect token so consumers can react immediately,
+        // regardless of which path (reader EOF, reader exception, writer
+        // exception, heartbeat timeout, or DisposeAsync) triggered the fault.
+        _disconnectCts.Cancel();
+
         foreach(var kv in _pending)
         {
             if(_pending.TryRemove(kv.Key, out var p))
@@ -645,6 +768,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         FaultAll(new FlipperRpcException("Client disposed."));
 
         await _transport.DisposeAsync().ConfigureAwait(false);
+        _disconnectCts.Dispose();
         _cts.Dispose();
     }
 }

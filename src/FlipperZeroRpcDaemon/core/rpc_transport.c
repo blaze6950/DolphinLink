@@ -13,9 +13,23 @@
  * RX pipeline:
  *   cdc_rx_callback() (USB ISR) pulls bytes via furi_hal_cdc_receive(), builds
  *   lines, and posts complete '\n'-terminated lines to rx_queue.
+ *   on_rx_queue() (main thread) skips empty keep-alive frames and dispatches
+ *   the rest to rpc_dispatch().
+ *
+ * Heartbeat / keep-alive:
+ *   Implemented here as a transport-layer concern via a FuriEventLoopTimer.
+ *   TX side: sends a bare '\n' keep-alive when outbound traffic has been idle
+ *   for ≥ HEARTBEAT_TX_IDLE_MS.
+ *   RX side: declares the host gone when no inbound data has arrived for
+ *   ≥ HEARTBEAT_RX_TIMEOUT_MS; tears down all streams and resources.
+ *   Both last_tx_ticks and last_rx_ticks are read/written on the main thread
+ *   only — no synchronisation is required.
  */
 
 #include "rpc_transport.h"
+#include "rpc_stream.h"
+#include "rpc_resource.h"
+#include "rpc_gui.h"
 
 #include <furi_hal_usb_cdc.h>
 #include <string.h>
@@ -33,6 +47,21 @@ static FuriStreamBuffer* tx_stream   = NULL;
 static FuriSemaphore*    tx_semaphore = NULL;
 static FuriThread*       tx_thread   = NULL;
 static volatile bool     tx_running  = false;
+
+/**
+ * Tick count of the last cdc_send() call.  Written on the main thread,
+ * read by the heartbeat timer callback (also main thread) — no synchronisation
+ * needed.  0 means no message has been sent yet.
+ */
+uint32_t last_tx_ticks = 0;
+
+/**
+ * Tick count of the last line received from the host.
+ * Updated in on_rx_queue() on every dispatch.  Read by the heartbeat timer
+ * callback (also main thread) — no synchronisation needed.
+ * Initialised to 0; set to furi_get_tick() on the first received line.
+ */
+uint32_t last_rx_ticks = 0;
 
 /* =========================================================
  * TX thread worker
@@ -113,9 +142,9 @@ void cdc_transport_free(void) {
  * cdc_send — called from the main thread
  * ========================================================= */
 
-void cdc_send(const char* json) {
-    size_t remaining = strlen(json);
-    const uint8_t* ptr = (const uint8_t*)json;
+void cdc_send(const char* data) {
+    size_t remaining = strlen(data);
+    const uint8_t* ptr = (const uint8_t*)data;
 
     /* Push all bytes into the stream buffer.  furi_stream_buffer_send() blocks
      * (FuriWaitForever) if the buffer is full, providing natural backpressure for
@@ -126,7 +155,11 @@ void cdc_send(const char* json) {
         remaining -= sent;
     }
 
-    FURI_LOG_I("RPC", "TX: %s", json);
+    /* Record the tick at which this message was fully enqueued.  The heartbeat
+     * timer reads this on the same thread (main thread) — no synchronisation needed. */
+    last_tx_ticks = furi_get_tick();
+
+    FURI_LOG_I("RPC", "TX: %s", data);
 }
 
 /* =========================================================
@@ -197,4 +230,104 @@ void cdc_ctrl_line_callback(void* context, CdcCtrlLine ctrl_lines) {
     /* Non-blocking; drop if the queue is full (capacity 2 is enough for
      * connect + disconnect without loss under normal conditions). */
     furi_message_queue_put(q, &ev, 0);
+}
+
+/* =========================================================
+ * Heartbeat / keep-alive timer
+ *
+ * This is a pure transport-layer concern.  The timer fires periodically
+ * and performs two independent checks:
+ *
+ *   TX side — if no message has been sent for ≥ HEARTBEAT_TX_IDLE_MS,
+ *   emit a bare '\n' keep-alive frame.  The host's HeartbeatTransport
+ *   intercepts this empty line, updates its lastSeen timestamp, and does
+ *   not forward it to the RPC layer.
+ *
+ *   RX side — if no message has been received for ≥ HEARTBEAT_RX_TIMEOUT_MS,
+ *   declare the host gone and tear down streams + resources.
+ *
+ * No RPC commands, no ping/pong, no acknowledgements.
+ * ========================================================= */
+
+/** Send a heartbeat if no TX has occurred for this many ms. */
+#define HEARTBEAT_TX_IDLE_MS     3000U
+/** Declare the host gone if no RX has occurred for this many ms. */
+#define HEARTBEAT_RX_TIMEOUT_MS 10000U
+/** Timer fires every 3 s (same as TX idle threshold). */
+#define HEARTBEAT_TIMER_PERIOD_MS 3000U
+
+/** Context bundled for the timer callback. */
+typedef struct {
+    ViewPort* view_port;
+} HeartbeatCtx;
+
+/**
+ * Fires every HEARTBEAT_TIMER_PERIOD_MS while the host is connected.
+ *
+ * TX side: if no message has been sent for ≥ HEARTBEAT_TX_IDLE_MS, emit a
+ *   bare '\n' keep-alive frame.  This gives the host a liveness signal even
+ *   when the daemon is idle (no stream events, no responses).  The payload is
+ *   a single newline — the minimum NDJSON frame — with no RPC meaning.
+ *
+ * RX side: if no message has been received for ≥ HEARTBEAT_RX_TIMEOUT_MS,
+ *   assume the host has silently disappeared (cable pulled, app crashed,
+ *   machine slept).  Tear down all streams + resources exactly as if DTR
+ *   had dropped, and update the GUI status bar.
+ */
+static void on_heartbeat_timer(void* ctx) {
+    HeartbeatCtx* hctx = ctx;
+
+    if(!host_connected) return;
+
+    uint32_t now = furi_get_tick();
+
+    /* ---- RX watchdog: has the host gone silent? ---- */
+    if(last_rx_ticks != 0 &&
+       (now - last_rx_ticks) >= furi_ms_to_ticks(HEARTBEAT_RX_TIMEOUT_MS)) {
+        FURI_LOG_W("RPC", "Heartbeat: no RX for %u ms — host gone", HEARTBEAT_RX_TIMEOUT_MS);
+        host_connected = false;
+        stream_close_all();
+        resource_reset();
+        if(hctx->view_port) {
+            view_port_update(hctx->view_port);
+        }
+        /* Timer stays allocated; it will be stopped/started on the next DTR edge. */
+        return;
+    }
+
+    /* ---- TX heartbeat: send keep-alive if outbound channel is idle ---- */
+    /* Payload is a bare '\n' — minimum NDJSON frame (1 byte on the wire).
+     * The host's HeartbeatTransport consumes it without passing it to the
+     * RPC layer above, updating its lastSeen timestamp as proof-of-life. */
+    if(last_tx_ticks == 0 ||
+       (now - last_tx_ticks) >= furi_ms_to_ticks(HEARTBEAT_TX_IDLE_MS)) {
+        cdc_send("\n");
+    }
+}
+
+/* ---- Static storage for one HeartbeatCtx per timer ---- */
+/* The context must outlive the timer. Allocated statically to avoid a
+ * heap allocation for a single long-lived object. */
+static HeartbeatCtx g_heartbeat_ctx;
+
+FuriEventLoopTimer* heartbeat_timer_alloc(FuriEventLoop* loop, ViewPort* view_port) {
+    g_heartbeat_ctx.view_port = view_port;
+
+    return furi_event_loop_timer_alloc(
+        loop,
+        on_heartbeat_timer,
+        FuriEventLoopTimerTypePeriodic,
+        &g_heartbeat_ctx);
+}
+
+void heartbeat_timer_start(FuriEventLoopTimer* timer) {
+    furi_event_loop_timer_start(timer, furi_ms_to_ticks(HEARTBEAT_TIMER_PERIOD_MS));
+}
+
+void heartbeat_timer_stop(FuriEventLoopTimer* timer) {
+    furi_event_loop_timer_stop(timer);
+}
+
+void heartbeat_timer_free(FuriEventLoopTimer* timer) {
+    furi_event_loop_timer_free(timer);
 }

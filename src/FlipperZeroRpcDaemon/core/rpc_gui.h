@@ -28,6 +28,13 @@ typedef struct {
 } AppState;
 
 /**
+ * True while a host has the serial port open (DTR asserted).
+ * Defined in flipper_zero_rpc_daemon.c; read by draw_callback() to render
+ * the connection status indicator on the status bar.
+ */
+extern bool host_connected;
+
+/**
  * Allocate the ViewPort, register draw/input callbacks, add it to the GUI,
  * and set g_view_port so that cmd_log_push() can trigger redraws.
  */

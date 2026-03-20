@@ -17,12 +17,19 @@
  * Protocol (response – error):
  *   {"id":<uint>,"error":"<code>"}
  *
+ * Keep-alive / heartbeat:
+ *   Both sides send a bare '\n' (minimum NDJSON frame) when their respective
+ *   outbound channels have been idle.  See core/rpc_transport.{h,c} for the
+ *   full heartbeat design.  Empty lines received from the host are consumed
+ *   in on_rx_queue() before reaching rpc_dispatch() — they never appear as
+ *   RPC commands.
+ *
  * Module layout:
  *   rpc_resource   Hardware resource bitmask (BLE, SubGHz, IR, NFC, …)
  *   rpc_stream     Active stream table, StreamEvent queue, g_event_loop
  *   rpc_json       Pure JSON extraction helpers
  *   rpc_base64     Base64 encode / decode helpers
- *   rpc_transport  USB CDC send + ISR RX framing → rx_queue
+ *   rpc_transport  USB CDC send + ISR RX framing → rx_queue + heartbeat timer
  *   rpc_cmd_log    On-screen command log ring buffer
  *   rpc_response   Response formatting helpers (dedup cdc_send + cmd_log_push)
  *   rpc_dispatch   Command registry + dispatcher
@@ -64,6 +71,13 @@
 ResourceMask active_resources = 0;
 FuriMessageQueue* rx_queue = NULL;
 
+/**
+ * True while a host has the serial port open (DTR asserted).
+ * Set/cleared in on_ctrl_line_queue(); read by draw_callback() for the GUI.
+ * extern declaration lives in rpc_gui.h.
+ */
+bool host_connected = false;
+
 /** Storage service handle — opened at startup, closed on exit. */
 Storage* g_storage = NULL;
 
@@ -79,6 +93,16 @@ static void on_rx_queue(FuriEventLoopObject* object, void* ctx) {
     UNUSED(ctx);
     RxLine line;
     while(furi_message_queue_get(rx_queue, &line, 0) == FuriStatusOk) {
+        /* Update the last-received timestamp so the heartbeat watchdog knows
+         * the host is still alive and actively communicating.
+         * This is done for ALL lines, including keep-alive empty frames. */
+        last_rx_ticks = furi_get_tick();
+
+        /* Skip empty keep-alive frames (a bare '\n' from the host's
+         * HeartbeatTransport layer).  These are proof-of-life at the transport
+         * level and carry no RPC meaning — do not pass to rpc_dispatch(). */
+        if(line.len <= 1) continue;
+
         rpc_dispatch(line.data);
     }
 }
@@ -91,21 +115,40 @@ static void on_rx_queue(FuriEventLoopObject* object, void* ctx) {
  * Called on the main thread when the host toggles DTR/RTS (e.g. serial port
  * opened or closed, host application crashed, USB cable pulled).
  *
- * When DTR drops (host disconnected), close all active streams so that any
- * custom exit combos are cleared and the default Back+Short exit is restored.
- * The daemon itself keeps running — the next client connection can open new
- * streams without needing a Flipper reboot.
+ * Tracks host_connected so the GUI status bar always reflects the current
+ * connection state.  On DTR assert, seeds last_rx_ticks and starts the
+ * heartbeat timer.  On DTR drop, stops the timer and tears down all open
+ * streams so hardware resources are released.
  */
+
+typedef struct {
+    AppState*           app;
+    FuriEventLoopTimer* heartbeat_timer;
+} CtrlLineCtx;
+
 static void on_ctrl_line_queue(FuriEventLoopObject* object, void* ctx) {
     UNUSED(object);
-    UNUSED(ctx);
+    CtrlLineCtx* clctx = ctx;
+    AppState* app = clctx->app;
     CdcCtrlEvent ev;
     while(furi_message_queue_get(cdc_ctrl_queue, &ev, 0) == FuriStatusOk) {
         bool dtr = (ev.ctrl_lines & CdcCtrlLineDTR) != 0;
         FURI_LOG_I("RPC", "DTR %s", dtr ? "asserted" : "released");
-        if(!dtr) {
-            /* Host disconnected — tear down all open streams so hardware
-             * resources and the exit-combo suppression are released. */
+        if(dtr != host_connected) {
+            host_connected = dtr;
+            /* Redraw immediately so the status bar reflects the new state. */
+            if(app && app->view_port) {
+                view_port_update(app->view_port);
+            }
+        }
+        if(dtr) {
+            /* Host connected — seed last_rx_ticks so the RX watchdog starts
+             * measuring from now, not from whenever the last session ended. */
+            last_rx_ticks = furi_get_tick();
+            heartbeat_timer_start(clctx->heartbeat_timer);
+        } else {
+            /* Host disconnected — stop heartbeat and tear down streams. */
+            heartbeat_timer_stop(clctx->heartbeat_timer);
             stream_close_all();
             resource_reset();
         }
@@ -172,6 +215,16 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     app.event_loop = furi_event_loop_alloc();
     g_event_loop = app.event_loop;
 
+    /* --- Heartbeat timer (allocated AFTER event loop, freed BEFORE event loop free) ---
+     * The heartbeat timer is a transport-layer concern, managed via the API
+     * in rpc_transport.{h,c}.  The entry point only handles its lifecycle
+     * (alloc/free) and delegates start/stop to on_ctrl_line_queue(). */
+    FuriEventLoopTimer* heartbeat_timer =
+        heartbeat_timer_alloc(app.event_loop, app.view_port);
+
+    /* Bundle the heartbeat timer into the ctrl-line subscriber context. */
+    CtrlLineCtx clctx = {.app = &app, .heartbeat_timer = heartbeat_timer};
+
     furi_event_loop_subscribe_message_queue(
         app.event_loop, rx_queue, FuriEventLoopEventIn, on_rx_queue, NULL);
 
@@ -182,10 +235,17 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
         app.event_loop, app.input_queue, FuriEventLoopEventIn, on_input_queue, &app);
 
     furi_event_loop_subscribe_message_queue(
-        app.event_loop, cdc_ctrl_queue, FuriEventLoopEventIn, on_ctrl_line_queue, NULL);
+        app.event_loop, cdc_ctrl_queue, FuriEventLoopEventIn, on_ctrl_line_queue, &clctx);
 
     /* --- Run (blocks until Back is pressed) --- */
     furi_event_loop_run(app.event_loop);
+
+    /* --- Goodbye message: notify host of graceful exit BEFORE cleanup --- */
+    /* Send while the TX pipeline is still alive so the host can detect the
+     * exit immediately (without waiting for a USB disconnect or DTR drop). */
+    if(host_connected) {
+        cdc_send("{\"disconnect\":true}\n");
+    }
 
     /* --- Cleanup --- */
 
@@ -197,6 +257,9 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     furi_event_loop_unsubscribe(app.event_loop, stream_event_queue);
     furi_event_loop_unsubscribe(app.event_loop, app.input_queue);
     furi_event_loop_unsubscribe(app.event_loop, cdc_ctrl_queue);
+
+    /* Free the heartbeat timer BEFORE freeing the event loop. */
+    heartbeat_timer_free(heartbeat_timer);
 
     g_event_loop = NULL;
     furi_event_loop_free(app.event_loop);

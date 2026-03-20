@@ -21,13 +21,14 @@ static void draw_callback(Canvas* canvas, void* ctx) {
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 10, "FlipperZero.NET Daemon");
 
-    /* Status bar */
+    /* Status bar — connection indicator prefix + stream count + resource mask */
     canvas_set_font(canvas, FontSecondary);
     char status[48];
     snprintf(
         status,
         sizeof(status),
-        "S:%" PRIu32 "  Res:0x%02" PRIx32,
+        "%s S:%" PRIu32 "  Res:0x%02" PRIx32,
+        host_connected ? "[C]" : "[ ]",
         stream_count_active(),
         active_resources);
     canvas_draw_str(canvas, 2, 21, status);
