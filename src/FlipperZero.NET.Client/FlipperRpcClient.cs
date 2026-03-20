@@ -192,6 +192,25 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     }
 
     /// <summary>
+    /// Creates a client connected to a USB-CDC serial port with explicit
+    /// heartbeat timing.
+    /// </summary>
+    /// <param name="portName">
+    /// Serial port name, e.g. <c>"COM3"</c> or <c>"/dev/ttyACM0"</c>.
+    /// </param>
+    /// <param name="heartbeatInterval">
+    /// How long outbound silence is allowed before a keep-alive frame is sent.
+    /// </param>
+    /// <param name="timeout">
+    /// How long inbound silence is allowed before the connection is declared lost.
+    /// Must be strictly greater than <paramref name="heartbeatInterval"/>.
+    /// </param>
+    public FlipperRpcClient(string portName, TimeSpan heartbeatInterval, TimeSpan timeout)
+        : this(new FlipperRpcTransport(portName), heartbeatInterval, timeout)
+    {
+    }
+
+    /// <summary>
     /// Creates a client using the supplied transport.
     /// Use this overload to inject a custom transport (BLE, Wi-Fi, WASM/WebSerial bridge,
     /// or an in-process fake for unit tests).
