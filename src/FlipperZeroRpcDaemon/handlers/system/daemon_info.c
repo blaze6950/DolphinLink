@@ -26,11 +26,13 @@ static const char* const SUPPORTED_COMMANDS[] = {
     /* System */
     "device_info",
     "daemon_info",
+    "daemon_stop",
     "power_info",
     "datetime_get",
     "datetime_set",
     "region_info",
     "frequency_is_allowed",
+    "reboot",
     /* GPIO */
     "gpio_read",
     "gpio_write",

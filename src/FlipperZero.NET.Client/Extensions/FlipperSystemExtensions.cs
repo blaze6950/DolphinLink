@@ -97,4 +97,33 @@ public static class FlipperSystemExtensions
             new FrequencyIsAllowedCommand(freq), ct).ConfigureAwait(false);
         return r.Allowed;
     }
+
+    /// <summary>
+    /// Requests the RPC daemon to stop gracefully. The daemon sends the OK
+    /// response, then stops its event loop, which triggers a full teardown:
+    /// all open streams are closed, hardware resources are released, a
+    /// <c>{"disconnect":true}</c> notification is sent, and the USB
+    /// configuration is restored. The connection will drop shortly after
+    /// this call returns.
+    /// </summary>
+    /// <param name="client">The RPC client.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public static Task<DaemonStopResponse> DaemonStopAsync(
+        this FlipperRpcClient client,
+        CancellationToken ct = default)
+        => client.SendAsync<DaemonStopCommand, DaemonStopResponse>(new DaemonStopCommand(), ct);
+
+    /// <summary>
+    /// Requests an immediate hardware reset of the Flipper Zero. The daemon
+    /// sends the OK response and then calls <c>furi_hal_power_reset()</c>,
+    /// which performs a hard MCU reset equivalent to pressing the physical
+    /// reset button. The USB connection will drop almost immediately after
+    /// this call returns.
+    /// </summary>
+    /// <param name="client">The RPC client.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public static Task<RebootResponse> RebootAsync(
+        this FlipperRpcClient client,
+        CancellationToken ct = default)
+        => client.SendAsync<RebootCommand, RebootResponse>(new RebootCommand(), ct);
 }

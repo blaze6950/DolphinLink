@@ -79,6 +79,7 @@ internal sealed class RpcPendingRequests
     /// </summary>
     public void FailAllAndOrphans(Channel<RpcWorkItem> outbound, string errorMessage)
     {
+        //todo looks like this method is weird - it does its internal job - FailAll, but also for some reason it knows hot to cleanup the external Channel
         FailAll(errorMessage);
         FailOrphans(outbound, errorMessage);
     }

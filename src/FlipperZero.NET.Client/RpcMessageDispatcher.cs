@@ -51,14 +51,7 @@ internal sealed class RpcMessageDispatcher
         }
         catch
         {
-            _onLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.Error,
-                Status = "Malformed JSON received.",
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
-            });
+            LogErrorWithJson("Malformed JSON received.", line, _clock.ElapsedTicks);
             return;
         }
 
@@ -67,14 +60,7 @@ internal sealed class RpcMessageDispatcher
         // Graceful daemon exit: {"disconnect":true}
         if (root.TryGetProperty("disconnect", out _))
         {
-            _onLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.Error,
-                Status = "Daemon disconnected.",
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-            });
+            LogErrorWithJson("Daemon disconnected.", line, receivedTicks);
             _onFault(new FlipperRpcException("Daemon disconnected."));
             return;
         }
@@ -117,36 +103,50 @@ internal sealed class RpcMessageDispatcher
         }
 
         string? status;
-        if (root.TryGetProperty("error", out var errorProp))
+        bool isError = root.TryGetProperty("error", out var errorProp);
+        if (isError)
         {
             status = errorProp.GetString() ?? "unknown_error";
-            _onLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.ResponseReceived,
-                RequestId = requestId,
-                Status = status,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-                RoundTrip = roundTrip,
-            });
-            pending.OnError(status);
         }
         else
         {
             // Detect stream-open response vs plain ok
             status = root.TryGetProperty("stream", out _) ? "stream_opened" : "ok";
-            _onLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.ResponseReceived,
-                RequestId = requestId,
-                Status = status,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-                RoundTrip = roundTrip,
-            });
+        }
+
+        _onLogEntry?.Invoke(new RpcLogEntry
+        {
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.ResponseReceived,
+            RequestId = requestId,
+            Status = status,
+            RawJson = line,
+            Elapsed = TimeSpan.FromTicks(receivedTicks),
+            RoundTrip = roundTrip,
+        });
+
+        if (isError)
+        {
+            pending.OnError(status);
+        }
+        else
+        {
             pending.OnSuccess(root);
         }
     }
+
+    /// <summary>
+    /// Emits an <see cref="RpcLogKind.Error"/> entry that includes the raw JSON
+    /// line.  The two call sites (malformed JSON, daemon disconnect) emit the
+    /// same shape.
+    /// </summary>
+    private void LogErrorWithJson(string status, string rawJson, long ticks) =>
+        _onLogEntry?.Invoke(new RpcLogEntry
+        {
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.Error,
+            Status = status,
+            RawJson = rawJson,
+            Elapsed = TimeSpan.FromTicks(ticks),
+        });
 }

@@ -1,6 +1,4 @@
-﻿using FlipperZero.NET.Client.UnitTests.Infrastructure;
-using FlipperZero.NET.Commands.Input;
-using FlipperZero.NET.Commands.Ui;
+﻿using FlipperZero.NET.Commands.Input;
 using FlipperZero.NET.Extensions;
 
 namespace FlipperZero.NET.Client.UnitTests;

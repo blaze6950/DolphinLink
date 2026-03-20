@@ -8,12 +8,14 @@
 #include "../handlers/core/stream_close.h"
 /* System */
 #include "../handlers/system/daemon_info.h"
+#include "../handlers/system/daemon_stop.h"
 #include "../handlers/system/device_info.h"
 #include "../handlers/system/power_info.h"
 #include "../handlers/system/datetime_get.h"
 #include "../handlers/system/datetime_set.h"
 #include "../handlers/system/region_info.h"
 #include "../handlers/system/frequency_is_allowed.h"
+#include "../handlers/system/reboot.h"
 /* GPIO */
 #include "../handlers/gpio/gpio_read.h"
 #include "../handlers/gpio/gpio_write.h"
@@ -83,12 +85,14 @@ static const RpcCommand commands[] = {
 
     /* ---- System / device info ---- */
     {"daemon_info",           0,                daemon_info_handler},
+    {"daemon_stop",           0,                daemon_stop_handler},
     {"device_info",           0,                device_info_handler},
     {"power_info",            0,                power_info_handler},
     {"datetime_get",          0,                datetime_get_handler},
     {"datetime_set",          0,                datetime_set_handler},
     {"region_info",           0,                region_info_handler},
     {"frequency_is_allowed",  0,                frequency_is_allowed_handler},
+    {"reboot",                0,                reboot_handler},
 
     /* ---- GPIO ---- */
     {"gpio_read",             0,                gpio_read_handler},

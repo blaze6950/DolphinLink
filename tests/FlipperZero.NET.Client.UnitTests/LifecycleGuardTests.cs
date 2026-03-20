@@ -1,4 +1,3 @@
-using FlipperZero.NET.Client.UnitTests.Infrastructure;
 using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.Input;
 

@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace FlipperZero.NET.Client.UnitTests;
 
 /// <summary>
