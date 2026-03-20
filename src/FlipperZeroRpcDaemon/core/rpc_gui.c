@@ -73,10 +73,11 @@ void on_input_queue(FuriEventLoopObject* object, void* ctx) {
     AppState* app = ctx;
     InputEvent event;
     while(furi_message_queue_get(app->input_queue, &event, 0) == FuriStatusOk) {
-        /* Check whether any active stream has a custom exit combo. */
+        /* Check whether any active input stream has a custom exit combo. */
         bool has_custom = false;
         for(size_t i = 0; i < MAX_STREAMS; i++) {
-            if(active_streams[i].active && active_streams[i].hw.input.has_exit_combo) {
+            if(active_streams[i].active && active_streams[i].is_input_stream &&
+               active_streams[i].hw.input.has_exit_combo) {
                 if(event.type == active_streams[i].hw.input.exit_type &&
                    event.key == active_streams[i].hw.input.exit_key) {
                     furi_event_loop_stop(app->event_loop);

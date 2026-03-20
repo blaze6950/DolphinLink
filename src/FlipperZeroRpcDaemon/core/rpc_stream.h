@@ -79,6 +79,17 @@ struct RpcStream {
     /** NULL for streams with no hardware teardown needed. */
     StreamTeardown teardown;
 
+    /**
+     * True only for input_listen_start streams.
+     *
+     * on_input_queue() must check this flag before reading hw.input.has_exit_combo.
+     * Without this guard the hw union causes aliasing: non-input streams write
+     * pointers / data at byte offset 4 inside the union which overlap the
+     * has_exit_combo bool in the input variant, causing on_input_queue() to
+     * incorrectly suppress the default Back+Short exit combo.
+     */
+    bool is_input_stream;
+
     /** Per-stream hardware state. */
     union {
         struct {

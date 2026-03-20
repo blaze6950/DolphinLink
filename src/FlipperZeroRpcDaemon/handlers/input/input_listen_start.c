@@ -168,6 +168,12 @@ void input_listen_start_handler(uint32_t id, const char* json) {
 
     active_streams[slot].hw.input.subscription = sub;
     active_streams[slot].hw.input.has_exit_combo = false;
+    /* Mark this slot as an input stream so on_input_queue() knows it is safe
+     * to read hw.input.has_exit_combo.  Without this flag, on_input_queue()
+     * would read the field on ALL active streams, and for non-input streams
+     * the hw union aliases has_exit_combo onto hardware-pointer bytes,
+     * incorrectly suppressing the default Back+Short daemon-exit combo. */
+    active_streams[slot].is_input_stream = true;
 
     /* Parse optional exit key/type combo */
     InputKey exit_key;

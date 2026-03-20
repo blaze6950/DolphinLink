@@ -118,6 +118,14 @@ int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* s
     active_streams[slot].resources = res;
     active_streams[slot].active = true;
     active_streams[slot].teardown = NULL;
+    /* Default: not an input stream.  input_listen_start_handler() sets this
+     * to true after stream_open() returns.  on_input_queue() guards all
+     * hw.input union reads behind this flag to prevent aliasing with the
+     * hardware-pointer fields of non-input streams (NFC, GPIO, LFRFID, iButton). */
+    active_streams[slot].is_input_stream = false;
+    /* Zero the hw union so stale bytes from a previous occupant cannot
+     * corrupt the new stream's hardware state. */
+    memset(&active_streams[slot].hw, 0, sizeof(active_streams[slot].hw));
     *stream_id_out = stream_id;
     return slot;
 }

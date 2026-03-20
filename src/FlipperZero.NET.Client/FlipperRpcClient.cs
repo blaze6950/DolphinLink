@@ -140,6 +140,13 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
 
     /// <summary>
+    /// 0 = not yet faulted; 1 = FaultAll has run.
+    /// Guards the teardown so it fires exactly once, even when multiple paths
+    /// (reader EOF, writer error, heartbeat timeout, DisposeAsync) race.
+    /// </summary>
+    private int _faulted;
+
+    /// <summary>
     /// Cancelled when the connection to the Flipper is lost (transport EOF,
     /// read error, heartbeat timeout, or explicit <see cref="DisposeAsync"/>).
     /// Consumers can pass <see cref="Disconnected"/> to <c>await foreach</c>
@@ -463,6 +470,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     private async Task WriterLoopAsync(CancellationToken ct)
     {
+        Exception exitException = new FlipperRpcException("Connection lost.");
         try
         {
             await foreach(var item in _outbound.Reader.ReadAllAsync(ct).ConfigureAwait(false))
@@ -495,8 +503,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         catch(OperationCanceledException) { /* normal shutdown */ }
         catch(Exception ex)
         {
-            // Fault all pending requests
-            var faultEx = new FlipperRpcException("Writer loop failed.", ex);
+            exitException = new FlipperRpcException("Writer loop failed.", ex);
             OnLogEntry?.Invoke(new RpcLogEntry
             {
                 Source = RpcLogSource.Client,
@@ -504,7 +511,20 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 Status = ex.Message,
                 Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
             });
-            FaultAll(faultEx);
+            FaultAll(exitException);
+        }
+        finally
+        {
+            // Fail any item that was Register()-ed but whose TCS was not yet
+            // reached by FaultAll (race between writer loop and FaultAll, or
+            // items registered after FaultAll's _pending sweep ran).
+            foreach(var kv in _pending)
+            {
+                if(_pending.TryRemove(kv.Key, out var p))
+                {
+                    p.OnError(exitException.Message);
+                }
+            }
         }
     }
 
@@ -718,11 +738,31 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     private void FaultAll(Exception ex)
     {
-        // Signal the disconnect token so consumers can react immediately,
-        // regardless of which path (reader EOF, reader exception, writer
-        // exception, heartbeat timeout, or DisposeAsync) triggered the fault.
+        // Only the first caller executes the teardown; subsequent calls are no-ops.
+        if(Interlocked.CompareExchange(ref _faulted, 1, 0) != 0)
+        {
+            return;
+        }
+
+        // 1. Signal the disconnect token so consumers react immediately.
         _disconnectCts.Cancel();
 
+        // 2. Seal the outbound channel so no new work items can be enqueued and
+        //    the writer loop's ReadAllAsync exits at its next iteration.
+        _outbound.Writer.TryComplete();
+
+        // 3. Cancel the I/O loop CTS so both loops exit cleanly on their next
+        //    cancellation check (writer loop via ReadAllAsync, reader loop via
+        //    while(!ct.IsCancellationRequested)).
+        _cts.Cancel();
+
+        // 4. Close the transport immediately.
+        //    - Drops DTR so the daemon sees a clean disconnect and resets its state.
+        //    - On Windows, SerialPort.BaseStream.ReadAsync ignores the CancellationToken,
+        //      so closing the port is the only reliable way to unblock the reader loop.
+        _heartbeat.Close();
+
+        // 5. Fail all already-registered pending requests.
         foreach(var kv in _pending)
         {
             if(_pending.TryRemove(kv.Key, out var p))
@@ -730,6 +770,22 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 p.OnError(ex.Message);
             }
         }
+
+        // 6. Drain any work items still queued in the outbound channel whose
+        //    TCS was never registered in _pending (writer loop hadn't dequeued them
+        //    yet).  Without this step those tasks would hang forever.
+        while(_outbound.Reader.TryRead(out var orphan))
+        {
+            // Register() adds the TCS to _pending, then we immediately remove
+            // and fail it.  This is the only path that can complete these TCSes.
+            orphan.Register();
+            if(_pending.TryRemove(orphan.RequestId, out var p))
+            {
+                p.OnError(ex.Message);
+            }
+        }
+
+        // 7. Fault all active streams.
         foreach(var kv in _streams)
         {
             if(_streams.TryRemove(kv.Key, out var s))
@@ -745,27 +801,21 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _outbound.Writer.TryComplete();
-        await _cts.CancelAsync().ConfigureAwait(false);
+        // FaultAll is a one-shot teardown: closes the transport, cancels the
+        // I/O-loop CTS, completes the outbound channel, and fails all pending
+        // work.  If a disconnect was already detected (heartbeat timeout, reader
+        // EOF, writer error) FaultAll is a no-op here.
+        FaultAll(new FlipperRpcException("Client disposed."));
 
         if(_writerTask is not null)
         {
             await _writerTask.ConfigureAwait(false);
         }
 
-        // Close the port before awaiting the reader task. On Windows,
-        // SerialPort.BaseStream.ReadAsync ignores the cancellation token, so
-        // the reader loop can be permanently stuck in ReadLineAsync even after
-        // _cts is cancelled. Closing the port forces the underlying read to
-        // throw immediately, which exits the reader loop and unblocks the await below.
-        _transport.Close();
-
         if(_readerTask is not null)
         {
             await _readerTask.ConfigureAwait(false);
         }
-
-        FaultAll(new FlipperRpcException("Client disposed."));
 
         await _transport.DisposeAsync().ConfigureAwait(false);
         _disconnectCts.Dispose();
