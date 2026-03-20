@@ -54,7 +54,7 @@ namespace FlipperZero.NET;
 /// synchronously on the client's I/O loop threads and must return quickly and
 /// must not throw.
 /// </summary>
-public sealed partial class FlipperRpcClient : IAsyncDisposable
+public sealed class FlipperRpcClient : IAsyncDisposable
 {
     // -------------------------------------------------------------------------
     // Fields
