@@ -462,6 +462,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         }
         catch(OperationCanceledException) { /* disposing — acceptable */ }
         catch(FlipperRpcException) { /* stream may already be gone on the device */ }
+        catch(ChannelClosedException) { /* client already faulted/disposed */ }
     }
 
     // -------------------------------------------------------------------------

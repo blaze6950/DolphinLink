@@ -90,6 +90,17 @@ static void input_pubsub_callback(const void* message, void* ctx) {
 
     if(!slot->active) return;
 
+    /* Suppress the exit combo itself — it is consumed by on_input_queue() to
+     * stop the daemon and must not also be forwarded to the host as a stream
+     * event.  Without this guard the exit key press races: the host receives a
+     * stream event followed immediately by {"disconnect":true}, which can leave
+     * the host hanging while the daemon has already exited. */
+    if(slot->hw.input.has_exit_combo &&
+       event->key == slot->hw.input.exit_key &&
+       event->type == slot->hw.input.exit_type) {
+        return;
+    }
+
     StreamEvent ev;
     ev.stream_id = slot->id;
     snprintf(
