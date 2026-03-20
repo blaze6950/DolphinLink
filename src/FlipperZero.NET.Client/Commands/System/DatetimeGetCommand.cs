@@ -58,14 +58,14 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
 
             switch (propName)
             {
-                case "year":   year   = reader.GetInt32(); break;
-                case "month":  month  = reader.GetInt32(); break;
-                case "day":    day    = reader.GetInt32(); break;
-                case "hour":   hour   = reader.GetInt32(); break;
+                case "year": year = reader.GetInt32(); break;
+                case "month": month = reader.GetInt32(); break;
+                case "day": day = reader.GetInt32(); break;
+                case "hour": hour = reader.GetInt32(); break;
                 case "minute": minute = reader.GetInt32(); break;
                 case "second": second = reader.GetInt32(); break;
                 case "status": break; // ignored
-                // "weekday" and any other fields are intentionally skipped
+                                      // "weekday" and any other fields are intentionally skipped
             }
             reader.Read(); // next property name or EndObject
         }
@@ -80,10 +80,10 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
     {
         var dt = value.DateTime;
         writer.WriteStartObject();
-        writer.WriteNumber("year",   dt.Year);
-        writer.WriteNumber("month",  dt.Month);
-        writer.WriteNumber("day",    dt.Day);
-        writer.WriteNumber("hour",   dt.Hour);
+        writer.WriteNumber("year", dt.Year);
+        writer.WriteNumber("month", dt.Month);
+        writer.WriteNumber("day", dt.Day);
+        writer.WriteNumber("hour", dt.Hour);
         writer.WriteNumber("minute", dt.Minute);
         writer.WriteNumber("second", dt.Second);
         // weekday: Flipper uses ISO 8601 (1=Mon…7=Sun); .NET DayOfWeek is 0=Sun…6=Sat

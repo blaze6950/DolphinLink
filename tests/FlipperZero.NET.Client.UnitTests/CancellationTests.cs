@@ -15,7 +15,7 @@ public sealed class CancellationTests : IAsyncLifetime, IAsyncDisposable
 
     public CancellationTests()
     {
-        _client = new FlipperRpcClient(_transport);
+        _client = _transport.CreateClient();
     }
 
     public async Task InitializeAsync()

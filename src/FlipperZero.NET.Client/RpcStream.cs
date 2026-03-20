@@ -58,14 +58,14 @@ public sealed class RpcStream<TEvent> : IAsyncEnumerable<TEvent>, IAsyncDisposab
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, _disconnectToken);
 
-        await foreach(var element in _reader.ReadAllAsync(linked.Token).ConfigureAwait(false))
+        await foreach (var element in _reader.ReadAllAsync(linked.Token).ConfigureAwait(false))
         {
             TEvent evt;
             try
             {
                 evt = JsonSerializer.Deserialize<TEvent>(element.GetRawText());
             }
-            catch(JsonException)
+            catch (JsonException)
             {
                 // Malformed event payload — skip
                 continue;
@@ -81,7 +81,7 @@ public sealed class RpcStream<TEvent> : IAsyncEnumerable<TEvent>, IAsyncDisposab
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if(Interlocked.Exchange(ref _disposed, 1) != 0)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }

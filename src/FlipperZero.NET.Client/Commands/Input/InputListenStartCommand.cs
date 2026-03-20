@@ -45,27 +45,27 @@ public readonly struct InputListenStartCommand : IRpcStreamCommand<FlipperInputE
     /// <inheritdoc />
     public void WriteArgs(Utf8JsonWriter writer)
     {
-        if(ExitKey.HasValue && ExitType.HasValue)
+        if (ExitKey.HasValue && ExitType.HasValue)
         {
             // Serialise lowercase string values matching the wire format.
             writer.WriteString("exit_key", ExitKey.Value switch
             {
-                FlipperInputKey.Up    => "up",
-                FlipperInputKey.Down  => "down",
-                FlipperInputKey.Left  => "left",
+                FlipperInputKey.Up => "up",
+                FlipperInputKey.Down => "down",
+                FlipperInputKey.Left => "left",
                 FlipperInputKey.Right => "right",
-                FlipperInputKey.Ok    => "ok",
-                FlipperInputKey.Back  => "back",
-                _                     => "back",
+                FlipperInputKey.Ok => "ok",
+                FlipperInputKey.Back => "back",
+                _ => "back",
             });
             writer.WriteString("exit_type", ExitType.Value switch
             {
-                FlipperInputType.Press   => "press",
+                FlipperInputType.Press => "press",
                 FlipperInputType.Release => "release",
-                FlipperInputType.Short   => "short",
-                FlipperInputType.Long    => "long",
-                FlipperInputType.Repeat  => "repeat",
-                _                        => "short",
+                FlipperInputType.Short => "short",
+                FlipperInputType.Long => "long",
+                FlipperInputType.Repeat => "repeat",
+                _ => "short",
             });
         }
     }

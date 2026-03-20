@@ -41,7 +41,7 @@ public readonly struct SubGhzRxStartCommand : IRpcStreamCommand<SubGhzRxEvent>
     /// <inheritdoc />
     public void WriteArgs(Utf8JsonWriter writer)
     {
-        if(Freq.HasValue)
+        if (Freq.HasValue)
         {
             writer.WriteNumber("freq", Freq.Value);
         }

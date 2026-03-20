@@ -31,12 +31,12 @@ internal sealed class FlipperInputTypeConverter : JsonConverter<FlipperInputType
         JsonSerializerOptions options)
         => reader.GetString() switch
         {
-            "press"   => FlipperInputType.Press,
+            "press" => FlipperInputType.Press,
             "release" => FlipperInputType.Release,
-            "short"   => FlipperInputType.Short,
-            "long"    => FlipperInputType.Long,
-            "repeat"  => FlipperInputType.Repeat,
-            var s     => throw new JsonException($"Unknown FlipperInputType value: '{s}'."),
+            "short" => FlipperInputType.Short,
+            "long" => FlipperInputType.Long,
+            "repeat" => FlipperInputType.Repeat,
+            var s => throw new JsonException($"Unknown FlipperInputType value: '{s}'."),
         };
 
     public override void Write(
@@ -45,11 +45,11 @@ internal sealed class FlipperInputTypeConverter : JsonConverter<FlipperInputType
         JsonSerializerOptions options)
         => writer.WriteStringValue(value switch
         {
-            FlipperInputType.Press   => "press",
+            FlipperInputType.Press => "press",
             FlipperInputType.Release => "release",
-            FlipperInputType.Short   => "short",
-            FlipperInputType.Long    => "long",
-            FlipperInputType.Repeat  => "repeat",
-            _                        => throw new JsonException($"Unknown FlipperInputType value: {value}."),
+            FlipperInputType.Short => "short",
+            FlipperInputType.Long => "long",
+            FlipperInputType.Repeat => "repeat",
+            _ => throw new JsonException($"Unknown FlipperInputType value: {value}."),
         });
 }

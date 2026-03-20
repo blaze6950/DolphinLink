@@ -24,7 +24,7 @@ public sealed class NegotiateTests
     public async Task ConnectAsync_Succeeds_WhenDaemonNameAndVersionMatch()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(ValidDaemonInfoJson);
         var info = await client.ConnectAsync(minProtocolVersion: 1);
@@ -40,20 +40,20 @@ public sealed class NegotiateTests
     public async Task ConnectAsync_StoresDaemonInfo_OnSuccess()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(ValidDaemonInfoJson);
         await client.ConnectAsync();
 
-        Assert.Equal("flipper_zero_rpc_daemon", client.DaemonInfo.Name);
-        Assert.Equal(1, client.DaemonInfo.Version);
+        Assert.Equal("flipper_zero_rpc_daemon", client.DaemonInfo!.Value.Name);
+        Assert.Equal(1, client.DaemonInfo!.Value.Version);
     }
 
     [Fact]
     public async Task ConnectAsync_Throws_WhenDaemonNameIsWrong()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
             """{"id":1,"status":"ok","data":{"name":"some_other_app","version":1,"commands":[]}}""");
@@ -68,7 +68,7 @@ public sealed class NegotiateTests
     public async Task ConnectAsync_Throws_WhenProtocolVersionTooLow()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
             """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":0,"commands":[]}}""");
@@ -84,7 +84,7 @@ public sealed class NegotiateTests
     public async Task ConnectAsync_Succeeds_WithHigherProtocolVersion()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
             """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":5,"commands":["ping"]}}""");
@@ -102,7 +102,7 @@ public sealed class NegotiateTests
     public async Task DaemonInfoAsync_Supports_ReturnsFalse_ForUnknownCommand()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         // ConnectAsync negotiation
         transport.EnqueueResponse(ValidDaemonInfoJson);
@@ -126,27 +126,27 @@ public sealed class NegotiateTests
     public async Task SupportsGeneric_ReturnsTrue_WhenCommandIsInList()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(ValidDaemonInfoJson);
         await client.ConnectAsync();
 
         // ping is in the daemon_info commands list from ValidDaemonInfoJson
-        Assert.True(client.DaemonInfo.Supports<PingCommand>());
+        Assert.True(client.DaemonInfo!.Value.Supports<PingCommand>());
     }
 
     [Fact]
     public async Task SupportsGeneric_ReturnsFalse_WhenCommandIsNotInList()
     {
         var transport = new FakeTransport();
-        await using var client = new FlipperRpcClient(transport);
+        await using var client = transport.CreateClient();
 
         // Only "ping" in the list — no UI commands
         transport.EnqueueResponse(
             """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
         await client.ConnectAsync();
 
-        Assert.False(client.DaemonInfo.Supports<DaemonInfoCommand>());
+        Assert.False(client.DaemonInfo!.Value.Supports<DaemonInfoCommand>());
     }
 
     [Fact]

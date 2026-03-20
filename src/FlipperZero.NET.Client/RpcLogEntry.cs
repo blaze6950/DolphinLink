@@ -95,27 +95,27 @@ public readonly struct RpcLogEntry
         var sb = new System.Text.StringBuilder();
         sb.Append($"[{Elapsed.TotalMilliseconds:F1}ms] {Source,-6} {Kind,-22}");
 
-        if(RequestId.HasValue)
+        if (RequestId.HasValue)
         {
             sb.Append($" #{RequestId}");
         }
 
-        if(StreamId.HasValue)
+        if (StreamId.HasValue)
         {
             sb.Append($" s:{StreamId}");
         }
 
-        if(CommandName is not null)
+        if (CommandName is not null)
         {
             sb.Append($" {CommandName}");
         }
 
-        if(Status is not null)
+        if (Status is not null)
         {
             sb.Append($" -> {Status}");
         }
 
-        if(RoundTrip.HasValue)
+        if (RoundTrip.HasValue)
         {
             sb.Append($" (RT {RoundTrip.Value.TotalMilliseconds:F1}ms)");
         }

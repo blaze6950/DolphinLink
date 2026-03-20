@@ -32,10 +32,10 @@ public readonly struct DatetimeSetCommand : IRpcCommand<DatetimeSetResponse>
     public void WriteArgs(Utf8JsonWriter writer)
     {
         var dt = DateTime;
-        writer.WriteNumber("year",   dt.Year);
-        writer.WriteNumber("month",  dt.Month);
-        writer.WriteNumber("day",    dt.Day);
-        writer.WriteNumber("hour",   dt.Hour);
+        writer.WriteNumber("year", dt.Year);
+        writer.WriteNumber("month", dt.Month);
+        writer.WriteNumber("day", dt.Day);
+        writer.WriteNumber("hour", dt.Hour);
         writer.WriteNumber("minute", dt.Minute);
         writer.WriteNumber("second", dt.Second);
         // Flipper uses ISO 8601 weekday: 1 = Monday … 7 = Sunday.

@@ -33,13 +33,13 @@ internal sealed class FlipperInputKeyConverter : JsonConverter<FlipperInputKey>
         JsonSerializerOptions options)
         => reader.GetString() switch
         {
-            "up"    => FlipperInputKey.Up,
-            "down"  => FlipperInputKey.Down,
-            "left"  => FlipperInputKey.Left,
+            "up" => FlipperInputKey.Up,
+            "down" => FlipperInputKey.Down,
+            "left" => FlipperInputKey.Left,
             "right" => FlipperInputKey.Right,
-            "ok"    => FlipperInputKey.Ok,
-            "back"  => FlipperInputKey.Back,
-            var s   => throw new JsonException($"Unknown FlipperInputKey value: '{s}'."),
+            "ok" => FlipperInputKey.Ok,
+            "back" => FlipperInputKey.Back,
+            var s => throw new JsonException($"Unknown FlipperInputKey value: '{s}'."),
         };
 
     public override void Write(
@@ -48,12 +48,12 @@ internal sealed class FlipperInputKeyConverter : JsonConverter<FlipperInputKey>
         JsonSerializerOptions options)
         => writer.WriteStringValue(value switch
         {
-            FlipperInputKey.Up    => "up",
-            FlipperInputKey.Down  => "down",
-            FlipperInputKey.Left  => "left",
+            FlipperInputKey.Up => "up",
+            FlipperInputKey.Down => "down",
+            FlipperInputKey.Left => "left",
             FlipperInputKey.Right => "right",
-            FlipperInputKey.Ok    => "ok",
-            FlipperInputKey.Back  => "back",
-            _                     => throw new JsonException($"Unknown FlipperInputKey value: {value}."),
+            FlipperInputKey.Ok => "ok",
+            FlipperInputKey.Back => "back",
+            _ => throw new JsonException($"Unknown FlipperInputKey value: {value}."),
         });
 }

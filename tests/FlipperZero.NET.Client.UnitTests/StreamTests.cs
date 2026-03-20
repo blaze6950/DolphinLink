@@ -17,7 +17,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
 
     public StreamTests()
     {
-        _client = new FlipperRpcClient(_transport);
+        _client = _transport.CreateClient();
     }
 
     public async Task InitializeAsync()
@@ -87,10 +87,10 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         var events = new List<FlipperInputEvent>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await foreach(var evt in stream.WithCancellation(cts.Token))
+        await foreach (var evt in stream.WithCancellation(cts.Token))
         {
             events.Add(evt);
-            if(events.Count == 2)
+            if (events.Count == 2)
             {
                 break;
             }

@@ -65,10 +65,10 @@ public sealed class DatetimeTests(FlipperFixture fixture)
 
             var readback = (await Client.DatetimeGetAsync()).DateTime;
 
-            Assert.Equal(target.Year,   readback.Year);
-            Assert.Equal(target.Month,  readback.Month);
-            Assert.Equal(target.Day,    readback.Day);
-            Assert.Equal(target.Hour,   readback.Hour);
+            Assert.Equal(target.Year, readback.Year);
+            Assert.Equal(target.Month, readback.Month);
+            Assert.Equal(target.Day, readback.Day);
+            Assert.Equal(target.Hour, readback.Hour);
             Assert.Equal(target.Minute, readback.Minute);
             // Allow ±2 seconds for RTC tick and round-trip latency.
             Assert.True(readback.Second <= target.Second + 2,

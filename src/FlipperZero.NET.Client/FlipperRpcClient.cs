@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Text;
 using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Commands.Core;
@@ -59,58 +57,6 @@ namespace FlipperZero.NET;
 public sealed partial class FlipperRpcClient : IAsyncDisposable
 {
     // -------------------------------------------------------------------------
-    // Internal types
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// An item placed on the outbound channel.
-    /// <see cref="Json"/> is the fully-serialised line (without trailing \n).
-    /// <see cref="RequestId"/> is used to register pending state before the line
-    /// is actually sent so the reader loop can never race ahead of registration.
-    /// </summary>
-    private sealed class RpcWorkItem
-    {
-        public required uint RequestId { get; init; }
-        public required string Json { get; init; }
-        public required string CommandName { get; init; }
-
-        /// <summary>
-        /// Called by the writer loop immediately after enqueuing
-        /// (before the send) to register pending state in the router.
-        /// </summary>
-        public required Action Register { get; init; }
-    }
-
-    /// <summary>
-    /// Type-erased callbacks stored in the pending-request table.
-    /// </summary>
-    private sealed class PendingRequest
-    {
-        /// <summary>Called when a <c>"status":"ok"</c> or <c>"stream"</c> response arrives.</summary>
-        public required Action<JsonElement> OnSuccess { get; init; }
-        /// <summary>Called when an <c>"error"</c> response arrives.</summary>
-        public required Action<string> OnError { get; init; }
-        /// <summary>
-        /// Stopwatch ticks recorded when the command line was sent.
-        /// Set by the writer loop immediately after <see cref="FlipperRpcTransport.SendLineAsync"/>;
-        /// read by <see cref="DispatchLine"/> to compute round-trip time.
-        /// </summary>
-        public long SentTicks { get; set; }
-    }
-
-    /// <summary>
-    /// State for an open stream, stored while the stream is alive.
-    /// </summary>
-    private sealed class StreamState
-    {
-        /// <summary>Channel events are pushed into.</summary>
-        public required Channel<JsonElement> EventChannel { get; init; }
-        /// <summary>Called when the stream is remotely closed or on error.</summary>
-        public required Action Complete { get; init; }
-        public required Action<Exception> Fault { get; init; }
-    }
-
-    // -------------------------------------------------------------------------
     // Fields
     // -------------------------------------------------------------------------
 
@@ -120,16 +66,19 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     /// <summary>
     /// The <see cref="DaemonInfoResponse"/> returned by the daemon during
-    /// <see cref="ConnectAsync"/>.  Only valid after <see cref="ConnectAsync"/>
+    /// <see cref="ConnectAsync"/>.  <c>null</c> before <see cref="ConnectAsync"/>
     /// has completed successfully.
     /// </summary>
-    public DaemonInfoResponse DaemonInfo { get; private set; }
+    public DaemonInfoResponse? DaemonInfo { get; private set; }
 
     /// <summary>Pending request-id → callbacks (for request/response commands).</summary>
-    private readonly ConcurrentDictionary<uint, PendingRequest> _pending = new();
+    private readonly RpcPendingRequests _pending = new();
 
     /// <summary>Active stream-id → stream state (for streaming commands).</summary>
-    private readonly ConcurrentDictionary<uint, StreamState> _streams = new();
+    private readonly RpcStreamManager _streams = new();
+
+    /// <summary>Parses and routes inbound NDJSON lines.</summary>
+    private readonly RpcMessageDispatcher _dispatcher;
 
     private static readonly JsonSerializerOptions _jsonOptions = JsonSerializerOptions.Default;
 
@@ -145,6 +94,14 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     /// (reader EOF, writer error, heartbeat timeout, DisposeAsync) race.
     /// </summary>
     private int _faulted;
+
+    /// <summary>
+    /// 0 = live; 1 = <see cref="DisposeAsync"/> has been called.
+    /// Checked by <see cref="SendAsync{TCommand,TResponse}"/>,
+    /// <see cref="SendStreamAsync{TCommand,TEvent}"/>, and
+    /// <see cref="ConnectAsync"/> to prevent use-after-dispose.
+    /// </summary>
+    private int _disposed;
 
     /// <summary>
     /// Cancelled when the connection to the Flipper is lost (transport EOF,
@@ -264,6 +221,13 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             SingleReader = true,
             SingleWriter = false,
         });
+
+        _dispatcher = new RpcMessageDispatcher(
+            _pending,
+            _streams,
+            _clock,
+            entry => OnLogEntry?.Invoke(entry),
+            FaultAll);
     }
 
     // -------------------------------------------------------------------------
@@ -294,13 +258,14 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         int minProtocolVersion = 1,
         CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
         _transport.Open();
         _clock.Start();
         _writerTask = Task.Run(() => WriterLoopAsync(_cts.Token));
         _readerTask = Task.Run(() => ReaderLoopAsync(_cts.Token));
 
         DaemonInfo = await NegotiateAsync(minProtocolVersion, ct).ConfigureAwait(false);
-        return DaemonInfo;
+        return DaemonInfo.Value;
     }
 
     private async Task<DaemonInfoResponse> NegotiateAsync(
@@ -312,7 +277,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         var info = await SendAsync<DaemonInfoCommand, DaemonInfoResponse>(
             new DaemonInfoCommand(), ct).ConfigureAwait(false);
 
-        if(info.Name != ExpectedName)
+        if (info.Name != ExpectedName)
         {
             throw new FlipperRpcException(
                 $"Capability negotiation failed: expected daemon name '{ExpectedName}', " +
@@ -320,7 +285,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 "Ensure the FlipperZero.NET RPC daemon FAP is running on the device.");
         }
 
-        if(info.Version < minProtocolVersion)
+        if (info.Version < minProtocolVersion)
         {
             throw new FlipperRpcException(
                 $"Capability negotiation failed: daemon protocol version {info.Version} " +
@@ -345,6 +310,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         where TCommand : struct, IRpcCommand<TResponse>
         where TResponse : struct, IRpcCommandResponse
     {
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
         var id = Interlocked.Increment(ref _nextId);
 
         var tcs = new TaskCompletionSource<TResponse>(
@@ -358,10 +324,10 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         {
             RequestId = id,
             CommandName = commandName,
-            Json = SerialiseMessage(id, commandName, command.WriteArgs),
+            Json = RpcMessageSerializer.Serialize(id, commandName, command.WriteArgs),
             Register = () =>
             {
-                _pending[id] = new PendingRequest
+                _pending.Register(id, new PendingRequest
                 {
                     OnSuccess = element =>
                     {
@@ -372,7 +338,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                     {
                         tcs.TrySetException(new FlipperRpcException(id, code));
                     },
-                };
+                });
             },
         };
 
@@ -391,6 +357,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         where TCommand : struct, IRpcStreamCommand<TEvent>
         where TEvent : struct, IRpcCommandResponse
     {
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
         var id = Interlocked.Increment(ref _nextId);
 
         // The stream id assigned by the Flipper is resolved via this TCS.
@@ -414,24 +381,24 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         {
             RequestId = id,
             CommandName = commandName,
-            Json = SerialiseMessage(id, commandName, command.WriteArgs),
+            Json = RpcMessageSerializer.Serialize(id, commandName, command.WriteArgs),
             Register = () =>
             {
-                _pending[id] = new PendingRequest
+                _pending.Register(id, new PendingRequest
                 {
                     OnSuccess = element =>
                     {
                         // The initial response is {"id":N,"stream":M}
-                        if(element.TryGetProperty("stream", out var streamProp)
+                        if (element.TryGetProperty("stream", out var streamProp)
                             && streamProp.TryGetUInt32(out var streamId))
                         {
                             // Register stream state before resolving the TCS
-                            _streams[streamId] = new StreamState
+                            _streams.Register(streamId, new StreamState
                             {
                                 EventChannel = eventChannel,
                                 Complete = () => eventChannel.Writer.TryComplete(),
                                 Fault = ex => eventChannel.Writer.TryComplete(ex),
-                            };
+                            });
                             streamIdTcs.TrySetResult(streamId);
                         }
                         else
@@ -445,7 +412,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                         streamIdTcs.TrySetException(new FlipperRpcException(id, code));
                         eventChannel.Writer.TryComplete(new FlipperRpcException(id, code));
                     },
-                };
+                });
             },
         };
 
@@ -456,7 +423,10 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         return new RpcStream<TEvent>(
             resolvedStreamId,
             eventChannel.Reader,
-            closeAsync: streamId => CloseStreamAsync(streamId, ct),
+            // Use CancellationToken.None: the original `ct` may already be
+            // cancelled (e.g. a per-call timeout) by the time the caller
+            // disposes the stream, and we still need to send stream_close.
+            closeAsync: streamId => CloseStreamAsync(streamId, CancellationToken.None),
             disconnectToken: _disconnectCts.Token);
     }
 
@@ -467,10 +437,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     private async Task CloseStreamAsync(uint streamId, CancellationToken ct)
     {
         // Remove from the live streams table first so no more events are routed.
-        if(_streams.TryRemove(streamId, out var state))
-        {
-            state.Complete();
-        }
+        _streams.TryRemoveAndComplete(streamId);
 
         // Send stream_close to the Flipper (fire-and-forget-ish; ignore errors)
         try
@@ -479,9 +446,9 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             await SendAsync<StreamCloseCommand, StreamCloseResponse>(closeCmd, ct)
                 .ConfigureAwait(false);
         }
-        catch(OperationCanceledException) { /* disposing — acceptable */ }
-        catch(FlipperRpcException) { /* stream may already be gone on the device */ }
-        catch(ChannelClosedException) { /* client already faulted/disposed */ }
+        catch (OperationCanceledException) { /* disposing — acceptable */ }
+        catch (FlipperRpcException) { /* stream may already be gone on the device */ }
+        catch (ChannelClosedException) { /* client already faulted/disposed */ }
     }
 
     // -------------------------------------------------------------------------
@@ -493,7 +460,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         Exception exitException = new FlipperRpcException("Connection lost.");
         try
         {
-            await foreach(var item in _outbound.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            await foreach (var item in _outbound.Reader.ReadAllAsync(ct).ConfigureAwait(false))
             {
                 // Register pending state BEFORE sending so the reader loop
                 // cannot receive the response before we're registered.
@@ -501,10 +468,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
                 // Stamp the send time for round-trip tracking.
                 var sentTicks = _clock.ElapsedTicks;
-                if(_pending.TryGetValue(item.RequestId, out var pr))
-                {
-                    pr.SentTicks = sentTicks;
-                }
+                _pending.StampSentTicks(item.RequestId, sentTicks);
 
                 await _transport.SendLineAsync(item.Json, ct).ConfigureAwait(false);
 
@@ -520,8 +484,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 });
             }
         }
-        catch(OperationCanceledException) { /* normal shutdown */ }
-        catch(Exception ex)
+        catch (OperationCanceledException) { /* normal shutdown */ }
+        catch (Exception ex)
         {
             exitException = new FlipperRpcException("Writer loop failed.", ex);
             OnLogEntry?.Invoke(new RpcLogEntry
@@ -538,13 +502,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
             // Fail any item that was Register()-ed but whose TCS was not yet
             // reached by FaultAll (race between writer loop and FaultAll, or
             // items registered after FaultAll's _pending sweep ran).
-            foreach(var kv in _pending)
-            {
-                if(_pending.TryRemove(kv.Key, out var p))
-                {
-                    p.OnError(exitException.Message);
-                }
-            }
+            _pending.FailAll(exitException.Message);
         }
     }
 
@@ -556,10 +514,10 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     {
         try
         {
-            while(!ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
                 var line = await _transport.ReadLineAsync(ct).ConfigureAwait(false);
-                if(line is null)
+                if (line is null)
                 {
                     // Transport returned EOF — the Flipper disconnected (USB
                     // pulled, daemon stopped, port closed by OS, etc.).
@@ -570,18 +528,18 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
                 }
 
                 line = line.Trim();
-                if(line.Length == 0)
+                if (line.Length == 0)
                 {
                     // HeartbeatTransport already filters out keep-alive frames
                     // before they reach here. This is defence-in-depth only.
                     continue;
                 }
 
-                DispatchLine(line);
+                _dispatcher.Dispatch(line);
             }
         }
-        catch(OperationCanceledException) { /* normal shutdown */ }
-        catch(Exception ex)
+        catch (OperationCanceledException) { /* normal shutdown */ }
+        catch (Exception ex)
         {
             OnLogEntry?.Invoke(new RpcLogEntry
             {
@@ -595,149 +553,8 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     }
 
     // -------------------------------------------------------------------------
-    // DispatchLine
-    // -------------------------------------------------------------------------
-
-    private void DispatchLine(string line)
-    {
-        JsonElement root;
-        try
-        {
-            using var doc = JsonDocument.Parse(line);
-            root = doc.RootElement.Clone(); // Clone so we outlive the doc
-        }
-        catch
-        {
-            // Malformed JSON — ignore
-            return;
-        }
-
-        var receivedTicks = _clock.ElapsedTicks;
-
-        // Graceful daemon exit: {"disconnect":true}
-        // Sent by the daemon immediately before cleanup.  Fault all pending
-        // work so consumers exit cleanly without waiting for a timeout.
-        if(root.TryGetProperty("disconnect", out _))
-        {
-            OnLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.Error,
-                Status = "Daemon disconnected.",
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-            });
-            FaultAll(new FlipperRpcException("Daemon disconnected."));
-            return;
-        }
-
-        // Stream event: {"event":{...},"stream":<id>}
-        if(root.TryGetProperty("event", out var eventElement)
-            && root.TryGetProperty("stream", out var streamProp)
-            && streamProp.TryGetUInt32(out var streamId))
-        {
-            OnLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.StreamEventReceived,
-                StreamId = streamId,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-            });
-
-            if(_streams.TryGetValue(streamId, out var streamState))
-            {
-                // Offer to the channel; if the channel is full the write will
-                // back-pressure (WaitToWriteAsync) — fire on a background Task
-                // to avoid blocking the reader loop.
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await streamState.EventChannel.Writer
-                            .WriteAsync(eventElement)
-                            .ConfigureAwait(false);
-                    }
-                    catch { /* channel completed */ }
-                });
-            }
-            return;
-        }
-
-        // Request/response: must have "id"
-        if(!root.TryGetProperty("id", out var idProp)
-            || !idProp.TryGetUInt32(out var requestId))
-        {
-            return;
-        }
-
-        if(!_pending.TryRemove(requestId, out var pending))
-        {
-            return; // No one waiting — ignore
-        }
-
-        // Compute round-trip time
-        TimeSpan? roundTrip = null;
-        if(pending.SentTicks > 0)
-        {
-            roundTrip = TimeSpan.FromTicks(receivedTicks - pending.SentTicks);
-        }
-
-        string? status = null;
-        if(root.TryGetProperty("error", out var errorProp))
-        {
-            status = errorProp.GetString() ?? "unknown_error";
-            OnLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.ResponseReceived,
-                RequestId = requestId,
-                Status = status,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-                RoundTrip = roundTrip,
-            });
-            pending.OnError(status);
-        }
-        else
-        {
-            // Detect stream-open response vs plain ok
-            status = root.TryGetProperty("stream", out _) ? "stream_opened" : "ok";
-            OnLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.ResponseReceived,
-                RequestId = requestId,
-                Status = status,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-                RoundTrip = roundTrip,
-            });
-            pending.OnSuccess(root);
-        }
-    }
-
-    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Shared serialiser: writes <c>{"id":N,"cmd":"name",...args...}</c>.
-    /// The <paramref name="writeArgs"/> delegate calls <c>command.WriteArgs(writer)</c>
-    /// from the strongly-typed call-site so we avoid the phantom type parameter.
-    /// </summary>
-    private static string SerialiseMessage(uint id, string cmdName, Action<Utf8JsonWriter> writeArgs)
-    {
-        using var ms = new MemoryStream();
-        using var writer = new Utf8JsonWriter(ms);
-        writer.WriteStartObject();
-        writer.WriteNumber("id", id);
-        writer.WriteString("cmd", cmdName);
-        writeArgs(writer);
-        writer.WriteEndObject();
-        writer.Flush();
-        return Encoding.UTF8.GetString(ms.ToArray());
-    }
 
     /// <summary>
     /// Called by <see cref="HeartbeatTransport.Disconnected"/> when the
@@ -759,7 +576,7 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
     private void FaultAll(Exception ex)
     {
         // Only the first caller executes the teardown; subsequent calls are no-ops.
-        if(Interlocked.CompareExchange(ref _faulted, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _faulted, 1, 0) != 0)
         {
             return;
         }
@@ -782,37 +599,12 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
         //      so closing the port is the only reliable way to unblock the reader loop.
         _heartbeat.Close();
 
-        // 5. Fail all already-registered pending requests.
-        foreach(var kv in _pending)
-        {
-            if(_pending.TryRemove(kv.Key, out var p))
-            {
-                p.OnError(ex.Message);
-            }
-        }
+        // 5. Fail all already-registered pending requests, and drain any orphan
+        //    work items in the outbound channel whose TCS was never registered.
+        _pending.FailAllAndOrphans(_outbound, ex.Message);
 
-        // 6. Drain any work items still queued in the outbound channel whose
-        //    TCS was never registered in _pending (writer loop hadn't dequeued them
-        //    yet).  Without this step those tasks would hang forever.
-        while(_outbound.Reader.TryRead(out var orphan))
-        {
-            // Register() adds the TCS to _pending, then we immediately remove
-            // and fail it.  This is the only path that can complete these TCSes.
-            orphan.Register();
-            if(_pending.TryRemove(orphan.RequestId, out var p))
-            {
-                p.OnError(ex.Message);
-            }
-        }
-
-        // 7. Fault all active streams.
-        foreach(var kv in _streams)
-        {
-            if(_streams.TryRemove(kv.Key, out var s))
-            {
-                s.Fault(ex);
-            }
-        }
+        // 6. Fault all active streams.
+        _streams.FaultAll(ex);
     }
 
     // -------------------------------------------------------------------------
@@ -821,18 +613,22 @@ public sealed partial class FlipperRpcClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // Mark as disposed so subsequent calls to SendAsync / SendStreamAsync /
+        // ConnectAsync throw ObjectDisposedException instead of silently enqueuing.
+        Interlocked.Exchange(ref _disposed, 1);
+
         // FaultAll is a one-shot teardown: closes the transport, cancels the
         // I/O-loop CTS, completes the outbound channel, and fails all pending
         // work.  If a disconnect was already detected (heartbeat timeout, reader
         // EOF, writer error) FaultAll is a no-op here.
         FaultAll(new FlipperRpcException("Client disposed."));
 
-        if(_writerTask is not null)
+        if (_writerTask is not null)
         {
             await _writerTask.ConfigureAwait(false);
         }
 
-        if(_readerTask is not null)
+        if (_readerTask is not null)
         {
             await _readerTask.ConfigureAwait(false);
         }

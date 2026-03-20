@@ -51,16 +51,16 @@ internal sealed class NfcProtocolJsonConverter : JsonConverter<NfcProtocol>
     // directly to C# enum names, so we do the mapping manually.
     private static readonly Dictionary<string, NfcProtocol> WireToEnum = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Iso14443-3a"]   = NfcProtocol.Iso14443_3a,
-        ["Iso14443-3b"]   = NfcProtocol.Iso14443_3b,
-        ["Iso14443-4a"]   = NfcProtocol.Iso14443_4a,
-        ["Iso14443-4b"]   = NfcProtocol.Iso14443_4b,
-        ["Iso15693"]      = NfcProtocol.Iso15693,
-        ["Felica"]        = NfcProtocol.Felica,
-        ["MfClassic"]     = NfcProtocol.MfClassic,
-        ["MfPlus"]        = NfcProtocol.MfPlus,
-        ["MfDesfire"]     = NfcProtocol.MfDesfire,
-        ["MfUltralight"]  = NfcProtocol.MfUltralight,
+        ["Iso14443-3a"] = NfcProtocol.Iso14443_3a,
+        ["Iso14443-3b"] = NfcProtocol.Iso14443_3b,
+        ["Iso14443-4a"] = NfcProtocol.Iso14443_4a,
+        ["Iso14443-4b"] = NfcProtocol.Iso14443_4b,
+        ["Iso15693"] = NfcProtocol.Iso15693,
+        ["Felica"] = NfcProtocol.Felica,
+        ["MfClassic"] = NfcProtocol.MfClassic,
+        ["MfPlus"] = NfcProtocol.MfPlus,
+        ["MfDesfire"] = NfcProtocol.MfDesfire,
+        ["MfUltralight"] = NfcProtocol.MfUltralight,
     };
 
     private static readonly Dictionary<NfcProtocol, string> EnumToWire =

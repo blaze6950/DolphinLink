@@ -54,10 +54,10 @@ public readonly struct LedSetCommand : IRpcCommand<LedSetResponse>
     {
         string wire = Channel switch
         {
-            LedChannel.Red   => "red",
+            LedChannel.Red => "red",
             LedChannel.Green => "green",
-            LedChannel.Blue  => "blue",
-            _                => throw new ArgumentOutOfRangeException(nameof(Channel), Channel, null),
+            LedChannel.Blue => "blue",
+            _ => throw new ArgumentOutOfRangeException(nameof(Channel), Channel, null),
         };
         writer.WriteString("color", wire);
         writer.WriteNumber("value", Value);

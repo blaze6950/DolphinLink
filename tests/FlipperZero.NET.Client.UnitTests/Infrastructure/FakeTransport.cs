@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Client.UnitTests.Infrastructure;
@@ -17,6 +17,14 @@ namespace FlipperZero.NET.Client.UnitTests.Infrastructure;
 ///   Use this for unsolicited stream events that are not tied to an outbound send.
 ///
 /// Thread safety: all public methods may be called from any thread.
+///
+/// Heartbeat note
+/// --------------
+/// Use <see cref="CreateClient"/> (instead of <c>new FlipperRpcClient(transport)</c>)
+/// to create a client that wraps this transport.  The factory sets a near-infinite
+/// heartbeat interval and timeout so the heartbeat loop never fires during tests,
+/// keeping <see cref="SentLines"/> free of keep-alive frames and preventing
+/// spurious heartbeat-timeout faults.
 /// </summary>
 public sealed class FakeTransport : IFlipperTransport
 {
@@ -28,7 +36,7 @@ public sealed class FakeTransport : IFlipperTransport
     private readonly Queue<string> _responseQueue = new();
     private readonly object _responseQueueLock = new();
 
-    // Lines the client sent (captured by SendLineAsync).
+    // Lines the client sent (captured by SendLineAsync), excluding keep-alive frames.
     private readonly List<string> _sentLines = new();
     private readonly object _sentLock = new();
 
@@ -39,11 +47,24 @@ public sealed class FakeTransport : IFlipperTransport
     // -------------------------------------------------------------------------
 
     /// <summary>
+    /// Creates a <see cref="FlipperRpcClient"/> wrapping this transport with
+    /// near-infinite heartbeat timing so the heartbeat loop never fires during
+    /// tests.  Always prefer this over <c>new FlipperRpcClient(this)</c>.
+    /// </summary>
+    public FlipperRpcClient CreateClient() =>
+        new FlipperRpcClient(
+            this,
+            heartbeatInterval: TimeSpan.FromHours(1),
+            timeout: TimeSpan.FromHours(2));
+
+    /// <summary>
     /// All JSON lines sent by the client (in order, without trailing newline).
+    /// Keep-alive frames (empty strings sent by <see cref="HeartbeatTransport"/>)
+    /// are excluded.
     /// </summary>
     public IReadOnlyList<string> SentLines
     {
-        get { lock(_sentLock) { return _sentLines.ToList(); } }
+        get { lock (_sentLock) { return _sentLines.ToList(); } }
     }
 
     /// <summary>
@@ -54,7 +75,7 @@ public sealed class FakeTransport : IFlipperTransport
     /// </summary>
     public void EnqueueResponse(string json)
     {
-        lock(_responseQueueLock)
+        lock (_responseQueueLock)
         {
             _responseQueue.Enqueue(json);
         }
@@ -91,23 +112,32 @@ public sealed class FakeTransport : IFlipperTransport
     public Task SendLineAsync(string json, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        lock(_sentLock)
+
+        // Exclude keep-alive frames (empty strings sent by HeartbeatTransport).
+        if (json.Length > 0)
         {
-            _sentLines.Add(json);
+            lock (_sentLock)
+            {
+                _sentLines.Add(json);
+            }
         }
 
         // Deliver the next scripted response now that the send (and the preceding
         // Register() call in the writer loop) has completed.
+        // Keep-alive frames do not consume a queued response.
         string? response = null;
-        lock(_responseQueueLock)
+        if (json.Length > 0)
         {
-            if(_responseQueue.Count > 0)
+            lock (_responseQueueLock)
             {
-                response = _responseQueue.Dequeue();
+                if (_responseQueue.Count > 0)
+                {
+                    response = _responseQueue.Dequeue();
+                }
             }
         }
 
-        if(response is not null)
+        if (response is not null)
         {
             _inbound.Writer.TryWrite(response);
         }
@@ -117,24 +147,24 @@ public sealed class FakeTransport : IFlipperTransport
 
     public async Task<string?> ReadLineAsync(CancellationToken ct)
     {
-        if(_closed)
+        if (_closed)
         {
             return null;
         }
 
         try
         {
-            if(await _inbound.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
+            if (await _inbound.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
             {
                 _inbound.Reader.TryRead(out var line);
                 return line;
             }
         }
-        catch(OperationCanceledException)
+        catch (OperationCanceledException)
         {
             throw;
         }
-        catch(ChannelClosedException) { /* fall through */ }
+        catch (ChannelClosedException) { /* fall through */ }
 
         return null;
     }

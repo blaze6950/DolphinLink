@@ -15,7 +15,7 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
 
     public PingTests()
     {
-        _client = new FlipperRpcClient(_transport);
+        _client = _transport.CreateClient();
     }
 
     public async Task InitializeAsync()

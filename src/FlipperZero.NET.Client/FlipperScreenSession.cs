@@ -101,7 +101,7 @@ public sealed class FlipperScreenSession : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if(Interlocked.Exchange(ref _disposed, 1) != 0)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
@@ -111,7 +111,7 @@ public sealed class FlipperScreenSession : IAsyncDisposable
             await _client.SendAsync<UiScreenReleaseCommand, UiScreenReleaseResponse>(
                 new UiScreenReleaseCommand()).ConfigureAwait(false);
         }
-        catch(FlipperRpcException) { /* screen may already be released */ }
-        catch(OperationCanceledException) { /* client shutting down */ }
+        catch (FlipperRpcException) { /* screen may already be released */ }
+        catch (OperationCanceledException) { /* client shutting down */ }
     }
 }

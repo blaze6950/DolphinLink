@@ -165,7 +165,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
         _heartbeatInterval = heartbeatInterval ?? DefaultHeartbeatInterval;
         _timeout = timeout ?? DefaultTimeout;
 
-        if(_timeout <= _heartbeatInterval)
+        if (_timeout <= _heartbeatInterval)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(timeout),
@@ -226,11 +226,11 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     /// </summary>
     public async Task<string?> ReadLineAsync(CancellationToken ct)
     {
-        while(true)
+        while (true)
         {
             var line = await _inner.ReadLineAsync(ct).ConfigureAwait(false);
 
-            if(line is null)
+            if (line is null)
             {
                 // EOF — inner transport closed. Return null to propagate.
                 return null;
@@ -239,7 +239,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
             // Any received bytes are proof-of-life, regardless of content.
             Interlocked.Exchange(ref _lastSeenTicks, _clock.ElapsedTicks);
 
-            if(line.AsSpan().Trim().IsEmpty)
+            if (line.AsSpan().Trim().IsEmpty)
             {
                 // Keep-alive frame from the remote side: a bare \n.
                 // Update lastSeen (done above) and loop — do not forward.
@@ -260,7 +260,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
         // the inner transport. This prevents the loop from racing against dispose.
         await _heartbeatCts.CancelAsync().ConfigureAwait(false);
 
-        if(_heartbeatTask is not null)
+        if (_heartbeatTask is not null)
         {
             await _heartbeatTask.ConfigureAwait(false);
         }
@@ -306,7 +306,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     {
         try
         {
-            while(!ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
                 var nowTicks = _clock.ElapsedTicks;
 
@@ -315,10 +315,10 @@ internal sealed class HeartbeatTransport : IFlipperTransport
 
                 // ---- RX timeout check ----
                 // Skip until the first line arrives (grace period during connect).
-                if(lastSeen > 0)
+                if (lastSeen > 0)
                 {
                     var silenceSeen = TimeSpan.FromTicks(nowTicks - lastSeen);
-                    if(silenceSeen > _timeout)
+                    if (silenceSeen > _timeout)
                     {
                         TriggerDisconnect();
                         return;
@@ -331,7 +331,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                     ? _heartbeatInterval               // no send yet → send immediately
                     : TimeSpan.FromTicks(nowTicks - lastSent);
 
-                if(silenceSent >= _heartbeatInterval)
+                if (silenceSent >= _heartbeatInterval)
                 {
                     try
                     {
@@ -343,7 +343,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                         // we don't double-count, but keep the timestamp accurate).
                         Interlocked.Exchange(ref _lastSentTicks, _clock.ElapsedTicks);
                     }
-                    catch(OperationCanceledException)
+                    catch (OperationCanceledException)
                     {
                         return; // Shutting down — exit cleanly.
                     }
@@ -380,7 +380,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                 await Task.Delay(delay, ct).ConfigureAwait(false);
             }
         }
-        catch(OperationCanceledException)
+        catch (OperationCanceledException)
         {
             // Normal shutdown via CancellationToken — exit cleanly.
         }
@@ -393,7 +393,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     private void TriggerDisconnect()
     {
         // CompareExchange: only the first caller transitions 0 → 1 and fires the event.
-        if(Interlocked.CompareExchange(ref _disconnected, 1, 0) == 0)
+        if (Interlocked.CompareExchange(ref _disconnected, 1, 0) == 0)
         {
             Disconnected?.Invoke();
         }
