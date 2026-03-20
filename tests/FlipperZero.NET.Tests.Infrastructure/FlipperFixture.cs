@@ -1,5 +1,3 @@
-using FlipperZero.NET.Extensions;
-
 namespace FlipperZero.NET.Tests.Infrastructure;
 
 /// <summary>
@@ -66,10 +64,7 @@ public sealed class FlipperFixture : IAsyncLifetime
         {
             _client = new FlipperRpcClient(PortName);
             await _client.ConnectAsync().ConfigureAwait(false);
-
-            // Verify connectivity with a ping before running any tests.
-            var pong = await _client.PingAsync(CancellationToken.None).ConfigureAwait(false);
-            IsAvailable = pong;
+            IsAvailable = true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or TimeoutException or InvalidOperationException)
         {

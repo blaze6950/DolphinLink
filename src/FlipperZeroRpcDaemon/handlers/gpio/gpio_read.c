@@ -7,7 +7,7 @@
  *   {"id":N,"cmd":"gpio_read","pin":"1"}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"level":true}}
+ *   {"type":"response","id":N,"payload":{"level":true}}
  *
  * Error codes:
  *   missing_pin — "pin" field absent
@@ -39,17 +39,12 @@ void gpio_read_handler(uint32_t id, const char* json) {
     furi_hal_gpio_init(entry->pin, GpioModeInput, GpioPullUp, GpioSpeedLow);
     bool level = furi_hal_gpio_read(entry->pin);
 
-    char resp[128];
-    snprintf(
-        resp,
-        sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"level\":%s}}\n",
-        id,
-        level ? "true" : "false");
+    char resp[24];
+    snprintf(resp, sizeof(resp), "{\"level\":%s}", level ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(
         log_entry, sizeof(log_entry), "#%" PRIu32 " gpio_read pin=%s -> %d", id, label, (int)level);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

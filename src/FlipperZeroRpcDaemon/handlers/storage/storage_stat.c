@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"storage_stat","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"size":1234,"is_dir":false}}
+ *   {"type":"response","id":N,"payload":{"size":1234,"is_dir":false}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}  — "path" field absent
@@ -48,17 +48,16 @@ void storage_stat_handler(uint32_t id, const char* json) {
 
     bool is_dir = (fi.flags & FSF_DIRECTORY) != 0;
 
-    char resp[256];
+    char resp[64];
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"size\":%" PRIu32 ",\"is_dir\":%s}}\n",
-        id,
+        "{\"size\":%" PRIu32 ",\"is_dir\":%s}",
         (uint32_t)fi.size,
         is_dir ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_stat %.12s", id, path);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

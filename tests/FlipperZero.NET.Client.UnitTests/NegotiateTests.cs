@@ -1,4 +1,4 @@
-﻿using FlipperZero.NET.Commands.Core;
+using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.System;
 using FlipperZero.NET.Extensions;
 
@@ -13,7 +13,7 @@ namespace FlipperZero.NET.Client.UnitTests;
 public sealed class NegotiateTests
 {
     private const string ValidDaemonInfoJson =
-        """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""";
+        """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""";
 
     // -------------------------------------------------------------------------
     // ConnectAsync negotiation behaviour
@@ -55,7 +55,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"some_other_app","version":1,"commands":[]}}""");
+            """{"type":"response","id":1,"payload":{"name":"some_other_app","version":1,"commands":[]}}""");
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(() => client.ConnectAsync());
 
@@ -70,7 +70,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":0,"commands":[]}}""");
+            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":0,"commands":[]}}""");
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
             () => client.ConnectAsync(minProtocolVersion: 1));
@@ -86,7 +86,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":5,"commands":["ping"]}}""");
+            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":5,"commands":["ping"]}}""");
 
         var info = await client.ConnectAsync(minProtocolVersion: 1);
 
@@ -109,7 +109,7 @@ public sealed class NegotiateTests
 
         // DaemonInfoAsync call
         transport.EnqueueResponse(
-            """{"id":2,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
+            """{"type":"response","id":2,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
 
         var info = await client.DaemonInfoAsync();
 
@@ -142,7 +142,7 @@ public sealed class NegotiateTests
 
         // Only "ping" in the list — no UI commands
         transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
+            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
         await client.ConnectAsync();
 
         Assert.False(client.DaemonInfo!.Value.Supports<DaemonInfoCommand>());

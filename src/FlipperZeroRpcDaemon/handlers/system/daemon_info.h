@@ -7,9 +7,9 @@
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"daemon_info"}
  *
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"type":"response","id":N,"payload":{
  *               "name":"flipper_zero_rpc_daemon",
- *               "version":1,
+ *               "version":2,
  *               "commands":["ping","stream_close","device_info",...]}}
  *
  *   Fields:
@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 /** Current daemon protocol version.  Bump on any breaking wire-format change. */
-#define DAEMON_PROTOCOL_VERSION 1
+#define DAEMON_PROTOCOL_VERSION 2
 
 /**
  * Handle a "daemon_info" request.

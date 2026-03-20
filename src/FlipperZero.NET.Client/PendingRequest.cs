@@ -1,20 +1,46 @@
+using FlipperZero.NET.Abstractions;
+
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Type-erased callbacks stored in the pending-request table.
+/// Typed implementation of <see cref="IPendingRequest"/> backed by a
+/// <see cref="TaskCompletionSource{TResponse}"/>.
+///
+/// No boxing: <typeparamref name="TResponse"/> is a struct constraint.
+/// The TCS is owned here; the caller receives only the <see cref="Task"/>.
 /// </summary>
-internal sealed class PendingRequest
+internal sealed class PendingRequest<TResponse> : IPendingRequest
+    where TResponse : struct, IRpcCommandResponse
 {
-    /// <summary>Called when a <c>"status":"ok"</c> or <c>"stream"</c> response arrives.</summary>
-    public required Action<JsonElement> OnSuccess { get; init; }
+    private static readonly JsonSerializerOptions JsonOptions = JsonSerializerOptions.Default;
 
-    /// <summary>Called when an <c>"error"</c> response arrives.</summary>
-    public required Action<string> OnError { get; init; }
+    private readonly TaskCompletionSource<TResponse> _tcs =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>
-    /// Stopwatch ticks recorded when the command line was sent.
-    /// Set by the writer loop immediately after <see cref="FlipperRpcTransport.SendLineAsync"/>;
-    /// read by the dispatcher to compute round-trip time.
-    /// </summary>
+    /// <inheritdoc/>
     public long SentTicks { get; set; }
+
+    /// <summary>The task that resolves when the response arrives or the request fails.</summary>
+    public Task<TResponse> Task => _tcs.Task;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// If <paramref name="payload"/> is <see cref="JsonValueKind.Undefined"/> (absent field),
+    /// the result is <c>default(TResponse)</c> — correct for void-response commands.
+    /// Otherwise, <typeparamref name="TResponse"/> is deserialized directly from the payload.
+    /// </remarks>
+    public void Complete(JsonElement payload)
+    {
+        if (payload.ValueKind == JsonValueKind.Undefined)
+        {
+            _tcs.TrySetResult(default);
+            return;
+        }
+
+        var result = JsonSerializer.Deserialize<TResponse>(payload.GetRawText(), JsonOptions);
+        _tcs.TrySetResult(result);
+    }
+
+    /// <inheritdoc/>
+    public void Fail(Exception ex) => _tcs.TrySetException(ex);
 }

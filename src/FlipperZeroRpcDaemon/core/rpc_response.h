@@ -1,9 +1,14 @@
 /**
- * rpc_response.h — RPC response formatting helpers
+ * rpc_response.h — RPC response formatting helpers (Wire Format V2)
  *
- * Eliminates the repeated pattern of:
- *   snprintf(buf) → cdc_send(buf) → snprintf(log) → cmd_log_push(log)
- * that appears throughout the dispatcher and all command handlers.
+ * All daemon-to-host messages now use a consistent envelope:
+ *
+ *   {"type":"response","id":<id>}                        ← void success
+ *   {"type":"response","id":<id>,"payload":<obj>}        ← success with data
+ *   {"type":"response","id":<id>,"error":"<code>"}       ← error
+ *
+ * Handlers build ONLY the payload object (without wrapping braces) and pass it
+ * to rpc_send_data_response().  The envelope is added by these helpers.
  *
  * All functions must be called from the main thread only.
  */
@@ -16,7 +21,7 @@
 /**
  * Send an error response and log it.
  *
- *   Wire:   {"id":<id>,"error":"<error_code>"}\n
+ *   Wire:   {"type":"response","id":<id>,"error":"<error_code>"}\n
  *   Screen: #<id> <cmd_name> -> err:<error_code>   (truncated to fit)
  *
  * @param id          Request ID from the incoming JSON.
@@ -28,7 +33,7 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name);
 /**
  * Send a simple success response (no data payload) and log it.
  *
- *   Wire:   {"id":<id>,"status":"ok"}\n
+ *   Wire:   {"type":"response","id":<id>}\n
  *   Screen: #<id> <cmd_name> -> ok
  *
  * @param id        Request ID.
@@ -37,13 +42,22 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name);
 void rpc_send_ok(uint32_t id, const char* cmd_name);
 
 /**
- * Send an arbitrary pre-formatted JSON response and log it.
+ * Send a success response with a data payload and log it.
+ *
+ *   Wire:   {"type":"response","id":<id>,"payload":<payload_json>}\n
+ *   Screen: <log_entry>
  *
  * Use this when the success response contains a custom data payload that
  * rpc_send_ok() cannot express (e.g. ping with pong data, gpio_read with
- * a value, or a stream-opened response).
+ * a value).  The caller builds only the payload JSON object (the complete
+ * {...} object, not a field fragment) and passes it as payload_json.
  *
- * @param json_line  Complete '\n'-terminated JSON line to send over CDC.
- * @param log_entry  Short string to display in the on-screen log.
+ * For large payloads that cannot fit in a stack buffer, allocate the
+ * payload_json on the heap and free it after this call returns.
+ *
+ * @param id           Request ID.
+ * @param payload_json Complete JSON object string for the "payload" field,
+ *                     e.g. "{\"pong\":true}" or "{\"level\":false}".
+ * @param log_entry    Short string to display in the on-screen log.
  */
-void rpc_send_response(const char* json_line, const char* log_entry);
+void rpc_send_data_response(uint32_t id, const char* payload_json, const char* log_entry);

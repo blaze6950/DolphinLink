@@ -1,4 +1,4 @@
-using System.Threading.Channels;
+using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Client.UnitTests;
 
@@ -12,21 +12,14 @@ public sealed class PendingRequestsTests
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static PendingRequest MakeRequest(
-        out List<JsonElement> successes,
-        out List<string> errors)
-    {
-        var s = new List<JsonElement>();
-        var e = new List<string>();
-        successes = s;
-        errors = e;
+    /// <summary>
+    /// Minimal <see cref="IRpcCommandResponse"/> for use as the generic parameter
+    /// in <see cref="PendingRequest{TResponse}"/> within these tests.
+    /// </summary>
+    private readonly struct TestResponse : IRpcCommandResponse { }
 
-        return new PendingRequest
-        {
-            OnSuccess = el => s.Add(el),
-            OnError = code => e.Add(code),
-        };
-    }
+    private static PendingRequest<TestResponse> MakeRequest()
+        => new PendingRequest<TestResponse>();
 
     // -------------------------------------------------------------------------
     // Register / TryRemove
@@ -46,7 +39,7 @@ public sealed class PendingRequestsTests
     public void TryRemove_ReturnsRegisteredRequest()
     {
         var sut = new RpcPendingRequests();
-        var req = MakeRequest(out _, out _);
+        var req = MakeRequest();
         sut.Register(1, req);
 
         var found = sut.TryRemove(1, out var removed);
@@ -59,7 +52,7 @@ public sealed class PendingRequestsTests
     public void TryRemove_ReturnsFalse_AfterAlreadyRemoved()
     {
         var sut = new RpcPendingRequests();
-        sut.Register(1, MakeRequest(out _, out _));
+        sut.Register(1, MakeRequest());
         sut.TryRemove(1, out _);
 
         var found = sut.TryRemove(1, out _);
@@ -75,7 +68,7 @@ public sealed class PendingRequestsTests
     public void StampSentTicks_UpdatesExistingRequest()
     {
         var sut = new RpcPendingRequests();
-        var req = MakeRequest(out _, out _);
+        var req = MakeRequest();
         sut.Register(7, req);
 
         sut.StampSentTicks(7, 12345L);
@@ -97,62 +90,32 @@ public sealed class PendingRequestsTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void FailAll_InvokesOnError_ForEveryRegisteredRequest()
+    public async Task FailAll_FailsTask_ForEveryRegisteredRequest()
     {
         var sut = new RpcPendingRequests();
-        var errors1 = new List<string>();
-        var errors2 = new List<string>();
+        var req1 = MakeRequest();
+        var req2 = MakeRequest();
 
-        sut.Register(1, new PendingRequest { OnSuccess = _ => { }, OnError = e => errors1.Add(e) });
-        sut.Register(2, new PendingRequest { OnSuccess = _ => { }, OnError = e => errors2.Add(e) });
+        sut.Register(1, req1);
+        sut.Register(2, req2);
 
-        sut.FailAll("boom");
+        var ex = new Exception("boom");
+        sut.FailAll(ex);
 
-        Assert.Equal(new[] { "boom" }, errors1);
-        Assert.Equal(new[] { "boom" }, errors2);
+        await Assert.ThrowsAsync<Exception>(() => req1.Task);
+        await Assert.ThrowsAsync<Exception>(() => req2.Task);
     }
 
     [Fact]
     public void FailAll_RemovesAllEntries_SoSubsequentTryRemoveFails()
     {
         var sut = new RpcPendingRequests();
-        sut.Register(1, MakeRequest(out _, out _));
-        sut.Register(2, MakeRequest(out _, out _));
+        sut.Register(1, MakeRequest());
+        sut.Register(2, MakeRequest());
 
-        sut.FailAll("gone");
+        sut.FailAll(new Exception("gone"));
 
         Assert.False(sut.TryRemove(1, out _));
         Assert.False(sut.TryRemove(2, out _));
-    }
-
-    // -------------------------------------------------------------------------
-    // FailOrphans
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public void FailOrphans_FailsUnsentWorkItems_InOutboundChannel()
-    {
-        var sut = new RpcPendingRequests();
-        var errors = new List<string>();
-
-        var channel = Channel.CreateUnbounded<RpcWorkItem>();
-
-        // Write a work item that, when Register()-ed, adds to sut
-        channel.Writer.TryWrite(new RpcWorkItem
-        {
-            RequestId = 10,
-            Json = "{}",
-            CommandName = "test",
-            Register = () => sut.Register(10, new PendingRequest
-            {
-                OnSuccess = _ => { },
-                OnError = e => errors.Add(e),
-            }),
-        });
-        channel.Writer.Complete();
-
-        sut.FailOrphans(channel, "orphan_error");
-
-        Assert.Equal(new[] { "orphan_error" }, errors);
     }
 }

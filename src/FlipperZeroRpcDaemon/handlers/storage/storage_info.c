@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_info","path":"/int"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
+ *   {"type":"response","id":N,"payload":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent
@@ -55,9 +55,7 @@ void storage_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"path\":\"%s\",\"total_kb\":%" PRIu32
-        ",\"free_kb\":%" PRIu32 "}}\n",
-        id,
+        "{\"path\":\"%s\",\"total_kb\":%" PRIu32 ",\"free_kb\":%" PRIu32 "}",
         path,
         total_kb,
         free_kb);
@@ -65,5 +63,5 @@ void storage_info_handler(uint32_t id, const char* json) {
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_info %.12s", id, path);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

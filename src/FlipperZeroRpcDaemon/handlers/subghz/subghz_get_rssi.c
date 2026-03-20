@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"subghz_get_rssi","freq":433920000}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"rssi_dbm10":-750}}
+ *   {"type":"response","id":N,"payload":{"rssi_dbm10":-750}}
  *
  * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler,
  *            released before returning)
@@ -49,16 +49,11 @@ void subghz_get_rssi_handler(uint32_t id, const char* json) {
     /* Encode as integer tenths-of-dBm to avoid %f */
     int32_t rssi_10 = (int32_t)(rssi * 10.0f);
 
-    char resp[128];
-    snprintf(
-        resp,
-        sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"rssi_dbm10\":%" PRIi32 "}}\n",
-        id,
-        rssi_10);
+    char resp[40];
+    snprintf(resp, sizeof(resp), "{\"rssi_dbm10\":%" PRIi32 "}", rssi_10);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " subghz_rssi -> %" PRIi32, id, rssi_10);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

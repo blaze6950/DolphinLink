@@ -6,7 +6,8 @@
  * stream-command handler:
  *
  *   stream_open()        — allocate slot, acquire resource, assign ID
- *   stream_send_opened() — emit {"id":N,"stream":M}\n over CDC
+ *   stream_send_opened() — emit V2 stream-open response over CDC:
+ *                          {"type":"response","id":N,"payload":{"stream":M}}\n
  *
  * These were previously copy-pasted as static functions into every handler
  * file.  They are now the single canonical implementations.
@@ -90,14 +91,14 @@ void on_stream_event(FuriEventLoopObject* object, void* ctx) {
 
     StreamEvent ev;
     while(furi_message_queue_get(stream_event_queue, &ev, 0) == FuriStatusOk) {
-        /* Emit: {"event":{<fragment>},"stream":<id>}\n */
-        char buf[32 + STREAM_FRAG_MAX];
+        /* Emit V2: {"type":"event","id":<stream_id>,"payload":{<fragment>}}\n */
+        char buf[48 + STREAM_FRAG_MAX];
         snprintf(
             buf,
             sizeof(buf),
-            "{\"event\":{%s},\"stream\":%" PRIu32 "}\n",
-            ev.json_fragment,
-            ev.stream_id);
+            "{\"type\":\"event\",\"id\":%" PRIu32 ",\"payload\":{%s}}\n",
+            ev.stream_id,
+            ev.json_fragment);
         cdc_send(buf);
     }
 }
@@ -131,9 +132,10 @@ int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* s
 }
 
 void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd_name) {
-    char resp[128];
-    snprintf(
-        resp, sizeof(resp), "{\"id\":%" PRIu32 ",\"stream\":%" PRIu32 "}\n", request_id, stream_id);
+    /* V2 payload: {"stream":M} — rpc_send_data_response wraps in the type/id envelope */
+    char payload[32];
+    snprintf(payload, sizeof(payload), "{\"stream\":%" PRIu32 "}", stream_id);
+
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(
         log_entry,
@@ -142,5 +144,5 @@ void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd
         request_id,
         cmd_name,
         stream_id);
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(request_id, payload, log_entry);
 }

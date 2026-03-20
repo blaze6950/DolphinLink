@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"power_info"}
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"type":"response","id":N,"payload":{
  *               "charge":<u8>,"charging":<bool>,
  *               "voltage_mv":<i32>,"current_ma":<i32>}}
  *
@@ -39,9 +39,8 @@ void power_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"charge\":%" PRIu8 ",\"charging\":%s"
-        ",\"voltage_mv\":%" PRIi32 ",\"current_ma\":%" PRIi32 "}}\n",
-        id,
+        "{\"charge\":%" PRIu8 ",\"charging\":%s"
+        ",\"voltage_mv\":%" PRIi32 ",\"current_ma\":%" PRIi32 "}",
         pct,
         charging ? "true" : "false",
         voltage_mv,
@@ -50,5 +49,5 @@ void power_info_handler(uint32_t id, const char* json) {
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " power_info -> ok", id);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

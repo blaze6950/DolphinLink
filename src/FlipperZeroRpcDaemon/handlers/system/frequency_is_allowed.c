@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"frequency_is_allowed","freq":<u32>}
- *   Response: {"id":N,"status":"ok","data":{"allowed":<bool>}}
+ *   Response: {"type":"response","id":N,"payload":{"allowed":<bool>}}
  *   Errors:   missing_freq
  *
  * Checks whether the given frequency (in Hz) is permitted under the active
@@ -32,17 +32,12 @@ void frequency_is_allowed_handler(uint32_t id, const char* json) {
 
     bool allowed = furi_hal_region_is_frequency_allowed(freq);
 
-    char resp[128];
-    snprintf(
-        resp,
-        sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"allowed\":%s}}\n",
-        id,
-        allowed ? "true" : "false");
+    char resp[32];
+    snprintf(resp, sizeof(resp), "{\"allowed\":%s}", allowed ? "true" : "false");
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(
         log_entry, sizeof(log_entry), "#%" PRIu32 " freq_allowed -> %s", id, allowed ? "y" : "n");
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

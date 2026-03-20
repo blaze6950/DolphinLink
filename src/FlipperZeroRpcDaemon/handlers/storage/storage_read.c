@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_read","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"data":"<base64>"}}
+ *   {"type":"response","id":N,"payload":{"data":"<base64>"}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent
@@ -74,8 +74,8 @@ void storage_read_handler(uint32_t id, const char* json) {
     base64_encode(raw, bytes_read, b64, b64_size);
     free(raw);
 
-    /* Response: {"id":N,"status":"ok","data":{"data":"<base64>"}} */
-    size_t resp_size = b64_size + 128;
+    /* Payload: {"data":"<base64>"} */
+    size_t resp_size = b64_size + 12; /* {"data":""} + b64 content */
     char* resp = malloc(resp_size);
     if(!resp) {
         free(b64);
@@ -83,12 +83,7 @@ void storage_read_handler(uint32_t id, const char* json) {
         return;
     }
 
-    snprintf(
-        resp,
-        resp_size,
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"data\":\"%s\"}}\n",
-        id,
-        b64);
+    snprintf(resp, resp_size, "{\"data\":\"%s\"}", b64);
     free(b64);
 
     char log_entry[CMD_LOG_LINE_LEN];
@@ -100,6 +95,6 @@ void storage_read_handler(uint32_t id, const char* json) {
         path,
         bytes_read);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
     free(resp);
 }

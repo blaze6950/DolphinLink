@@ -13,10 +13,18 @@ public sealed class DispatcherTests
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static JsonElement ParseElement(string json)
+    /// <summary>
+    /// Minimal test double for <see cref="IPendingRequest"/> that collects
+    /// all <see cref="Complete"/> and <see cref="Fail"/> calls.
+    /// </summary>
+    private sealed class FakePendingRequest : IPendingRequest
     {
-        using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.Clone();
+        public long SentTicks { get; set; }
+        public List<JsonElement> Completions { get; } = new();
+        public List<Exception> Failures { get; } = new();
+
+        public void Complete(JsonElement payload) => Completions.Add(payload);
+        public void Fail(Exception ex) => Failures.Add(ex);
     }
 
     private sealed class DispatcherFixture
@@ -39,17 +47,12 @@ public sealed class DispatcherTests
                 ex => Faults.Add(ex));
         }
 
-        /// <summary>Registers a pending request and returns the collected successes/errors.</summary>
-        public (List<JsonElement> successes, List<string> errors) RegisterPending(uint id)
+        /// <summary>Registers a <see cref="FakePendingRequest"/> and returns it.</summary>
+        public FakePendingRequest RegisterPending(uint id)
         {
-            var successes = new List<JsonElement>();
-            var errors = new List<string>();
-            Pending.Register(id, new PendingRequest
-            {
-                OnSuccess = el => successes.Add(el),
-                OnError = code => errors.Add(code),
-            });
-            return (successes, errors);
+            var req = new FakePendingRequest();
+            Pending.Register(id, req);
+            return req;
         }
     }
 
@@ -78,7 +81,7 @@ public sealed class DispatcherTests
     {
         var f = new DispatcherFixture();
 
-        f.Dispatcher.Dispatch("""{"disconnect":true}""");
+        f.Dispatcher.Dispatch("""{"type":"disconnect"}""");
 
         Assert.Single(f.Faults);
         Assert.IsType<FlipperRpcException>(f.Faults[0]);
@@ -102,7 +105,7 @@ public sealed class DispatcherTests
             Fault = ex => channel.Writer.TryComplete(ex),
         });
 
-        f.Dispatcher.Dispatch("""{"event":{"value":99},"stream":3}""");
+        f.Dispatcher.Dispatch("""{"type":"event","id":3,"payload":{"value":99}}""");
 
         await Task.Delay(10); // give async write path a moment if needed
         Assert.True(channel.Reader.TryRead(out var received));
@@ -122,7 +125,7 @@ public sealed class DispatcherTests
             Fault = ex => channel.Writer.TryComplete(ex),
         });
 
-        f.Dispatcher.Dispatch("""{"event":{},"stream":5}""");
+        f.Dispatcher.Dispatch("""{"type":"event","id":5,"payload":{}}""");
 
         Assert.Single(f.LogEntries);
         Assert.Equal(RpcLogKind.StreamEventReceived, f.LogEntries[0].Kind);
@@ -134,15 +137,15 @@ public sealed class DispatcherTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Dispatch_SuccessResponse_CallsOnSuccess()
+    public void Dispatch_SuccessResponse_CallsComplete()
     {
         var f = new DispatcherFixture();
-        var (successes, errors) = f.RegisterPending(1);
+        var req = f.RegisterPending(1);
 
-        f.Dispatcher.Dispatch("""{"id":1,"status":"ok","data":{"pong":true}}""");
+        f.Dispatcher.Dispatch("""{"type":"response","id":1,"payload":{"pong":true}}""");
 
-        Assert.Single(successes);
-        Assert.Empty(errors);
+        Assert.Single(req.Completions);
+        Assert.Empty(req.Failures);
     }
 
     [Fact]
@@ -151,7 +154,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
         f.RegisterPending(2);
 
-        f.Dispatcher.Dispatch("""{"id":2,"status":"ok","data":{}}""");
+        f.Dispatcher.Dispatch("""{"type":"response","id":2}""");
 
         Assert.Single(f.LogEntries);
         Assert.Equal(RpcLogKind.ResponseReceived, f.LogEntries[0].Kind);
@@ -163,16 +166,17 @@ public sealed class DispatcherTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Dispatch_ErrorResponse_CallsOnError()
+    public void Dispatch_ErrorResponse_CallsFail()
     {
         var f = new DispatcherFixture();
-        var (successes, errors) = f.RegisterPending(3);
+        var req = f.RegisterPending(3);
 
-        f.Dispatcher.Dispatch("""{"id":3,"error":"resource_busy"}""");
+        f.Dispatcher.Dispatch("""{"type":"response","id":3,"error":"resource_busy"}""");
 
-        Assert.Empty(successes);
-        Assert.Single(errors);
-        Assert.Equal("resource_busy", errors[0]);
+        Assert.Empty(req.Completions);
+        Assert.Single(req.Failures);
+        Assert.IsType<FlipperRpcException>(req.Failures[0]);
+        Assert.Equal("resource_busy", ((FlipperRpcException)req.Failures[0]).ErrorCode);
     }
 
     // -------------------------------------------------------------------------
@@ -185,7 +189,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
 
         // Should not throw or fault
-        f.Dispatcher.Dispatch("""{"id":999,"status":"ok","data":{}}""");
+        f.Dispatcher.Dispatch("""{"type":"response","id":999}""");
 
         Assert.Empty(f.Faults);
         Assert.Empty(f.LogEntries);
@@ -199,11 +203,11 @@ public sealed class DispatcherTests
     public void Dispatch_WithSentTicks_ComputesRoundTrip()
     {
         var f = new DispatcherFixture();
-        var (_, _) = f.RegisterPending(4);
+        f.RegisterPending(4);
         // Stamp a non-zero sent time
         f.Pending.StampSentTicks(4, f.Clock.ElapsedTicks);
 
-        f.Dispatcher.Dispatch("""{"id":4,"status":"ok","data":{}}""");
+        f.Dispatcher.Dispatch("""{"type":"response","id":4}""");
 
         Assert.Single(f.LogEntries);
         Assert.NotNull(f.LogEntries[0].RoundTrip);

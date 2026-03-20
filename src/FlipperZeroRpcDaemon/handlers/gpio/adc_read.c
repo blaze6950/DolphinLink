@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"adc_read","pin":"1"}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"raw":2048,"mv":1650}}
+ *   {"type":"response","id":N,"payload":{"raw":2048,"mv":1650}}
  *     raw — 12-bit raw ADC count (0–4095)
  *     mv  — voltage in millivolts (integer)
  *
@@ -51,13 +51,11 @@ void adc_read_handler(uint32_t id, const char* json) {
     /* Encode voltage as millivolts integer to avoid %f */
     int32_t mv = (int32_t)(voltage * 1000.0f);
 
-    char resp[128];
+    char resp[64];
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"raw\":%" PRIu16 ",\"mv\":%" PRIi32
-        "}}\n",
-        id,
+        "{\"raw\":%" PRIu16 ",\"mv\":%" PRIi32 "}",
         raw,
         mv);
 
@@ -70,5 +68,5 @@ void adc_read_handler(uint32_t id, const char* json) {
         label,
         mv);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

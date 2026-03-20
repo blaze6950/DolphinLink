@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_list","path":"/int"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"entries":[...]}}
+ *   {"type":"response","id":N,"payload":{"entries":[...]}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent
@@ -50,7 +50,7 @@ void storage_list_handler(uint32_t id, const char* json) {
         return;
     }
 
-    /* Build a JSON array of entries inline into a heap buffer */
+    /* Build payload: {"entries":[...]} in a heap buffer */
     /* Each entry: {"name":"...","is_dir":false,"size":1234} max ~290 chars */
     /* 64 entries × 290 = ~18 560 — allocate on heap */
     size_t buf_size = STORAGE_LIST_MAX * 290 + 128;
@@ -67,12 +67,8 @@ void storage_list_handler(uint32_t id, const char* json) {
     size_t offset = 0;
     size_t count = 0;
 
-    /* Header */
-    offset += snprintf(
-        buf + offset,
-        buf_size - offset,
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"entries\":[",
-        id);
+    /* Payload header */
+    offset += snprintf(buf + offset, buf_size - offset, "{\"entries\":[");
 
     while(count < STORAGE_LIST_MAX && storage_dir_read(dir, &fi, name, sizeof(name))) {
         if(count > 0 && offset < buf_size - 1) {
@@ -92,17 +88,15 @@ void storage_list_handler(uint32_t id, const char* json) {
     storage_dir_close(dir);
     storage_file_free(dir);
 
-    if(offset < buf_size - 3) {
+    if(offset < buf_size - 2) {
         buf[offset++] = ']';
         buf[offset++] = '}';
-        buf[offset++] = '}';
-        buf[offset++] = '\n';
         buf[offset] = '\0';
     }
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_list %.12s", id, path);
 
-    rpc_send_response(buf, log_entry);
+    rpc_send_data_response(id, buf, log_entry);
     free(buf);
 }

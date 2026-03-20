@@ -98,12 +98,9 @@ void daemon_info_handler(uint32_t id, const char* json) {
     pos += snprintf(
         resp + pos,
         (int)sizeof(resp) - pos,
-        "{\"id\":%" PRIu32
-        ",\"status\":\"ok\",\"data\":"
         "{\"name\":\"flipper_zero_rpc_daemon\","
         "\"version\":%d,"
         "\"commands\":[",
-        id,
         DAEMON_PROTOCOL_VERSION);
 
     for(size_t i = 0; i < SUPPORTED_COMMANDS_COUNT; i++) {
@@ -116,7 +113,7 @@ void daemon_info_handler(uint32_t id, const char* json) {
             last ? "" : ",");
     }
 
-    pos += snprintf(resp + pos, (int)sizeof(resp) - pos, "]}}\n");
+    pos += snprintf(resp + pos, (int)sizeof(resp) - pos, "]}");
     UNUSED(pos);
 
     char log_entry[CMD_LOG_LINE_LEN];
@@ -127,5 +124,5 @@ void daemon_info_handler(uint32_t id, const char* json) {
         id,
         SUPPORTED_COMMANDS_COUNT);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

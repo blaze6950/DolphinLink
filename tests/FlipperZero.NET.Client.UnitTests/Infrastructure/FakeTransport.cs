@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
 
@@ -9,7 +10,7 @@ namespace FlipperZero.NET.Client.UnitTests.Infrastructure;
 /// Usage
 /// -----
 /// • <see cref="EnqueueResponse"/> — schedules a response to be delivered to the
-///   client reader loop after the client's next outbound <see cref="SendLineAsync"/>.
+///   client reader loop after the client's next <see cref="SendAsync"/> completes.
 ///   This guarantees the pending-request entry is registered before the response
 ///   arrives, preventing a reader-loop race.
 ///
@@ -32,15 +33,13 @@ public sealed class FakeTransport : IFlipperTransport
     private readonly Channel<string> _inbound = Channel.CreateUnbounded<string>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 
-    // Responses waiting to be triggered by the next SendLineAsync call (one per send).
+    // Responses waiting to be triggered by the next SendAsync call (one per send).
     private readonly Queue<string> _responseQueue = new();
     private readonly object _responseQueueLock = new();
 
-    // Lines the client sent (captured by SendLineAsync), excluding keep-alive frames.
+    // Lines the client sent (captured by SendAsync), excluding keep-alive frames.
     private readonly List<string> _sentLines = new();
     private readonly object _sentLock = new();
-
-    private bool _closed;
 
     // -------------------------------------------------------------------------
     // Test helpers
@@ -59,8 +58,7 @@ public sealed class FakeTransport : IFlipperTransport
 
     /// <summary>
     /// All JSON lines sent by the client (in order, without trailing newline).
-    /// Keep-alive frames (empty strings sent by <see cref="HeartbeatTransport"/>)
-    /// are excluded.
+    /// Keep-alive frames (empty strings) are excluded.
     /// </summary>
     public IReadOnlyList<string> SentLines
     {
@@ -70,7 +68,7 @@ public sealed class FakeTransport : IFlipperTransport
     /// <summary>
     /// Schedules <paramref name="json"/> to be delivered to the client's reader
     /// loop as a daemon response immediately after the client's next
-    /// <see cref="SendLineAsync"/> completes.  This ensures the pending-request
+    /// <see cref="SendAsync"/> completes.  This ensures the pending-request
     /// entry is registered before the response is dispatched.
     /// </summary>
     public void EnqueueResponse(string json)
@@ -90,43 +88,35 @@ public sealed class FakeTransport : IFlipperTransport
         _inbound.Writer.TryWrite(json);
 
     /// <summary>
-    /// Closes the transport, unblocking <see cref="ReadLineAsync"/> with <c>null</c>.
+    /// Simulates a transport disconnect by completing the inbound channel,
+    /// which causes <see cref="ReceiveAsync"/> to end its enumeration.
     /// </summary>
-    public void SimulateDisconnect() => Close();
+    public void SimulateDisconnect() =>
+        _inbound.Writer.TryComplete();
 
     // -------------------------------------------------------------------------
     // IFlipperTransport
     // -------------------------------------------------------------------------
 
-    public void Open()
-    {
-        _closed = false;
-    }
+    public ValueTask OpenAsync(CancellationToken ct = default) => ValueTask.CompletedTask;
 
-    public void Close()
-    {
-        _closed = true;
-        _inbound.Writer.TryComplete();
-    }
-
-    public Task SendLineAsync(string json, CancellationToken ct)
+    public ValueTask SendAsync(string data, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         // Exclude keep-alive frames (empty strings sent by HeartbeatTransport).
-        if (json.Length > 0)
+        if (data.Length > 0)
         {
             lock (_sentLock)
             {
-                _sentLines.Add(json);
+                _sentLines.Add(data);
             }
         }
 
-        // Deliver the next scripted response now that the send (and the preceding
-        // Register() call in the writer loop) has completed.
+        // Deliver the next scripted response now that the send has completed.
         // Keep-alive frames do not consume a queued response.
         string? response = null;
-        if (json.Length > 0)
+        if (data.Length > 0)
         {
             lock (_responseQueueLock)
             {
@@ -142,36 +132,21 @@ public sealed class FakeTransport : IFlipperTransport
             _inbound.Writer.TryWrite(response);
         }
 
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public async Task<string?> ReadLineAsync(CancellationToken ct)
+    public async IAsyncEnumerable<string> ReceiveAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (_closed)
+        await foreach (var line in _inbound.Reader.ReadAllAsync(ct).ConfigureAwait(false))
         {
-            return null;
+            yield return line;
         }
-
-        try
-        {
-            if (await _inbound.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
-            {
-                _inbound.Reader.TryRead(out var line);
-                return line;
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (ChannelClosedException) { /* fall through */ }
-
-        return null;
     }
 
     public ValueTask DisposeAsync()
     {
-        Close();
+        SimulateDisconnect();
         return ValueTask.CompletedTask;
     }
 }

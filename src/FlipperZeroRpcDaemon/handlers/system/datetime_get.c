@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"datetime_get"}
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"type":"response","id":N,"payload":{
  *               "year":<u16>,"month":<u8>,"day":<u8>,
  *               "hour":<u8>,"minute":<u8>,"second":<u8>}}
  *
@@ -32,9 +32,8 @@ void datetime_get_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"year\":%" PRIu16 ",\"month\":%" PRIu8
-        ",\"day\":%" PRIu8 ",\"hour\":%" PRIu8 ",\"minute\":%" PRIu8 ",\"second\":%" PRIu8 "}}\n",
-        id,
+        "{\"year\":%" PRIu16 ",\"month\":%" PRIu8
+        ",\"day\":%" PRIu8 ",\"hour\":%" PRIu8 ",\"minute\":%" PRIu8 ",\"second\":%" PRIu8 "}",
         dt.year,
         dt.month,
         dt.day,
@@ -45,5 +44,5 @@ void datetime_get_handler(uint32_t id, const char* json) {
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " datetime_get -> ok", id);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

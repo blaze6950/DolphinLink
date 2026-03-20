@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"region_info"}
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"type":"response","id":N,"payload":{
  *               "region":"<name>",
  *               "bands":[{"start":<u32>,"end":<u32>,"power_limit":<u8>},...] }}
  *
@@ -56,13 +56,12 @@ void region_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{\"region\":\"%s\",\"bands\":%s}}\n",
-        id,
+        "{\"region\":\"%s\",\"bands\":%s}",
         region_name,
         bands_buf);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " region_info -> ok", id);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

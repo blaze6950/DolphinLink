@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Parses a single inbound NDJSON line and routes it to the correct pending
+/// Parses a single inbound V2 NDJSON line and routes it to the correct pending
 /// request or open stream.
 ///
 /// Injected dependencies (all <see cref="FlipperRpcClient"/> internals):
@@ -12,14 +12,17 @@ namespace FlipperZero.NET;
 ///   <item><see cref="RpcStreamManager"/> — active stream event channels.</item>
 ///   <item><see cref="Stopwatch"/> — monotonic clock for log timestamps and round-trip times.</item>
 ///   <item><c>onLogEntry</c> — optional log subscriber (invoked synchronously; must not throw).</item>
-///   <item><c>onFault</c> — called when a <c>{"disconnect":true}</c> message is received.</item>
+///   <item><c>onFault</c> — called when a <c>{"type":"disconnect"}</c> message is received.</item>
 /// </list>
 /// </summary>
 internal sealed class RpcMessageDispatcher
 {
     private readonly RpcPendingRequests _pending;
     private readonly RpcStreamManager _streams;
+
     private readonly Stopwatch _clock;
+
+    // todo revise the need of these two action fields.
     private readonly Action<RpcLogEntry>? _onLogEntry;
     private readonly Action<Exception> _onFault;
 
@@ -43,49 +46,61 @@ internal sealed class RpcMessageDispatcher
     /// </summary>
     public void Dispatch(string line)
     {
-        JsonElement root;
-        try
-        {
-            using var doc = JsonDocument.Parse(line);
-            root = doc.RootElement.Clone();
-        }
-        catch
-        {
-            LogErrorWithJson("Malformed JSON received.", line, _clock.ElapsedTicks);
-            return;
-        }
-
         var receivedTicks = _clock.ElapsedTicks;
+        var envelope = RpcEnvelope.Parse(line);
 
-        // Graceful daemon exit: {"disconnect":true}
-        if (root.TryGetProperty("disconnect", out _))
+        switch (envelope.Type)
         {
-            LogErrorWithJson("Daemon disconnected.", line, receivedTicks);
-            _onFault(new FlipperRpcException("Daemon disconnected."));
+            case RpcMessageType.Disconnect:
+                LogErrorWithJson("Daemon disconnected.", line, receivedTicks);
+                _onFault(new FlipperRpcException("Daemon disconnected."));
+                return;
+
+            case RpcMessageType.Event:
+                DispatchEvent(envelope, line, receivedTicks);
+                return;
+
+            case RpcMessageType.Response:
+                DispatchResponse(envelope, line, receivedTicks);
+                return;
+
+            case RpcMessageType.Unknown:
+            default:
+                LogErrorWithJson("Malformed JSON received.", line, receivedTicks);
+                return;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Event dispatch
+    // -------------------------------------------------------------------------
+
+    private void DispatchEvent(RpcEnvelope envelope, string line, long receivedTicks)
+    {
+        if (envelope.Id is not { } streamId)
+        {
             return;
         }
 
-        // Stream event: {"event":{...},"stream":<id>}
-        if (root.TryGetProperty("event", out var eventElement)
-            && root.TryGetProperty("stream", out var streamProp)
-            && streamProp.TryGetUInt32(out var streamId))
+        _onLogEntry?.Invoke(new RpcLogEntry
         {
-            _onLogEntry?.Invoke(new RpcLogEntry
-            {
-                Source = RpcLogSource.Client,
-                Kind = RpcLogKind.StreamEventReceived,
-                StreamId = streamId,
-                RawJson = line,
-                Elapsed = TimeSpan.FromTicks(receivedTicks),
-            });
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.StreamEventReceived,
+            StreamId = streamId,
+            RawJson = line,
+            Elapsed = TimeSpan.FromTicks(receivedTicks),
+        });
 
-            _streams.TryRouteEvent(streamId, eventElement);
-            return;
-        }
+        _streams.TryRouteEvent(streamId, envelope.Payload);
+    }
 
-        // Request/response: must have "id"
-        if (!root.TryGetProperty("id", out var idProp)
-            || !idProp.TryGetUInt32(out var requestId))
+    // -------------------------------------------------------------------------
+    // Response dispatch
+    // -------------------------------------------------------------------------
+
+    private void DispatchResponse(RpcEnvelope envelope, string line, long receivedTicks)
+    {
+        if (envelope.Id is not { } requestId)
         {
             return;
         }
@@ -102,17 +117,7 @@ internal sealed class RpcMessageDispatcher
             roundTrip = TimeSpan.FromTicks(receivedTicks - pending.SentTicks);
         }
 
-        string? status;
-        bool isError = root.TryGetProperty("error", out var errorProp);
-        if (isError)
-        {
-            status = errorProp.GetString() ?? "unknown_error";
-        }
-        else
-        {
-            // Detect stream-open response vs plain ok
-            status = root.TryGetProperty("stream", out _) ? "stream_opened" : "ok";
-        }
+        var status = envelope.Error ?? "ok";
 
         _onLogEntry?.Invoke(new RpcLogEntry
         {
@@ -125,21 +130,20 @@ internal sealed class RpcMessageDispatcher
             RoundTrip = roundTrip,
         });
 
-        if (isError)
+        if (envelope.Error is { } errorCode)
         {
-            pending.OnError(status);
+            pending.Fail(new FlipperRpcException(requestId, errorCode));
         }
         else
         {
-            pending.OnSuccess(root);
+            pending.Complete(envelope.Payload);
         }
     }
 
-    /// <summary>
-    /// Emits an <see cref="RpcLogKind.Error"/> entry that includes the raw JSON
-    /// line.  The two call sites (malformed JSON, daemon disconnect) emit the
-    /// same shape.
-    /// </summary>
+    // -------------------------------------------------------------------------
+    // Logging helpers
+    // -------------------------------------------------------------------------
+
     private void LogErrorWithJson(string status, string rawJson, long ticks) =>
         _onLogEntry?.Invoke(new RpcLogEntry
         {

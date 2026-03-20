@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"device_info"}
- *   Response: {"id":N,"status":"ok","data":{...}} (see device_info.h)
+ *   Response: {"type":"response","id":N,"payload":{...}} (see device_info.h)
  *
  * Reads identity, firmware, hardware OTP, regulatory IDs and UID/BLE MAC
  * via furi_hal_version_* APIs.  The response buffer is built incrementally
@@ -108,12 +108,11 @@ void device_info_handler(uint32_t id, const char* json) {
         strncpy(ble_mac_str, "000000000000", sizeof(ble_mac_str));
     }
 
-    /* --- Build response incrementally ------------------------------------ */
+    /* --- Build payload incrementally ------------------------------------- */
     char resp[1536];
     int pos = 0;
 
-    pos += snprintf(resp + pos, sizeof(resp) - pos,
-        "{\"id\":%" PRIu32 ",\"status\":\"ok\",\"data\":{", id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "{");
 
     /* Identity */
     pos += snprintf(resp + pos, sizeof(resp) - pos, "\"name\":\"%s\"", name);
@@ -152,11 +151,11 @@ void device_info_handler(uint32_t id, const char* json) {
     pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"srrc_id\":\"%s\"", srrc_id);
     pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ncc_id\":\"%s\"", ncc_id);
 
-    pos += snprintf(resp + pos, sizeof(resp) - pos, "}}\n");
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "}");
     UNUSED(pos);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " device_info -> ok", id);
 
-    rpc_send_response(resp, log_entry);
+    rpc_send_data_response(id, resp, log_entry);
 }

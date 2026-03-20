@@ -1,4 +1,4 @@
-﻿using FlipperZero.NET.Commands.Core;
+using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.Input;
 
 namespace FlipperZero.NET.Client.UnitTests;
@@ -20,7 +20,7 @@ public sealed class CancellationTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
+            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
         await _client.ConnectAsync();
     }
 

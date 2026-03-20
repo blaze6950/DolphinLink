@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.System;
@@ -13,37 +12,33 @@ namespace FlipperZero.NET;
 /// ============
 ///
 /// <code>
-///   IFlipperTransport   (raw: Serial, BLE, TCP, …)
+///   FlipperRpcTransport          (raw USB-CDC)
 ///       ↑
-///   HeartbeatTransport  (keep-alive, disconnect detection)
+///   PacketSerializationTransport (single-writer serialiser)
 ///       ↑
-///   FlipperRpcClient    (this class — RPC logic only)
+///   HeartbeatTransport           (keep-alive, disconnect detection)
+///       ↑
+///   FlipperRpcClient             (this class — RPC logic only)
 /// </code>
 ///
-/// All outbound commands are serialised through a bounded
-/// <see cref="Channel{T}"/> (capacity 32).  A single writer loop dequeues work
-/// items and sends them over the transport, guaranteeing no interleaving on the
-/// wire.  A single reader loop parses inbound NDJSON lines and dispatches them
-/// to the correct pending request.
+/// There is no outbound channel or writer loop in this class.
+/// <see cref="PacketSerializationTransport"/> provides the single-writer
+/// guarantee; <see cref="SendAsync{TCommand,TResponse}"/> calls
+/// <c>_transport.SendAsync()</c> directly.
 ///
 /// Request/response
 /// ----------------
-/// <see cref="SendAsync{TCommand,TResponse}"/> delegates to
-/// <see cref="RpcRequestFactory.CreateRequest{TCommand,TResponse}"/> which
-/// builds a typed <see cref="RpcWorkItem"/> and a matching
-/// <see cref="System.Threading.Tasks.Task{TResponse}"/> backed by a
-/// <see cref="System.Threading.Tasks.TaskCompletionSource{T}"/> closure.
-/// No boxing of the TCS; the pending table stores only type-erased
-/// <see cref="PendingRequest"/> callbacks.
+/// <see cref="SendAsync{TCommand,TResponse}"/> creates a typed
+/// <see cref="PendingRequest{TResponse}"/> and registers it in the pending
+/// table BEFORE calling <c>_transport.SendAsync()</c>, guaranteeing the
+/// reader loop can never receive a response before registration.
 ///
 /// Streams
 /// -------
-/// <see cref="SendStreamAsync{TCommand,TEvent}"/> delegates to
-/// <see cref="RpcRequestFactory.CreateStreamRequest{TCommand,TEvent}"/> which
-/// builds the work item and event channel wiring, returning a
-/// <see cref="StreamHandle{TEvent}"/> once the Flipper assigns a stream id.
-/// The client wraps this in an <see cref="RpcStream{TEvent}"/> and returns it
-/// to the caller.
+/// <see cref="SendStreamAsync{TCommand,TEvent}"/> sends the command, awaits
+/// the <see cref="StreamOpenResult"/> to get the assigned stream id, then
+/// registers the stream in <see cref="RpcStreamManager"/> before returning
+/// the <see cref="RpcStream{TEvent}"/> to the caller.
 ///
 /// Heartbeat / keep-alive
 /// ----------------------
@@ -68,7 +63,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
     private readonly IFlipperTransport _transport;
     private readonly HeartbeatTransport _heartbeat;
-    private readonly Channel<RpcWorkItem> _outbound;
 
     /// <summary>
     /// The <see cref="DaemonInfoResponse"/> returned by the daemon during
@@ -77,22 +71,18 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// </summary>
     public DaemonInfoResponse? DaemonInfo { get; private set; }
 
-    /// <summary>Pending request-id → callbacks (for request/response commands).</summary>
+    /// <summary>Pending request-id → pending request (for request/response commands).</summary>
     private readonly RpcPendingRequests _pending = new();
 
     /// <summary>Active stream-id → stream state (for streaming commands).</summary>
     private readonly RpcStreamManager _streams = new();
 
-    /// <summary>Parses and routes inbound NDJSON lines.</summary>
+    /// <summary>Parses and routes inbound V2 NDJSON lines.</summary>
     private readonly RpcMessageDispatcher _dispatcher;
 
-    /// <summary>
-    /// Constructs typed <see cref="RpcWorkItem"/> instances and the matching
-    /// completion handles for both request/response and stream commands.
-    /// </summary>
-    private readonly RpcRequestFactory _factory;
+    /// <summary>Monotonically increasing counter for request ids.</summary>
+    private uint _nextId;
 
-    private Task? _writerTask;
     private Task? _readerTask;
     private readonly CancellationTokenSource _cts = new();
 
@@ -149,7 +139,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// <param name="portName">
     /// Serial port name, e.g. <c>"COM3"</c> or <c>"/dev/ttyACM0"</c>.
     /// Creates a <see cref="FlipperRpcTransport"/> (USB-CDC) internally,
-    /// wrapped in a <see cref="HeartbeatTransport"/> with default timing.
+    /// wrapped in <see cref="PacketSerializationTransport"/> and
+    /// <see cref="HeartbeatTransport"/> with default timing.
     /// </param>
     public FlipperRpcClient(string portName)
         : this(new FlipperRpcTransport(portName))
@@ -180,15 +171,16 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// Use this overload to inject a custom transport (BLE, Wi-Fi, WASM/WebSerial bridge,
     /// or an in-process fake for unit tests).
     ///
-    /// The transport is automatically wrapped in a <see cref="HeartbeatTransport"/>
-    /// with default timing (3 s heartbeat interval, 10 s timeout).
-    /// Use <see cref="FlipperRpcClient(IFlipperTransport,TimeSpan,TimeSpan)"/>
+    /// The transport is automatically wrapped in a <see cref="PacketSerializationTransport"/>
+    /// and a <see cref="HeartbeatTransport"/> with default timing (3 s heartbeat interval,
+    /// 10 s timeout).  Use
+    /// <see cref="FlipperRpcClient(IFlipperTransport,TimeSpan,TimeSpan)"/>
     /// to override the heartbeat timing.
     /// </summary>
     /// <param name="transport">
     /// A transport that has not yet been opened.
-    /// The client takes ownership: it will call <see cref="IFlipperTransport.Open"/>,
-    /// <see cref="IFlipperTransport.Close"/>, and <see cref="IAsyncDisposable.DisposeAsync"/>.
+    /// The client takes ownership: it will call <see cref="IFlipperTransport.OpenAsync"/>,
+    /// and <see cref="IAsyncDisposable.DisposeAsync"/>.
     /// </param>
     public FlipperRpcClient(IFlipperTransport transport)
         : this(transport,
@@ -213,24 +205,16 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         TimeSpan heartbeatInterval,
         TimeSpan timeout)
     {
-        _heartbeat = new HeartbeatTransport(transport, heartbeatInterval, timeout);
+        // Build the transport chain: raw → serializer → heartbeat
+        var serializer = new PacketSerializationTransport(transport);
+        _heartbeat = new HeartbeatTransport(serializer, heartbeatInterval, timeout);
 
         // Subscribe to the transport-level disconnect event.
         // HeartbeatTransport fires this when the inbound channel is silent for
         // longer than `timeout`, or when sending a keep-alive frame fails.
-        // We translate it into a FaultAll so all pending RPC work fails fast.
         _heartbeat.Disconnected += OnHeartbeatDisconnected;
 
         _transport = _heartbeat;
-
-        _outbound = Channel.CreateBounded<RpcWorkItem>(new BoundedChannelOptions(32)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = true,
-            SingleWriter = false,
-        });
-
-        _factory = new RpcRequestFactory(_pending, _streams);
 
         _dispatcher = new RpcMessageDispatcher(
             _pending,
@@ -245,7 +229,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Opens the transport, starts background I/O loops, and performs
+    /// Opens the transport, starts the background reader loop, and performs
     /// capability negotiation with the connected Flipper daemon.
     ///
     /// Calls <c>daemon_info</c>, verifies that <see cref="DaemonInfoResponse.Name"/>
@@ -269,9 +253,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
-        _transport.Open();
+        await _transport.OpenAsync(ct).ConfigureAwait(false);
         _clock.Start();
-        _writerTask = Task.Run(() => WriterLoopAsync(_cts.Token));
         _readerTask = Task.Run(() => ReaderLoopAsync(_cts.Token));
 
         DaemonInfo = await NegotiateAsync(minProtocolVersion, ct).ConfigureAwait(false);
@@ -321,9 +304,49 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         where TResponse : struct, IRpcCommandResponse
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
-        var (workItem, response) = _factory.CreateRequest<TCommand, TResponse>(command, ct);
-        await _outbound.Writer.WriteAsync(workItem, ct).ConfigureAwait(false);
-        return await response.ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+
+        var id = Interlocked.Increment(ref _nextId);
+        var pending = new PendingRequest<TResponse>();
+
+        // Register BEFORE sending so the reader loop can never race ahead.
+        _pending.Register(id, pending);
+
+        // Wire cancellation: if ct fires before the response arrives, fail the pending request.
+        ct.Register(() => pending.Fail(new OperationCanceledException(ct)));
+
+        var json = RpcMessageSerializer.Serialize(id, command.CommandName, command.WriteArgs);
+
+        try
+        {
+            await _transport.SendAsync(json, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+        {
+            // pending.Fail already called by the ct.Register callback; just rethrow.
+            throw new OperationCanceledException(ex.Message, ex, ct);
+        }
+        catch (Exception ex)
+        {
+            _pending.TryRemove(id, out _);
+            pending.Fail(ex);
+            throw;
+        }
+
+        // Stamp the send time for round-trip tracking.
+        _pending.StampSentTicks(id, _clock.ElapsedTicks);
+
+        OnLogEntry?.Invoke(new RpcLogEntry
+        {
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.CommandSent,
+            RequestId = id,
+            CommandName = command.CommandName,
+            RawJson = json,
+            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
+        });
+
+        return await pending.Task.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -338,18 +361,72 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         where TEvent : struct, IRpcCommandResponse
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
-        var (workItem, handleTask) = _factory.CreateStreamRequest<TCommand, TEvent>(command, ct);
-        await _outbound.Writer.WriteAsync(workItem, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
 
-        var handle = await handleTask.ConfigureAwait(false);
+        // Step 1: send the command and wait for the stream-open response.
+        // Reuse the standard request/response path — the daemon replies with
+        // {"type":"response","id":N,"payload":{"stream":M}}.
+        var openPending = new PendingRequest<StreamOpenResult>();
+        var id = Interlocked.Increment(ref _nextId);
+
+        _pending.Register(id, openPending);
+        ct.Register(() => openPending.Fail(new OperationCanceledException(ct)));
+
+        var json = RpcMessageSerializer.Serialize(id, command.CommandName, command.WriteArgs);
+
+        try
+        {
+            await _transport.SendAsync(json, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(ex.Message, ex, ct);
+        }
+        catch (Exception ex)
+        {
+            _pending.TryRemove(id, out _);
+            openPending.Fail(ex);
+            throw;
+        }
+
+        _pending.StampSentTicks(id, _clock.ElapsedTicks);
+
+        OnLogEntry?.Invoke(new RpcLogEntry
+        {
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.CommandSent,
+            RequestId = id,
+            CommandName = command.CommandName,
+            RawJson = json,
+            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
+        });
+
+        var openResult = await openPending.Task.ConfigureAwait(false);
+        var streamId = openResult.StreamId;
+
+        // Step 2: register the stream AFTER the stream-open response arrives.
+        // todo: maybe we can incapsulate channel inside the StreamState, like an implementation detail, right?
+        var eventChannel = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>(
+            // todo check the configuration of the channel - I expose IAsyncEnumerable, possible it can be used several times, right? So readers can be many? And actually the writer is single - I have a single internal reader loop.
+            new System.Threading.Channels.UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+
+        _streams.Register(streamId, new StreamState
+        {
+            EventChannel = eventChannel,
+            // todo make this is not like an action, but like a member method of the class
+            Complete = () => eventChannel.Writer.TryComplete(),
+            // todo make this is not like an action, but like a member method of the class
+            Fault = ex => eventChannel.Writer.TryComplete(ex),
+        });
 
         return new RpcStream<TEvent>(
-            handle.StreamId,
-            handle.EventReader,
+            streamId,
+            eventChannel.Reader,
             // Use CancellationToken.None: the original `ct` may already be
-            // cancelled (e.g. a per-call timeout) by the time the caller
-            // disposes the stream, and we still need to send stream_close.
-            closeAsync: streamId => CloseStreamAsync(streamId, CancellationToken.None),
+            // cancelled by the time the caller disposes the stream, and we
+            // still need to send stream_close.
+            // todo revise this leaked abstraction - stream knows about the client
+            closeAsync: sid => CloseStreamAsync(sid, CancellationToken.None),
             disconnectToken: _disconnectCts.Token);
     }
 
@@ -371,57 +448,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         }
         catch (OperationCanceledException) { /* disposing — acceptable */ }
         catch (FlipperRpcException) { /* stream may already be gone on the device */ }
-        catch (ChannelClosedException) { /* client already faulted/disposed */ }
-    }
-
-    // -------------------------------------------------------------------------
-    // Writer loop
-    // -------------------------------------------------------------------------
-
-    private async Task WriterLoopAsync(CancellationToken ct)
-    {
-        Exception exitException = new FlipperRpcException("Connection lost.");
-        try
-        {
-            await foreach (var item in _outbound.Reader.ReadAllAsync(ct).ConfigureAwait(false))
-            {
-                // Register pending state BEFORE sending so the reader loop
-                // cannot receive the response before we're registered.
-                item.Register();
-
-                // Stamp the send time for round-trip tracking.
-                var sentTicks = _clock.ElapsedTicks;
-                // todo the writer loop is responsible for working with common RpcWorkItem, but for some reason we call _pending here - that is command specific, not stream, so we do not count time for streams.
-                _pending.StampSentTicks(item.RequestId, sentTicks);
-
-                await _transport.SendLineAsync(item.Json, ct).ConfigureAwait(false);
-
-                // Emit a CommandSent log entry.
-                OnLogEntry?.Invoke(new RpcLogEntry
-                {
-                    Source = RpcLogSource.Client,
-                    Kind = RpcLogKind.CommandSent,
-                    RequestId = item.RequestId,
-                    CommandName = item.CommandName,
-                    RawJson = item.Json,
-                    Elapsed = TimeSpan.FromTicks(sentTicks),
-                });
-            }
-        }
-        catch (OperationCanceledException) { /* normal shutdown */ }
-        catch (Exception ex)
-        {
-            exitException = new FlipperRpcException("Writer loop failed.", ex);
-            LogError(ex.Message);
-            FaultAll(exitException);
-        }
-        finally
-        {
-            // Fail any item that was Register()-ed but whose TCS was not yet
-            // reached by FaultAll (race between writer loop and FaultAll, or
-            // items registered after FaultAll's _pending sweep ran).
-            _pending.FailAll(exitException.Message);
-        }
+        catch (ObjectDisposedException) { /* client already disposed */ }
     }
 
     // -------------------------------------------------------------------------
@@ -432,20 +459,15 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     {
         try
         {
-            while (!ct.IsCancellationRequested)
+            await foreach (var line in _transport.ReceiveAsync(ct).ConfigureAwait(false))
             {
-                var line = await _transport.ReadLineAsync(ct).ConfigureAwait(false);
-                if (line is null)
-                {
-                    // Transport returned EOF — the Flipper disconnected (USB
-                    // pulled, daemon stopped, port closed by OS, etc.).
-                    // Fault all pending requests and open streams immediately
-                    // so consumers are not left hanging indefinitely.
-                    FaultAll(new FlipperRpcException("Connection lost."));
-                    break;
-                }
-
                 _dispatcher.Dispatch(line);
+            }
+
+            // ReceiveAsync enumeration ended normally (transport EOF / cancelled).
+            if (!ct.IsCancellationRequested)
+            {
+                FaultAll(new FlipperRpcException("Connection lost."));
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
@@ -460,11 +482,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    /// Emits an <see cref="RpcLogKind.Error"/> log entry stamped with the
-    /// current elapsed time.  The three call sites (writer-loop catch,
-    /// reader-loop catch, heartbeat disconnect) all emit the same shape.
-    /// </summary>
     private void LogError(string status) =>
         OnLogEntry?.Invoke(new RpcLogEntry
         {
@@ -474,11 +491,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
         });
 
-    /// <summary>
-    /// Called by <see cref="HeartbeatTransport.Disconnected"/> when the
-    /// transport-level keep-alive detects a silent connection loss.
-    /// Translates the transport event into an RPC-level fault.
-    /// </summary>
     private void OnHeartbeatDisconnected()
     {
         LogError("Connection lost — heartbeat timeout.");
@@ -493,58 +505,14 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             return;
         }
 
-        // todo: think about simplifying this logic by having a single main Disconnect cts that is linked to all other components that must be stopped when disconnect cts is cacnelled.
-        // Phase 1 — stop I/O: signal consumers, seal the channel, kill the loops,
-        // close the transport.  Order within this phase is critical:
-        //   • _disconnectCts before TryComplete — consumers see disconnect before channel closes.
-        //   • TryComplete before _cts.Cancel — writer loop's ReadAllAsync must see a sealed
-        //     channel, not a cancellation, so its finally block runs and drains orphans.
-        //   • _cts.Cancel before Close — loops should attempt a clean exit before the port
-        //     is torn down under them.
-        StopIo();
-
-        // Phase 2 — fail outstanding work: now that no new items can be enqueued
-        // and both loops are exiting, it's safe to sweep pending requests and streams.
-        FailOutstanding(ex);
-    }
-
-    /// <summary>
-    /// Phase 1 of <see cref="FaultAll"/>: stops all I/O without touching the
-    /// pending-request or stream tables.  Ordering within this method is critical;
-    /// see the comment in <see cref="FaultAll"/>.
-    /// </summary>
-    private void StopIo()
-    {
-        // 1. Signal the disconnect token so consumers react immediately.
+        // Signal disconnect token so consumers react immediately.
         _disconnectCts.Cancel();
 
-        // 2. Seal the outbound channel so no new work items can be enqueued and
-        //    the writer loop's ReadAllAsync exits at its next iteration.
-        _outbound.Writer.TryComplete();
-
-        // 3. Cancel the I/O loop CTS so both loops exit cleanly on their next
-        //    cancellation check (writer loop via ReadAllAsync, reader loop via
-        //    while(!ct.IsCancellationRequested)).
+        // Cancel the reader loop CTS.
         _cts.Cancel();
 
-        // 4. Close the transport immediately.
-        //    - Drops DTR so the daemon sees a clean disconnect and resets its state.
-        //    - On Windows, SerialPort.BaseStream.ReadAsync ignores the CancellationToken,
-        //      so closing the port is the only reliable way to unblock the reader loop.
-        _heartbeat.Close();
-    }
-
-    /// <summary>
-    /// Phase 2 of <see cref="FaultAll"/>: fails all pending requests and open
-    /// streams.  Must only be called after <see cref="StopIo"/> has run.
-    /// </summary>
-    private void FailOutstanding(Exception ex)
-    {
-        // 5. Fail all already-registered pending requests, and drain any orphan
-        //    work items in the outbound channel whose TCS was never registered.
-        _pending.FailAllAndOrphans(_outbound, ex.Message);
-
-        // 6. Fault all active streams.
+        // Fail all pending requests and active streams.
+        _pending.FailAll(ex);
         _streams.FaultAll(ex);
     }
 
@@ -554,20 +522,9 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Mark as disposed so subsequent calls to SendAsync / SendStreamAsync /
-        // ConnectAsync throw ObjectDisposedException instead of silently enqueuing.
         Interlocked.Exchange(ref _disposed, 1);
 
-        // FaultAll is a one-shot teardown: closes the transport, cancels the
-        // I/O-loop CTS, completes the outbound channel, and fails all pending
-        // work.  If a disconnect was already detected (heartbeat timeout, reader
-        // EOF, writer error) FaultAll is a no-op here.
         FaultAll(new FlipperRpcException("Client disposed."));
-
-        if (_writerTask is not null)
-        {
-            await _writerTask.ConfigureAwait(false);
-        }
 
         if (_readerTask is not null)
         {

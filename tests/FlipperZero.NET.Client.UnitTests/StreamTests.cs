@@ -1,4 +1,4 @@
-﻿using FlipperZero.NET.Commands.Input;
+using FlipperZero.NET.Commands.Input;
 using FlipperZero.NET.Extensions;
 
 namespace FlipperZero.NET.Client.UnitTests;
@@ -21,7 +21,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"id":1,"status":"ok","data":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info","input_listen_start","stream_close","ui_screen_acquire","ui_screen_release","ui_draw_str","ui_draw_rect","ui_draw_line","ui_flush"]}}""");
+            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info","input_listen_start","stream_close","ui_screen_acquire","ui_screen_release","ui_draw_str","ui_draw_rect","ui_draw_line","ui_flush"]}}""");
         await _client.ConnectAsync();
     }
 
@@ -36,7 +36,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_ReturnsStream_WithCorrectStreamId()
     {
         // Arrange: daemon acknowledges stream open with stream id 42
-        _transport.EnqueueResponse("""{"id":2,"stream":42}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"payload":{"stream":42}}""");
 
         var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
             new InputListenStartCommand());
@@ -45,7 +45,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         Assert.Equal(42u, stream.StreamId);
 
         // Clean up: enqueue close response before disposing
-        _transport.EnqueueResponse("""{"id":3,"status":"ok"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
         await stream.DisposeAsync();
     }
 
@@ -53,7 +53,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_SendsCorrectCommandLine()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"id":2,"stream":1}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"payload":{"stream":1}}""");
 
         var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
             new InputListenStartCommand());
@@ -65,7 +65,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         Assert.Contains("\"id\":2", sent[1]);
 
         // Clean up
-        _transport.EnqueueResponse("""{"id":3,"status":"ok"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
         await stream.DisposeAsync();
     }
 
@@ -73,13 +73,13 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_DeliversEvents_ToAsyncEnumerable()
     {
         // Arrange: open the stream
-        _transport.EnqueueResponse("""{"id":2,"stream":7}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"payload":{"stream":7}}""");
         var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
             new InputListenStartCommand());
 
         // Inject two unsolicited stream events using enum wire strings
-        _transport.InjectEvent("""{"event":{"key":"ok","type":"short"},"stream":7}""");
-        _transport.InjectEvent("""{"event":{"key":"back","type":"long"},"stream":7}""");
+        _transport.InjectEvent("""{"type":"event","id":7,"payload":{"key":"ok","type":"short"}}""");
+        _transport.InjectEvent("""{"type":"event","id":7,"payload":{"key":"back","type":"long"}}""");
 
         // Act: collect both events with a timeout
         var events = new List<FlipperInputEvent>();
@@ -100,7 +100,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         Assert.Contains(events, e => e is { Key: FlipperInputKey.Back, Type: FlipperInputType.Long });
 
         // Clean up
-        _transport.EnqueueResponse("""{"id":3,"status":"ok"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
         await stream.DisposeAsync();
     }
 
@@ -108,12 +108,12 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task DisposeAsync_SendsStreamClose_WithCorrectStreamId()
     {
         // Arrange: open stream with id 99
-        _transport.EnqueueResponse("""{"id":2,"stream":99}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"payload":{"stream":99}}""");
         var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
             new InputListenStartCommand());
 
         // Enqueue the response for stream_close (id 3)
-        _transport.EnqueueResponse("""{"id":3,"status":"ok"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
 
         // Act
         await stream.DisposeAsync();
@@ -130,11 +130,11 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task DisposeAsync_IsIdempotent()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"id":2,"stream":5}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"payload":{"stream":5}}""");
         var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
             new InputListenStartCommand());
 
-        _transport.EnqueueResponse("""{"id":3,"status":"ok"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
 
         // Act: dispose twice — should not throw or send two stream_close commands
         await stream.DisposeAsync();
@@ -148,7 +148,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_ThrowsFlipperRpcException_OnErrorResponse()
     {
         // Arrange: daemon refuses to open the stream
-        _transport.EnqueueResponse("""{"id":2,"error":"resource_busy"}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2,"error":"resource_busy"}""");
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
@@ -166,7 +166,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task UiScreenAcquireAsync_ReturnsSession()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"id":2,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2}""");
 
         // Act
         var session = await _client.UiScreenAcquireAsync();
@@ -175,7 +175,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         Assert.NotNull(session);
 
         // Clean up
-        _transport.EnqueueResponse("""{"id":3,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
         await session.DisposeAsync();
     }
 
@@ -183,15 +183,15 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task FlipperScreenSession_DrawStr_SendsCorrectCommand()
     {
         // Acquire
-        _transport.EnqueueResponse("""{"id":2,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2}""");
         await using var session = await _client.UiScreenAcquireAsync();
 
         // Draw
-        _transport.EnqueueResponse("""{"id":3,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
         await session.DrawStrAsync(10, 32, "Hello");
 
         // Release (from DisposeAsync)
-        _transport.EnqueueResponse("""{"id":4,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":4}""");
         // DisposeAsync called by await using
 
         var sent = _transport.SentLines;
@@ -204,11 +204,11 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task FlipperScreenSession_DisposeAsync_SendsScreenRelease()
     {
         // Acquire
-        _transport.EnqueueResponse("""{"id":2,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2}""");
         var session = await _client.UiScreenAcquireAsync();
 
         // Enqueue release response
-        _transport.EnqueueResponse("""{"id":3,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
 
         // Act
         await session.DisposeAsync();
@@ -223,11 +223,11 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task FlipperScreenSession_DisposeAsync_IsIdempotent()
     {
         // Acquire
-        _transport.EnqueueResponse("""{"id":2,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":2}""");
         var session = await _client.UiScreenAcquireAsync();
 
         // Only one release response needed — second dispose should be a no-op
-        _transport.EnqueueResponse("""{"id":3,"status":"ok","data":{}}""");
+        _transport.EnqueueResponse("""{"type":"response","id":3}""");
 
         // Act
         await session.DisposeAsync();
