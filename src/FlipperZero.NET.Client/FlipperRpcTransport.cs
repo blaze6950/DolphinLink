@@ -52,7 +52,7 @@ public sealed class FlipperRpcTransport : IFlipperTransport
     public ValueTask OpenAsync(CancellationToken ct = default)
     {
         _port.Open();
-        _writer = new StreamWriter(_port.BaseStream, Encoding.UTF8, leaveOpen: true)
+        _writer = new StreamWriter(_port.BaseStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: true)
         {
             AutoFlush = false,
             NewLine = "\n",
