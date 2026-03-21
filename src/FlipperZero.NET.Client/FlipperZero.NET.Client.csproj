@@ -5,6 +5,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>FlipperZero.NET</RootNamespace>
+        <PackageId>FlipperZero.NET.Client</PackageId>
+        <Description>C# client library for the FlipperZero.NET NDJSON RPC daemon. Send commands and receive streamed events from a Flipper Zero over USB CDC serial.</Description>
     </PropertyGroup>
 
     <ItemGroup>

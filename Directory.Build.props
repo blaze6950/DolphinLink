@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Shared NuGet package metadata for all packable projects in this repo.
+    Project-specific properties (PackageId, Description) live in each .csproj.
+    Bump <Version> here when releasing a new version.
+  -->
+  <PropertyGroup>
+    <Version>0.0.1</Version>
+    <Authors>blaze6950</Authors>
+    <Copyright>Copyright © blaze6950</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/blaze6950/FlipperZero.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/blaze6950/FlipperZero.NET</PackageProjectUrl>
+    <PackageTags>flipper;flipper-zero;usb;serial;rpc;iot</PackageTags>
+    <!--
+      PackageReadmeFile is only set when README.md exists at the repo root.
+      Once you add a README.md this will be picked up automatically.
+    -->
+    <PackageReadmeFile Condition="Exists('$(MSBuildThisFileDirectory)README.md')">README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!--
+    Include the repo README in every NuGet package — only when the file is
+    present (it may not exist for test projects, which are IsPackable=false
+    anyway, but guard to keep non-library projects clean).
+  -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)README.md') and '$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

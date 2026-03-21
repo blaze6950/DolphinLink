@@ -24,3 +24,9 @@ Desktop.ini
 
 # Misc local artifacts
 nul
+
+# Daemon FAP binary — built by CI (or `dotnet build /p:BuildDaemon=true` locally).
+# Never committed; CI downloads the artifact and copies it here before building
+# the Bootstrapper. Local devs regenerate it via the BuildDaemon MSBuild target
+# or deploy-daemon.csx.
+src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap

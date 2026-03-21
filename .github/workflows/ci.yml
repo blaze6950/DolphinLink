@@ -1,0 +1,187 @@
+name: CI
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Dependency graph
+#
+#   build-client ──┐
+#   (parallel)     ├──► build-bootstrapper ──► publish (main-push only)
+#   build-daemon ──┘
+# ──────────────────────────────────────────────────────────────────────────────
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1 — C# Client: build, test, pack
+  # ────────────────────────────────────────────────────────────────────────────
+  build-client:
+    name: Build Client
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: >
+          dotnet build src/FlipperZero.NET.Client
+          --configuration Release
+          --no-incremental
+          -warnaserror
+
+      - name: Unit tests
+        run: >
+          dotnet test
+          --filter "FullyQualifiedName~UnitTests"
+          --configuration Release
+          --no-build
+          --logger trx
+          --results-directory ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results/*.trx
+
+      - name: Pack
+        run: >
+          dotnet pack src/FlipperZero.NET.Client
+          --configuration Release
+          --no-build
+          --output ./artifacts
+
+      - name: Upload Client package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-client
+          path: ./artifacts/*.nupkg
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2 — C Daemon (FAP): build with ufbt
+  # Runs in parallel with build-client; output is uploaded as an artifact so
+  # build-bootstrapper can download it without rebuilding.
+  # ────────────────────────────────────────────────────────────────────────────
+  build-daemon:
+    name: Build Daemon (FAP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build FAP with ufbt
+        uses: flipperdevices/flipperzero-ufbt-action@v0.1
+        id: build-fap
+        with:
+          # Build against the release SDK so embedded firmware is stable.
+          # Change to `dev` if you need to track bleeding-edge API changes.
+          sdk-channel: release
+          app-dir: src/FlipperZeroRpcDaemon
+
+      - name: Upload FAP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # fap-artifacts contains the built .fap (and .fal) files
+          name: daemon-fap
+          path: ${{ steps.build-fap.outputs.fap-artifacts }}
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3 — C# Bootstrapper: embed daemon, build, pack
+  # Waits for both previous jobs; downloads the .fap artifact and places it
+  # into Resources/ before building so it is embedded into the assembly.
+  # ────────────────────────────────────────────────────────────────────────────
+  build-bootstrapper:
+    name: Build Bootstrapper
+    runs-on: ubuntu-latest
+    needs: [build-client, build-daemon]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Download daemon FAP
+        uses: actions/download-artifact@v4
+        with:
+          name: daemon-fap
+          # Download directly into the Resources directory so the .csproj
+          # EmbeddedResource picks it up without any copy step.
+          path: src/FlipperZero.NET.Bootstrapper/Resources
+
+      - name: Build
+        # Do NOT pass /p:BuildDaemon=true — the FAP is already in Resources/.
+        # Building only the Bootstrapper project resolves the Client via its
+        # <ProjectReference>, so the Client is compiled as well.
+        run: >
+          dotnet build src/FlipperZero.NET.Bootstrapper
+          --configuration Release
+          --no-incremental
+          -warnaserror
+
+      - name: Pack
+        run: >
+          dotnet pack src/FlipperZero.NET.Bootstrapper
+          --configuration Release
+          --no-build
+          --output ./artifacts
+
+      - name: Upload Bootstrapper package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-bootstrapper
+          path: ./artifacts/*.nupkg
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 4 — Publish to NuGet.org
+  # Only runs on pushes to main (not on PRs or other branches).
+  # Requires the NUGET_API_KEY repository secret to be configured.
+  # ────────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish to NuGet.org
+    runs-on: ubuntu-latest
+    needs: [build-client, build-bootstrapper]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Download Client package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-client
+          path: ./artifacts
+
+      - name: Download Bootstrapper package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-bootstrapper
+          path: ./artifacts
+
+      - name: Push to NuGet.org
+        run: >
+          dotnet nuget push ./artifacts/*.nupkg
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

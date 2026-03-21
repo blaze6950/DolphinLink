@@ -5,6 +5,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>FlipperZero.NET.Bootstrapper</RootNamespace>
+        <PackageId>FlipperZero.NET.Bootstrapper</PackageId>
+        <Description>Bootstrapper for FlipperZero.NET — installs and launches the NDJSON RPC daemon FAP on a Flipper Zero via the native protobuf RPC, then hands off a ready-to-use FlipperRpcClient.</Description>
     </PropertyGroup>
 
     <ItemGroup>
