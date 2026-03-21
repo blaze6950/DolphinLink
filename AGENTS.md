@@ -38,17 +38,22 @@ src/FlipperZeroRpcDaemon/
   handlers/<subsystem>/<cmd>.{h,c}   # one file pair per command
 
 src/FlipperZero.NET.Client/
-  FlipperRpcClient.cs                # core: BoundedChannel, writer/reader loops, SendAsync/SendStreamAsync
-  FlipperRpcTransport.cs             # SerialPort wrapper
+  FlipperRpcClient.cs                # core RPC logic: SendAsync/SendStreamAsync, reader loop, FaultAll
+  FlipperRpcTransport.cs             # public SerialPort-backed IFlipperTransport (callers construct directly)
+  FlipperRpcClientOptions.cs         # readonly record struct: HeartbeatInterval + Timeout (default-safe via backing fields)
   FlipperRpcException.cs             # typed exception with ErrorCode
   RpcStream.cs                       # IAsyncEnumerable<TEvent> + IAsyncDisposable
   Abstractions/IRpc*.cs              # IRpcCommand<TResponse>, IRpcStreamCommand<TEvent>, IRpcCommandResponse
   Commands/<Subsystem>/<Cmd>Command.cs   # one file per command/response pair (readonly structs)
   Extensions/Flipper<Subsystem>Extensions.cs  # convenience async methods on FlipperRpcClient
 
-tests/FlipperZero.NET.Client.IntegrationTests/
-  <Subsystem>/<Cmd>Tests.cs          # mirrors command structure
+tests/FlipperZero.NET.Client.UnitTests/
+  Infrastructure/FakeTransport.cs    # in-process IFlipperTransport; always use CreateClient(), not new FlipperRpcClient(this)
+tests/FlipperZero.NET.Client.HardwareTests/
+  <Subsystem>/<Cmd>Tests.cs          # mirrors command structure; requires physical device
   Infrastructure/                    # FlipperFixture, RequiresFlipperFact, StreamTestHelper
+tests/FlipperZero.NET.Tests.Infrastructure/
+  FlipperFixture.cs                  # shared xUnit collection fixture (FLIPPER_PORT env var)
 ```
 
 Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`.
@@ -70,16 +75,31 @@ One compact JSON object per line (`\n`-terminated). Never dispatch on `}`.
 {"id":3,"cmd":"stream_close","stream":1}
 ```
 
-**Response — success**: `{"id":1,"status":"ok","data":{"pong":true}}`
-**Response — stream opened**: `{"id":2,"stream":1}`
-**Stream event** (unsolicited): `{"event":{...},"stream":1}`
-**Response — error**: `{"id":1,"error":"resource_busy"}`
+All messages use a compact V3 envelope with single-character keys:
 
-Error codes: `resource_busy`, `unknown_command`, `missing_cmd`, `missing_stream_id`, `stream_not_found`, `stream_table_full`.
+| Field | Type | Role |
+|---|---|---|
+| `"t"` | int | Type discriminator: `0` = response, `1` = stream event, `2` = daemon exit |
+| `"i"` | uint | Request id (on `t:0`) or stream id (on `t:1`) |
+| `"p"` | object | Payload; present on success responses and all events |
+| `"e"` | string | Error code; present instead of `"p"` on error responses |
 
-### Resource Management
+**Response — success** (`t:0`, no `"e"`): `{"t":0,"i":1,"p":{"pong":true}}`
+**Response — void success** (`t:0`, no `"e"`, no `"p"`): `{"t":0,"i":1}`
+**Response — stream opened** (`t:0`): `{"t":0,"i":2,"p":{"stream":1}}`
+**Response — error** (`t:0`, has `"e"`): `{"t":0,"i":1,"e":"resource_busy"}`
+**Stream event** (`t:1`, unsolicited): `{"t":1,"i":1,"p":{"protocol":"NEC","address":0,"command":0,"repeat":false}}`
+**Daemon exit** (`t:2`, unsolicited): `{"t":2}`
 
-Hardware tracked via `ResourceMask` bitmask (`RESOURCE_SUBGHZ`, `RESOURCE_IR`, `RESOURCE_NFC`, etc.). Dispatcher checks availability before invoking handler. Releasing a stream releases its resources. Max 8 concurrent streams (`MAX_STREAMS`).
+Error codes: `resource_busy`, `unknown_command`, `missing_cmd`, `missing_stream_id`, `stream_not_found`, `stream_table_full`, `out_of_memory`, `missing_path`, `open_failed`, `stat_failed`, `storage_error`, `remove_failed`, `mkdir_failed`, `missing_data`, `missing_pin`, `invalid_pin`, `missing_level`, `missing_enable`, `missing_color`, `invalid_color`, `missing_text`, `missing_protocol`, `unknown_protocol`, `missing_timings`, `missing_freq`, `missing_datetime_fields`.
+
+### C# Client mapping
+
+- `SendAsync<TCmd, TResp>()` → sends `{"id":N,"cmd":"..."}`, routes daemon reply by `"i"` on `t:0`.
+- `SendStreamAsync<TCmd, TEvent>()` → sends open command, daemon replies `{"t":0,"i":N,"p":{"stream":M}}`; unsolicited `{"t":1,"i":M,"p":{...}}` events follow.
+- `RpcStream<T>.DisposeAsync()` → sends `{"id":N,"cmd":"stream_close","stream":M}` to release daemon resources.
+
+### Resource Management (`RESOURCE_SUBGHZ`, `RESOURCE_IR`, `RESOURCE_NFC`, etc.). Dispatcher checks availability before invoking handler. Releasing a stream releases its resources. Max 8 concurrent streams (`MAX_STREAMS`).
 
 ---
 
@@ -99,16 +119,14 @@ All RPC logic runs on the main thread. ISR does only byte accumulation + queue p
 
 **C# Client:**
 ```
-User code → enqueue RpcWorkItem into BoundedChannel (cap 32)
+User code → SendAsync/SendStreamAsync → Register() pending BEFORE send → PacketSerializationTransport
+  ▼                                                                       (BoundedChannel, single writer)
+Transport stack: FlipperRpcTransport → PacketSerializationTransport → HeartbeatTransport
   ▼
-Writer loop → Register() pending state BEFORE send → write JSON line
-  ▼
-Reader loop → parse JSON → route by "id" or "stream" → complete TCS or push to stream Channel
+Reader loop → parse JSON → route by `"t"`: `t:0` → match `"i"` to pending request (complete TCS or raise FlipperRpcException on `"e"`); `t:1` → match `"i"` to stream channel (push `"p"`); `t:2` → FaultAll
   ▼
 User code receives Task<TResponse> or IAsyncEnumerable<TEvent>
 ```
-
----
 
 ## Flipper SDK Rules
 
@@ -127,6 +145,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 | **Format specifiers** | `"%" PRIu32` / `"%" PRIx32` from `<inttypes.h>` | ~~`%lu`~~, ~~`%u`~~ (ARM type widths differ) |
 | **Stream slot ordering** | Call `stream_alloc_slot()` BEFORE `resource_acquire()` | Acquiring first → ghost resources on slot exhaustion |
 | **Register before send (C#)** | `item.Register()` before `SendLineAsync()` in writer loop | Registering after → reader loop race |
+| **Client construction (C#)** | `new FlipperRpcClient(transport, options, diagnostics)` — single ctor; `FlipperRpcTransport` is `public`, callers construct it. `default(FlipperRpcClientOptions)` is safe (backing fields resolve to defaults). | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ — removed |
 
 ---
 
@@ -146,7 +165,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 - `IAsyncDisposable` on types owning background resources.
 - Generic command pattern: `SendAsync<TCommand, TResponse>()` where `TCommand : struct, IRpcCommand<TResponse>` — no boxing, no reflection.
 - Public API is extension methods in `Extensions/Flipper<Subsystem>Extensions.cs`.
-- Outbound messages flow through a single `BoundedChannel<RpcWorkItem>` (cap 32, `SingleReader = true`).
+- Outbound messages flow through a single `BoundedChannel<string>` (cap 32, `SingleReader = true`) inside `PacketSerializationTransport`, not `FlipperRpcClient`.
 - Pending requests use type-erased `Action<JsonElement>` closures over typed `TaskCompletionSource<TResponse>`.
 
 ---
@@ -179,7 +198,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 
    public readonly struct MyResponse : IRpcCommandResponse
    {
-       [JsonPropertyName("status")] public string? Status { get; init; }
+       [JsonPropertyName("my_field")] public string? MyField { get; init; }
    }
    ```
 2. Add extension method in `Extensions/Flipper<Subsystem>Extensions.cs`:
@@ -187,5 +206,5 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
    public static Task<MyResponse> MyCommandAsync(this FlipperRpcClient client, CancellationToken ct = default)
        => client.SendAsync<MyCommand, MyResponse>(new MyCommand(), ct);
    ```
-3. Add integration tests in `tests/FlipperZero.NET.Client.IntegrationTests/<Subsystem>/MyCommandTests.cs` covering at minimum: happy-path round-trip, resource conflict (if applicable), and stream open/close lifecycle (for stream commands). Follow the `[Collection(FlipperCollection.Name)]`, `[RequiresFlipperFact]`, `[Trait("Category", "Hardware")]` conventions.
+3. Add integration tests in `tests/FlipperZero.NET.Client.HardwareTests/<Subsystem>/MyCommandTests.cs` covering at minimum: happy-path round-trip, resource conflict (if applicable), and stream open/close lifecycle (for stream commands). Follow the `[Collection(FlipperCollection.Name)]`, `[RequiresFlipperFact]`, `[Trait("Category", "Hardware")]` conventions.
 4. `dotnet build` — must succeed with 0 warnings.
