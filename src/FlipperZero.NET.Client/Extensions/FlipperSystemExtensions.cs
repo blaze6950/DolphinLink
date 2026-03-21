@@ -8,6 +8,54 @@ namespace FlipperZero.NET.Extensions;
 public static class FlipperSystemExtensions
 {
     /// <summary>
+    /// Propagates host-side configuration to the daemon.
+    ///
+    /// Sends a <c>configure</c> command with the specified heartbeat timing values and
+    /// returns the effective configuration the daemon is now using.  The response echoes
+    /// the accepted values so the caller can confirm them (useful when the daemon clamps
+    /// or rejects individual fields).
+    ///
+    /// Both <paramref name="heartbeatMs"/> and <paramref name="timeoutMs"/> are validated
+    /// by the daemon:
+    /// <list type="bullet">
+    ///   <item><c>heartbeatMs</c> &gt;= 500</item>
+    ///   <item><c>timeoutMs</c> &gt;= 2000</item>
+    ///   <item><c>timeoutMs</c> &gt; <c>heartbeatMs</c></item>
+    /// </list>
+    /// A violation throws <see cref="FlipperRpcException"/> with error code
+    /// <c>invalid_config</c>.
+    ///
+    /// <para>
+    /// This method is called automatically by <see cref="FlipperRpcClient.ConnectAsync"/>
+    /// when the daemon supports the <c>configure</c> command (protocol version &gt;= 4).
+    /// Use it directly only when you need to change the configuration after the initial
+    /// handshake.
+    /// </para>
+    /// </summary>
+    /// <param name="client">The RPC client.</param>
+    /// <param name="heartbeatMs">
+    /// TX idle interval in milliseconds — a keep-alive frame is sent when no outbound
+    /// message has been transmitted for this long.  Must be &gt;= 500.
+    /// </param>
+    /// <param name="timeoutMs">
+    /// RX silence timeout in milliseconds — the host is declared gone when no inbound
+    /// data arrives for this long.  Must be &gt; <paramref name="heartbeatMs"/> and
+    /// &gt;= 2000.
+    /// </param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>
+    /// The effective <see cref="ConfigureResponse"/> containing the values now in use on
+    /// the daemon.
+    /// </returns>
+    public static Task<ConfigureResponse> ConfigureAsync(
+        this FlipperRpcClient client,
+        uint heartbeatMs,
+        uint timeoutMs,
+        CancellationToken ct = default)
+        => client.SendAsync<ConfigureCommand, ConfigureResponse>(
+            new ConfigureCommand(heartbeatMs, timeoutMs), ct);
+
+    /// <summary>
     /// Queries the daemon's identity and full command capability list.
     ///
     /// Use this for ad-hoc capability queries after

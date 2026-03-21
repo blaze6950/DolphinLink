@@ -7,6 +7,7 @@
 #include "../handlers/core/ping.h"
 #include "../handlers/core/stream_close.h"
 /* System */
+#include "../handlers/system/configure.h"
 #include "../handlers/system/daemon_info.h"
 #include "../handlers/system/daemon_stop.h"
 #include "../handlers/system/device_info.h"
@@ -84,6 +85,7 @@ static const RpcCommand commands[] = {
     {"stream_close",          0,                stream_close_handler},
 
     /* ---- System / device info ---- */
+    {"configure",             0,                configure_handler},
     {"daemon_info",           0,                daemon_info_handler},
     {"daemon_stop",           0,                daemon_stop_handler},
     {"device_info",           0,                device_info_handler},

@@ -147,8 +147,9 @@ static void on_ctrl_line_queue(FuriEventLoopObject* object, void* ctx) {
             last_rx_ticks = furi_get_tick();
             heartbeat_timer_start(clctx->heartbeat_timer);
         } else {
-            /* Host disconnected — stop heartbeat and tear down streams. */
+            /* Host disconnected — stop heartbeat, reset timing config, tear down streams. */
             heartbeat_timer_stop(clctx->heartbeat_timer);
+            heartbeat_reset_config();
             stream_close_all();
             resource_reset();
         }

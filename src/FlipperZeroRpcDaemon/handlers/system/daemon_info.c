@@ -26,6 +26,7 @@ static const char* const SUPPORTED_COMMANDS[] = {
     /* System */
     "device_info",
     "daemon_info",
+    "configure",
     "daemon_stop",
     "power_info",
     "datetime_get",

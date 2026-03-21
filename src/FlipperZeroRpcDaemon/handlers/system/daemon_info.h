@@ -9,7 +9,7 @@
  *
  *   Response: {"t":0,"i":N,"p":{
  *               "name":"flipper_zero_rpc_daemon",
- *               "version":3,
+ *               "version":4,
  *               "commands":["ping","stream_close","device_info",...]}}
  *
  *   Fields:
@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 /** Current daemon protocol version.  Bump on any breaking wire-format change. */
-#define DAEMON_PROTOCOL_VERSION 3
+#define DAEMON_PROTOCOL_VERSION 4
 
 /**
  * Handle a "daemon_info" request.

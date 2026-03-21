@@ -67,6 +67,13 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     private readonly HeartbeatTransport _heartbeat;
 
     /// <summary>
+    /// Connection options passed at construction time.
+    /// Stored so <see cref="NegotiateAsync"/> can propagate heartbeat timing
+    /// to the daemon via the <c>configure</c> command.
+    /// </summary>
+    private readonly FlipperRpcClientOptions _options;
+
+    /// <summary>
     /// The <see cref="DaemonInfoResponse"/> returned by the daemon during
     /// <see cref="ConnectAsync"/>.  <c>null</c> before <see cref="ConnectAsync"/>
     /// has completed successfully.
@@ -185,6 +192,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         _transport = _heartbeat;
 
+        _options = options;
         _diagnostics = diagnostics ?? RpcMessageDispatcher.NullDiagnosticsInstance;
 
         _dispatcher = new RpcMessageDispatcher(_pending, _streams, _clock, _diagnostics);
@@ -201,6 +209,10 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// Calls <c>daemon_info</c>, verifies that <see cref="DaemonInfoResponse.Name"/>
     /// equals <c>"flipper_zero_rpc_daemon"</c>, and checks that the daemon's protocol
     /// version is at least <paramref name="minProtocolVersion"/>.
+    ///
+    /// If the daemon supports the <c>configure</c> command (protocol version &gt;= 4),
+    /// the client's <see cref="FlipperRpcClientOptions"/> are propagated to the daemon
+    /// so that both sides use identical heartbeat timing.
     ///
     /// The result is stored in <see cref="DaemonInfo"/> for later inspection.
     /// </summary>
@@ -250,6 +262,16 @@ public sealed class FlipperRpcClient : IAsyncDisposable
                 $"Capability negotiation failed: daemon protocol version {info.Version} " +
                 $"is below the required minimum {minProtocolVersion}. " +
                 "Please update the FlipperZero.NET RPC daemon FAP on the device.");
+        }
+
+        // Propagate host-side heartbeat timing to the daemon so both sides are in sync.
+        // Skip gracefully when talking to an older daemon that predates the configure command.
+        if (info.Supports<ConfigureCommand>())
+        {
+            var heartbeatMs = (uint)_options.HeartbeatInterval.TotalMilliseconds;
+            var timeoutMs   = (uint)_options.Timeout.TotalMilliseconds;
+            await SendAsync<ConfigureCommand, ConfigureResponse>(
+                new ConfigureCommand(heartbeatMs, timeoutMs), ct).ConfigureAwait(false);
         }
 
         return info;

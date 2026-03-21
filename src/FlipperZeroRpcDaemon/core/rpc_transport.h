@@ -31,9 +31,9 @@
  *   what is inside packets.  The RPC dispatch layer above it is not involved.
  *
  *   Bidirectional design:
- *     - TX watchdog: if no message has been sent for ≥ HEARTBEAT_TX_IDLE_MS,
+ *     - TX watchdog: if no message has been sent for ≥ heartbeat_tx_idle_ms,
  *       emit a bare '\n' keep-alive frame.
- *     - RX watchdog: if no message has been received for ≥ HEARTBEAT_RX_TIMEOUT_MS,
+ *     - RX watchdog: if no message has been received for ≥ heartbeat_rx_timeout_ms,
  *       the host is considered gone.  Tears down all streams and resources.
  *
  *   Keep-alive payload: a bare '\n' (minimum NDJSON frame, 1 byte on the wire).
@@ -200,3 +200,52 @@ void heartbeat_timer_stop(FuriEventLoopTimer* timer);
  * Free the heartbeat timer.  Must be called before the event loop is freed.
  */
 void heartbeat_timer_free(FuriEventLoopTimer* timer);
+
+/* -------------------------------------------------------------------------
+ * Runtime-configurable heartbeat timing
+ *
+ * Both values are initialised to the compile-time defaults and may be
+ * updated atomically on the main thread by calling heartbeat_apply_config().
+ * They are reset to the defaults by heartbeat_reset_config() whenever the
+ * host disconnects, so that each new session starts clean.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * TX idle interval (ms): a keep-alive '\n' is sent when no outbound
+ * message has been transmitted for this many milliseconds.
+ * Default: 3000.  Minimum enforced: 500.
+ */
+extern uint32_t heartbeat_tx_idle_ms;
+
+/**
+ * RX silence timeout (ms): the host is declared gone when no inbound
+ * data has arrived for this many milliseconds.
+ * Default: 10000.  Must be strictly > heartbeat_tx_idle_ms.
+ */
+extern uint32_t heartbeat_rx_timeout_ms;
+
+/**
+ * Apply new heartbeat timing values.
+ *
+ * Validation rules (enforced; call returns false on violation):
+ *   - hb_ms  >= 500
+ *   - to_ms  >= 2000
+ *   - to_ms  >  hb_ms
+ *
+ * On success stores the values in heartbeat_tx_idle_ms / heartbeat_rx_timeout_ms
+ * and returns true.  On failure leaves existing values unchanged and returns false.
+ *
+ * Must only be called from the main (event-loop) thread.
+ *
+ * @param hb_ms  Desired TX idle interval in milliseconds.
+ * @param to_ms  Desired RX timeout in milliseconds.
+ * @return       true if the values were accepted; false if validation failed.
+ */
+bool heartbeat_apply_config(uint32_t hb_ms, uint32_t to_ms);
+
+/**
+ * Reset heartbeat timing to compile-time defaults.
+ * Called on every host disconnect so the next session starts clean.
+ * Must only be called from the main (event-loop) thread.
+ */
+void heartbeat_reset_config(void);

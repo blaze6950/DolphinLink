@@ -32,6 +32,7 @@
 #include "rpc_gui.h"
 
 #include <furi_hal_usb_cdc.h>
+#include <inttypes.h>
 #include <string.h>
 
 /* =========================================================
@@ -238,23 +239,59 @@ void cdc_ctrl_line_callback(void* context, CdcCtrlLine ctrl_lines) {
  * This is a pure transport-layer concern.  The timer fires periodically
  * and performs two independent checks:
  *
- *   TX side — if no message has been sent for ≥ HEARTBEAT_TX_IDLE_MS,
+ *   TX side — if no message has been sent for ≥ heartbeat_tx_idle_ms,
  *   emit a bare '\n' keep-alive frame.  The host's HeartbeatTransport
  *   intercepts this empty line, updates its lastSeen timestamp, and does
  *   not forward it to the RPC layer.
  *
- *   RX side — if no message has been received for ≥ HEARTBEAT_RX_TIMEOUT_MS,
+ *   RX side — if no message has been received for ≥ heartbeat_rx_timeout_ms,
  *   declare the host gone and tear down streams + resources.
  *
  * No RPC commands, no ping/pong, no acknowledgements.
  * ========================================================= */
 
-/** Send a heartbeat if no TX has occurred for this many ms. */
-#define HEARTBEAT_TX_IDLE_MS     3000U
-/** Declare the host gone if no RX has occurred for this many ms. */
-#define HEARTBEAT_RX_TIMEOUT_MS 10000U
-/** Timer fires every 3 s (same as TX idle threshold). */
+/* Compile-time defaults for the runtime-configurable timing values.
+ * These are the values used when no configure command has been sent and
+ * after every host disconnect (heartbeat_reset_config). */
+#define HEARTBEAT_TX_IDLE_MS_DEFAULT     3000U
+#define HEARTBEAT_RX_TIMEOUT_MS_DEFAULT 10000U
+
+/** Timer fires every 3 s (matches the default TX idle threshold). */
 #define HEARTBEAT_TIMER_PERIOD_MS 3000U
+
+/* Minimum values accepted by heartbeat_apply_config(). */
+#define HEARTBEAT_TX_IDLE_MS_MIN   500U
+#define HEARTBEAT_RX_TIMEOUT_MS_MIN 2000U
+
+/**
+ * Runtime-configurable heartbeat timing variables.
+ * Both live on the main thread; no synchronisation required.
+ * Declared extern in rpc_transport.h for access by configure_handler.
+ */
+uint32_t heartbeat_tx_idle_ms    = HEARTBEAT_TX_IDLE_MS_DEFAULT;
+uint32_t heartbeat_rx_timeout_ms = HEARTBEAT_RX_TIMEOUT_MS_DEFAULT;
+
+bool heartbeat_apply_config(uint32_t hb_ms, uint32_t to_ms) {
+    if(hb_ms < HEARTBEAT_TX_IDLE_MS_MIN) return false;
+    if(to_ms < HEARTBEAT_RX_TIMEOUT_MS_MIN) return false;
+    if(to_ms <= hb_ms) return false;
+
+    heartbeat_tx_idle_ms    = hb_ms;
+    heartbeat_rx_timeout_ms = to_ms;
+
+    FURI_LOG_I(
+        "RPC",
+        "Heartbeat config: tx_idle=%" PRIu32 " ms, rx_timeout=%" PRIu32 " ms",
+        hb_ms,
+        to_ms);
+    return true;
+}
+
+void heartbeat_reset_config(void) {
+    heartbeat_tx_idle_ms    = HEARTBEAT_TX_IDLE_MS_DEFAULT;
+    heartbeat_rx_timeout_ms = HEARTBEAT_RX_TIMEOUT_MS_DEFAULT;
+    FURI_LOG_I("RPC", "Heartbeat config reset to defaults");
+}
 
 /** Context bundled for the timer callback. */
 typedef struct {
@@ -264,12 +301,12 @@ typedef struct {
 /**
  * Fires every HEARTBEAT_TIMER_PERIOD_MS while the host is connected.
  *
- * TX side: if no message has been sent for ≥ HEARTBEAT_TX_IDLE_MS, emit a
+ * TX side: if no message has been sent for ≥ heartbeat_tx_idle_ms, emit a
  *   bare '\n' keep-alive frame.  This gives the host a liveness signal even
  *   when the daemon is idle (no stream events, no responses).  The payload is
  *   a single newline — the minimum NDJSON frame — with no RPC meaning.
  *
- * RX side: if no message has been received for ≥ HEARTBEAT_RX_TIMEOUT_MS,
+ * RX side: if no message has been received for ≥ heartbeat_rx_timeout_ms,
  *   assume the host has silently disappeared (cable pulled, app crashed,
  *   machine slept).  Tear down all streams + resources exactly as if DTR
  *   had dropped, and update the GUI status bar.
@@ -283,9 +320,14 @@ static void on_heartbeat_timer(void* ctx) {
 
     /* ---- RX watchdog: has the host gone silent? ---- */
     if(last_rx_ticks != 0 &&
-       (now - last_rx_ticks) >= furi_ms_to_ticks(HEARTBEAT_RX_TIMEOUT_MS)) {
-        FURI_LOG_W("RPC", "Heartbeat: no RX for %u ms — host gone", HEARTBEAT_RX_TIMEOUT_MS);
+       (now - last_rx_ticks) >= furi_ms_to_ticks(heartbeat_rx_timeout_ms)) {
+        FURI_LOG_W(
+            "RPC",
+            "Heartbeat: no RX for %" PRIu32 " ms — host gone",
+            heartbeat_rx_timeout_ms);
         host_connected = false;
+        /* Reset timing to defaults so the next session starts clean. */
+        heartbeat_reset_config();
         stream_close_all();
         resource_reset();
         if(hctx->view_port) {
@@ -300,7 +342,7 @@ static void on_heartbeat_timer(void* ctx) {
      * The host's HeartbeatTransport consumes it without passing it to the
      * RPC layer above, updating its lastSeen timestamp as proof-of-life. */
     if(last_tx_ticks == 0 ||
-       (now - last_tx_ticks) >= furi_ms_to_ticks(HEARTBEAT_TX_IDLE_MS)) {
+       (now - last_tx_ticks) >= furi_ms_to_ticks(heartbeat_tx_idle_ms)) {
         cdc_send("\n");
     }
 }

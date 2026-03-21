@@ -163,4 +163,74 @@ public sealed class NegotiateTests
         Assert.Equal(info.Supports("daemon_info"), info.Supports<DaemonInfoCommand>());
         Assert.Equal(info.Supports("not_there"), info.Supports<DaemonInfoCommand>() && false);
     }
+
+    // -------------------------------------------------------------------------
+    // configure auto-send during ConnectAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConnectAsync_SendsConfigure_WhenDaemonSupportsIt()
+    {
+        var transport = new FakeTransport();
+        await using var client = transport.CreateClient();
+
+        // daemon_info response includes "configure" in the commands list
+        transport.EnqueueResponse(
+            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":4,"commands":["ping","daemon_info","configure"]}}""");
+        // configure response
+        transport.EnqueueResponse(
+            """{"t":0,"i":2,"p":{"heartbeat_ms":3600000,"timeout_ms":7200000}}""");
+
+        await client.ConnectAsync();
+
+        // Verify that two lines were sent: daemon_info + configure
+        var sent = transport.SentLines;
+        Assert.Equal(2, sent.Count);
+
+        using var firstDoc = JsonDocument.Parse(sent[0]);
+        Assert.Equal("daemon_info", firstDoc.RootElement.GetProperty("cmd").GetString());
+
+        using var secondDoc = JsonDocument.Parse(sent[1]);
+        Assert.Equal("configure", secondDoc.RootElement.GetProperty("cmd").GetString());
+        // heartbeat_ms and timeout_ms should match the FakeTransport client options (1h / 2h)
+        Assert.Equal(3_600_000u, secondDoc.RootElement.GetProperty("heartbeat_ms").GetUInt32());
+        Assert.Equal(7_200_000u, secondDoc.RootElement.GetProperty("timeout_ms").GetUInt32());
+    }
+
+    [Fact]
+    public async Task ConnectAsync_SkipsConfigure_WhenDaemonDoesNotSupportIt()
+    {
+        var transport = new FakeTransport();
+        await using var client = transport.CreateClient();
+
+        // daemon_info response does NOT include "configure"
+        transport.EnqueueResponse(ValidDaemonInfoJson);
+
+        await client.ConnectAsync();
+
+        // Only one line sent: daemon_info only
+        var sent = transport.SentLines;
+        var line = Assert.Single(sent);
+
+        using var doc = JsonDocument.Parse(line);
+        Assert.Equal("daemon_info", doc.RootElement.GetProperty("cmd").GetString());
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WithConfigure_StoresDaemonInfoCorrectly()
+    {
+        var transport = new FakeTransport();
+        await using var client = transport.CreateClient();
+
+        transport.EnqueueResponse(
+            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":4,"commands":["ping","daemon_info","configure"]}}""");
+        transport.EnqueueResponse(
+            """{"t":0,"i":2,"p":{"heartbeat_ms":3600000,"timeout_ms":7200000}}""");
+
+        var info = await client.ConnectAsync();
+
+        Assert.Equal("flipper_zero_rpc_daemon", info.Name);
+        Assert.Equal(4, info.Version);
+        Assert.True(info.Supports("configure"));
+    }
 }
