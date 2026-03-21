@@ -77,6 +77,13 @@ public static class FlipperBootstrapper
     /// <c>(bytesWritten, totalBytes)</c>.  Not called when the daemon is
     /// already running.
     /// </param>
+    /// <param name="fapOverride">
+    /// Optional FAP binary to use instead of the one embedded in the assembly.
+    /// When non-null, the MD5 of these bytes is compared against the installed
+    /// FAP on the Flipper SD card, and these bytes are uploaded if the versions
+    /// differ.  Intended for development workflows where the FAP is built
+    /// locally and passed in directly rather than via an assembly rebuild.
+    /// </param>
     /// <param name="ct">Cancellation token for the entire bootstrap operation.</param>
     /// <returns>
     /// A <see cref="FlipperBootstrapResult"/> holding a ready-to-use
@@ -97,6 +104,7 @@ public static class FlipperBootstrapper
         FlipperRpcClientOptions clientOptions  = default,
         IRpcDiagnostics?        diagnostics    = null,
         IProgress<(int Written, int Total)>? progress = null,
+        byte[]?                 fapOverride    = null,
         CancellationToken ct = default)
     {
         using var timeoutCts = new CancellationTokenSource(options.Timeout);
@@ -113,7 +121,7 @@ public static class FlipperBootstrapper
         }
 
         // Step 2 — slow path: interact with the native protobuf RPC.
-        byte[] bundledFap = LoadBundledFap();
+        byte[] bundledFap = fapOverride ?? LoadBundledFap();
         string bundledMd5 = ComputeMd5(bundledFap);
 
         await using var native = new FlipperNativeRpcClient(systemPortName);

@@ -48,8 +48,13 @@ ensure the embedded FAP is current.  Local C#-only work can skip it.
 **Deploy script — build + upload + launch in one command**:
 
 `deploy-daemon.csx` (repo root) automates the full iteration cycle:
-builds the C daemon, embeds the FAP, and uses `FlipperBootstrapper.BootstrapAsync`
+builds the C daemon with `ufbt`, reads the resulting `.fap` directly from
+`dist/`, and uses `FlipperBootstrapper.BootstrapAsync` (with `fapOverride`)
 to upload and launch it on the device — no qFlipper needed.
+
+The FAP bytes are passed directly to `BootstrapAsync` rather than being
+embedded in the DLL, so **rebuilding the .NET solution is not required
+between C daemon iterations**.
 
 First-time setup (once per clone):
 ```bash
@@ -62,7 +67,7 @@ Run the deploy script:
 # Build C daemon + upload + launch (default ports: COM3 system, COM4 daemon)
 dotnet script deploy-daemon.csx
 
-# Skip rebuilding C code (faster when only C# changed)
+# Skip rebuilding C code (faster iteration when only C# changed)
 dotnet script deploy-daemon.csx -- --no-build
 
 # Override ports

@@ -249,3 +249,44 @@ bool heartbeat_apply_config(uint32_t hb_ms, uint32_t to_ms);
  * Must only be called from the main (event-loop) thread.
  */
 void heartbeat_reset_config(void);
+
+/* -------------------------------------------------------------------------
+ * LED connection indicator
+ *
+ * When the host sends a "configure" command with a "led" object, the daemon
+ * stores the requested RGB colour and uses it as a connection indicator:
+ *   - LED on  (stored colour) while a host is connected
+ *   - LED off (all channels 0) when no host is connected
+ *
+ * The indicator is scoped to a single connection lifecycle: the config is
+ * cleared (and the LED turned off) by heartbeat_reset_config() on every
+ * disconnect, so the next session starts with the LED off until the host
+ * re-sends its "configure" command.
+ *
+ * led_indicator_apply() is the single call-site for all LED state changes.
+ * Pass connected=true to turn the LED on (only if enabled), false to turn
+ * it off unconditionally.
+ * ------------------------------------------------------------------------- */
+
+/** True when the host has configured an LED indicator colour. */
+extern bool led_indicator_enabled;
+
+/** Effective red channel (0–255) for the connection indicator. */
+extern uint8_t led_indicator_r;
+
+/** Effective green channel (0–255) for the connection indicator. */
+extern uint8_t led_indicator_g;
+
+/** Effective blue channel (0–255) for the connection indicator. */
+extern uint8_t led_indicator_b;
+
+/**
+ * Apply the LED indicator state.
+ *
+ * If connected is true and led_indicator_enabled is true, sets the RGB LED
+ * to (led_indicator_r, led_indicator_g, led_indicator_b).
+ * Otherwise turns all LED channels off (0, 0, 0).
+ *
+ * Must only be called from the main (event-loop) thread.
+ */
+void led_indicator_apply(bool connected);

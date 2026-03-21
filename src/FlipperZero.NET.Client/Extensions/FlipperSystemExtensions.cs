@@ -1,4 +1,5 @@
-﻿using FlipperZero.NET.Commands.System;
+﻿using FlipperZero.NET.Commands;
+using FlipperZero.NET.Commands.System;
 using FlipperZero.NET.Exceptions;
 
 namespace FlipperZero.NET.Extensions;
@@ -43,6 +44,12 @@ public static class FlipperSystemExtensions
     /// data arrives for this long.  Must be &gt; <paramref name="heartbeatMs"/> and
     /// &gt;= 2000.
     /// </param>
+    /// <param name="led">
+    /// Optional LED color to display on the Flipper while the connection is active.
+    /// When <see langword="null"/> the LED config is left unchanged.  The color is
+    /// cleared automatically on disconnect so the host must re-send it on each reconnect.
+    /// Use <see cref="RgbColor.DotNetPurple"/> for the canonical .NET brand color.
+    /// </param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>
     /// The effective <see cref="ConfigureResponse"/> containing the values now in use on
@@ -52,9 +59,10 @@ public static class FlipperSystemExtensions
         this FlipperRpcClient client,
         uint heartbeatMs,
         uint timeoutMs,
+        RgbColor? led = null,
         CancellationToken ct = default)
         => client.SendAsync<ConfigureCommand, ConfigureResponse>(
-            new ConfigureCommand(heartbeatMs, timeoutMs), ct);
+            new ConfigureCommand(heartbeatMs, timeoutMs, led), ct);
 
     /// <summary>
     /// Queries the daemon's identity and full command capability list.

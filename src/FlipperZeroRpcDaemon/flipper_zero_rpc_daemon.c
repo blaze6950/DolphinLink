@@ -136,6 +136,8 @@ static void on_ctrl_line_queue(FuriEventLoopObject* object, void* ctx) {
         FURI_LOG_I("RPC", "DTR %s", dtr ? "asserted" : "released");
         if(dtr != host_connected) {
             host_connected = dtr;
+            /* Update LED indicator: on (once configured) when connected, off when disconnected. */
+            led_indicator_apply(dtr);
             /* Redraw immediately so the status bar reflects the new state. */
             if(app && app->view_port) {
                 view_port_update(app->view_port);
@@ -168,6 +170,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     resource_reset();
     stream_reset();
     cmd_log_reset();
+    /* Ensure the LED is off at startup — the physical hardware persists across
+     * FAP launches, so we must explicitly clear it regardless of what any
+     * previous app (or previous daemon instance) left behind. */
+    led_indicator_apply(false);
 
     /* --- Open shared service records --- */
     g_storage = furi_record_open(RECORD_STORAGE);
@@ -265,6 +271,10 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     if(host_connected) {
         cdc_send("{\"t\":2}\n");
     }
+
+    /* Ensure the LED is off before we tear down — the indicator must not
+     * stay lit after the daemon exits regardless of how exit was triggered. */
+    led_indicator_apply(false);
 
     /* --- Cleanup --- */
 

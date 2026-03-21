@@ -1,14 +1,15 @@
 #!/usr/bin/env dotnet-script
 // deploy-daemon.csx
 //
-// Builds the C daemon FAP, embeds it into the Bootstrapper assembly, then uses
-// FlipperBootstrapper.BootstrapAsync to upload and launch it on the Flipper Zero.
+// Builds the C daemon FAP then uses FlipperBootstrapper.BootstrapAsync to
+// upload and launch it on the Flipper Zero — no qFlipper needed.
 //
 // Prerequisites
 // -------------
 //   1. Run `dotnet tool restore` once after cloning the repo.
-//   2. Flipper Zero connected over USB with no other app (e.g. qFlipper) on the ports.
-//   3. ufbt + Python on PATH (only needed unless --no-build is passed).
+//   2. Run `dotnet build` once so the DLLs loaded by this script exist.
+//   3. Flipper Zero connected over USB; no other app (e.g. qFlipper) on the ports.
+//   4. ufbt + Python on PATH (not needed with --no-build).
 //
 // Usage
 // -----
@@ -16,10 +17,16 @@
 //   dotnet script deploy-daemon.csx -- --no-build             # skip C build, re-upload existing FAP
 //   dotnet script deploy-daemon.csx -- --system COM5 --daemon COM6
 //   dotnet script deploy-daemon.csx -- --no-build --system COM5 --daemon COM6
+//
+// How it works
+// ------------
+// The FAP bytes are read directly from the ufbt dist/ folder on disk and
+// passed to BootstrapAsync via fapOverride.  This bypasses the FAP that is
+// embedded inside the Bootstrapper DLL, so there is no need to rebuild the
+// DLL between C daemon iterations.
 
-// NOTE: #r directives are resolved at parse time and must appear before any code.
-//       The DLL paths below point to the Debug build output.  Run `dotnet build`
-//       at least once before running this script for the first time.
+// NOTE: #r directives are resolved at parse time — the DLL paths must exist
+//       before the first run.  Run `dotnet build` once after cloning.
 #r "nuget: Google.Protobuf, 3.28.3"
 #r "nuget: System.IO.Ports, 8.0.0"
 #r "src/FlipperZero.NET.Client/bin/Debug/net8.0/FlipperZero.NET.Client.dll"
@@ -45,15 +52,12 @@ string? OptionValue(string flag)
 }
 
 // ---------------------------------------------------------------------------
-// Resolve paths relative to the script file
+// Resolve paths
 // ---------------------------------------------------------------------------
 
-string repoRoot        = Directory.GetCurrentDirectory();
-string daemonSrc       = Path.Combine(repoRoot, "src", "FlipperZeroRpcDaemon");
-string fapDist         = Path.Combine(daemonSrc, "dist", "flipper_zero_rpc_daemon.fap");
-string bootstrapperSrc = Path.Combine(repoRoot, "src", "FlipperZero.NET.Bootstrapper");
-string fapResource     = Path.Combine(bootstrapperSrc, "Resources", "flipper_zero_rpc_daemon.fap");
-string bootstrapperCsproj = Path.Combine(bootstrapperSrc, "FlipperZero.NET.Bootstrapper.csproj");
+string repoRoot  = Directory.GetCurrentDirectory();
+string daemonSrc = Path.Combine(repoRoot, "src", "FlipperZeroRpcDaemon");
+string fapDist   = Path.Combine(daemonSrc, "dist", "flipper_zero_rpc_daemon.fap");
 
 // ---------------------------------------------------------------------------
 // Step 1 — (optionally) build the C daemon
@@ -68,38 +72,34 @@ if (!noBuild)
         Console.Error.WriteLine($"ufbt failed (exit code {rc}). Aborting.");
         Environment.Exit(rc);
     }
-
-    Console.WriteLine("==> Copying FAP to Bootstrapper resources...");
-    File.Copy(fapDist, fapResource, overwrite: true);
-    Console.WriteLine($"    {Path.GetRelativePath(repoRoot, fapDist)}");
-    Console.WriteLine($"    -> {Path.GetRelativePath(repoRoot, fapResource)}");
+    Console.WriteLine();
 }
 else
 {
     Console.WriteLine("==> Skipping C build (--no-build).");
+    Console.WriteLine();
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — (re)build the .NET Bootstrapper so the embedded FAP is current
-//           and the DLLs loaded above are up-to-date
+// Step 2 — read the freshly-built FAP from disk
 // ---------------------------------------------------------------------------
 
-Console.WriteLine();
-Console.WriteLine("==> Building FlipperZero.NET.Bootstrapper...");
+if (!File.Exists(fapDist))
 {
-    int rc = RunProcess("dotnet", $"build \"{bootstrapperCsproj}\" --nologo -v q", repoRoot);
-    if (rc != 0)
-    {
-        Console.Error.WriteLine($"dotnet build failed (exit code {rc}). Aborting.");
-        Environment.Exit(rc);
-    }
+    Console.Error.WriteLine($"FAP not found at: {fapDist}");
+    Console.Error.WriteLine("Run without --no-build to build it first.");
+    Environment.Exit(1);
+    return;
 }
+
+byte[] fapBytes = File.ReadAllBytes(fapDist);
+Console.WriteLine($"==> FAP loaded from dist/  ({fapBytes.Length:N0} bytes)");
+Console.WriteLine();
 
 // ---------------------------------------------------------------------------
 // Step 3 — deploy via FlipperBootstrapper.BootstrapAsync
 // ---------------------------------------------------------------------------
 
-Console.WriteLine();
 Console.WriteLine("==> Deploying daemon...");
 Console.WriteLine($"    System port : {system}");
 Console.WriteLine($"    Daemon port : {daemon}");
@@ -125,8 +125,9 @@ try
 {
     result = await FlipperBootstrapper.BootstrapAsync(
         system, daemon,
-        options:  options,
-        progress: progress);
+        options:     options,
+        progress:    progress,
+        fapOverride: fapBytes);
 }
 catch (FlipperBootstrapException ex)
 {
@@ -143,7 +144,6 @@ catch (Exception ex)
     return;
 }
 
-// Clear the progress line if we printed one.
 if (lastPct >= 0) Console.WriteLine();
 Console.WriteLine();
 

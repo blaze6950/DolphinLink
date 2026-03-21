@@ -32,6 +32,7 @@
 #include "rpc_gui.h"
 
 #include <furi_hal_usb_cdc.h>
+#include <furi_hal_light.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -271,6 +272,25 @@ void cdc_ctrl_line_callback(void* context, CdcCtrlLine ctrl_lines) {
 uint32_t heartbeat_tx_idle_ms    = HEARTBEAT_TX_IDLE_MS_DEFAULT;
 uint32_t heartbeat_rx_timeout_ms = HEARTBEAT_RX_TIMEOUT_MS_DEFAULT;
 
+/* ---- LED connection indicator state ---- */
+/* All fields default to off/disabled; set by configure_handler on each connection. */
+bool    led_indicator_enabled = false;
+uint8_t led_indicator_r       = 0;
+uint8_t led_indicator_g       = 0;
+uint8_t led_indicator_b       = 0;
+
+void led_indicator_apply(bool connected) {
+    if(connected && led_indicator_enabled) {
+        furi_hal_light_set(LightRed,   led_indicator_r);
+        furi_hal_light_set(LightGreen, led_indicator_g);
+        furi_hal_light_set(LightBlue,  led_indicator_b);
+    } else {
+        furi_hal_light_set(LightRed,   0);
+        furi_hal_light_set(LightGreen, 0);
+        furi_hal_light_set(LightBlue,  0);
+    }
+}
+
 bool heartbeat_apply_config(uint32_t hb_ms, uint32_t to_ms) {
     if(hb_ms < HEARTBEAT_TX_IDLE_MS_MIN) return false;
     if(to_ms < HEARTBEAT_RX_TIMEOUT_MS_MIN) return false;
@@ -290,6 +310,12 @@ bool heartbeat_apply_config(uint32_t hb_ms, uint32_t to_ms) {
 void heartbeat_reset_config(void) {
     heartbeat_tx_idle_ms    = HEARTBEAT_TX_IDLE_MS_DEFAULT;
     heartbeat_rx_timeout_ms = HEARTBEAT_RX_TIMEOUT_MS_DEFAULT;
+    /* Clear LED indicator — config is scoped to a single connection lifecycle. */
+    led_indicator_enabled = false;
+    led_indicator_r = 0;
+    led_indicator_g = 0;
+    led_indicator_b = 0;
+    led_indicator_apply(false);
     FURI_LOG_I("RPC", "Heartbeat config reset to defaults");
 }
 
@@ -326,7 +352,7 @@ static void on_heartbeat_timer(void* ctx) {
             "Heartbeat: no RX for %" PRIu32 " ms — host gone",
             heartbeat_rx_timeout_ms);
         host_connected = false;
-        /* Reset timing to defaults so the next session starts clean. */
+        /* Reset timing and LED config so the next session starts clean. */
         heartbeat_reset_config();
         stream_close_all();
         resource_reset();

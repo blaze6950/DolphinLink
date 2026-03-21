@@ -48,6 +48,9 @@ public readonly struct RgbColor(byte R, byte G, byte B)
     /// <summary>Full orange (255, 128, 0).</summary>
     public static RgbColor Orange => new(255, 128, 0);
 
+    /// <summary>.NET purple — the official .NET brand colour (#512BD4), used as the default LED connection indicator.</summary>
+    public static RgbColor DotNetPurple => new(0x51, 0x2B, 0xD4);
+
     // ------------------------------------------------------------------
     // Deconstruct
     // ------------------------------------------------------------------

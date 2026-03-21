@@ -1,3 +1,4 @@
+using FlipperZero.NET.Commands;
 using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET;
@@ -6,19 +7,27 @@ namespace FlipperZero.NET;
 /// Connection-behaviour options for <see cref="FlipperRpcClient"/>.
 ///
 /// Both <c>default</c> and <c>new FlipperRpcClientOptions()</c> produce an
-/// instance with the standard heartbeat timing (3 s interval, 10 s timeout).
+/// instance with the standard heartbeat timing (3 s interval, 10 s timeout)
+/// and the <see cref="RgbColor.DotNetPurple"/> LED indicator.
 /// Use a <c>with</c>-expression or object initialiser to override individual
 /// values:
 ///
 /// <code>
-/// // Zero-config — default 3 s heartbeat interval, 10 s timeout:
+/// // Zero-config — default 3 s heartbeat, 10 s timeout, purple LED:
 /// new FlipperRpcClient(transport)
 ///
-/// // Accelerated timing only:
+/// // Disable the LED indicator:
+/// new FlipperRpcClient(transport, new FlipperRpcClientOptions
+/// {
+///     LedIndicatorColor = null,
+/// })
+///
+/// // Accelerated timing, custom LED color:
 /// new FlipperRpcClient(transport, new FlipperRpcClientOptions
 /// {
 ///     HeartbeatInterval = TimeSpan.FromSeconds(1),
 ///     Timeout           = TimeSpan.FromSeconds(4),
+///     LedIndicatorColor = RgbColor.Cyan,
 /// })
 /// </code>
 /// </summary>
@@ -27,6 +36,11 @@ public readonly record struct FlipperRpcClientOptions
     // Raw backing values — TimeSpan.Zero means "use the default".
     private readonly TimeSpan _heartbeatInterval;
     private readonly TimeSpan _timeout;
+    // Sentinel: null means "not explicitly set — use the default (DotNetPurple)".
+    // Callers opt out by setting the property to RgbColor.Off or any other value.
+    // We need one extra level of wrapping to distinguish "not set" from "explicitly null".
+    private readonly bool _ledIndicatorColorSet;
+    private readonly RgbColor? _ledIndicatorColor;
 
     /// <summary>
     /// How long outbound silence is allowed before a keep-alive frame is sent.
@@ -51,5 +65,28 @@ public readonly record struct FlipperRpcClientOptions
             ? HeartbeatTransport.DefaultTimeout
             : _timeout;
         init => _timeout = value;
+    }
+
+    /// <summary>
+    /// Optional LED connection indicator colour sent to the daemon during the
+    /// <c>configure</c> handshake.
+    ///
+    /// When non-null, the daemon turns on the Flipper's RGB LED with this colour
+    /// while the connection is active and turns it off when the connection is lost.
+    /// The indicator is scoped to a single connection lifecycle — it is cleared on
+    /// every disconnect so the next session starts with the LED off.
+    ///
+    /// Defaults to <see cref="RgbColor.DotNetPurple"/> (<c>#512BD4</c>) so every
+    /// connection shows the .NET brand colour without any extra configuration.
+    /// Set to <c>null</c> to disable the LED indicator entirely.
+    /// </summary>
+    public RgbColor? LedIndicatorColor
+    {
+        get => _ledIndicatorColorSet ? _ledIndicatorColor : RgbColor.DotNetPurple;
+        init
+        {
+            _ledIndicatorColor    = value;
+            _ledIndicatorColorSet = true;
+        }
     }
 }

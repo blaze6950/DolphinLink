@@ -1,3 +1,4 @@
+using FlipperZero.NET.Commands;
 using FlipperZero.NET.Commands.System;
 using FlipperZero.NET.Dispatch;
 
@@ -32,17 +33,36 @@ public sealed class ConfigureCommandTests
     }
 
     [Fact]
-    public void ConfigureCommand_WriteArgs_ProducesExactlyTwoArgFields()
+    public void ConfigureCommand_WriteArgs_WithoutLed_ProducesExactlyTwoArgFields()
     {
-        var cmd = new ConfigureCommand(1000, 5000);
+        var cmd = new ConfigureCommand(1000, 5000, led: null);
         var json = RpcMessageSerializer.Serialize(99, cmd.CommandName, cmd.WriteArgs);
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        // Expect exactly: id, cmd, heartbeat_ms, timeout_ms
+        // Expect exactly: id, cmd, heartbeat_ms, timeout_ms (no led)
         var properties = root.EnumerateObject().Select(p => p.Name).ToList();
         Assert.Equal(new[] { "id", "cmd", "heartbeat_ms", "timeout_ms" }, properties);
+    }
+
+    [Fact]
+    public void ConfigureCommand_WriteArgs_WithLed_EmitsLedObject()
+    {
+        var cmd = new ConfigureCommand(3000, 10000, led: RgbColor.DotNetPurple);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandName, cmd.WriteArgs);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // Expect: id, cmd, heartbeat_ms, timeout_ms, led
+        var properties = root.EnumerateObject().Select(p => p.Name).ToList();
+        Assert.Equal(new[] { "id", "cmd", "heartbeat_ms", "timeout_ms", "led" }, properties);
+
+        var led = root.GetProperty("led");
+        Assert.Equal(0x51, led.GetProperty("r").GetByte());
+        Assert.Equal(0x2B, led.GetProperty("g").GetByte());
+        Assert.Equal(0xD4, led.GetProperty("b").GetByte());
     }
 
     [Fact]
@@ -63,5 +83,26 @@ public sealed class ConfigureCommandTests
 
         Assert.Equal(3000u, response.HeartbeatMs);
         Assert.Equal(10000u, response.TimeoutMs);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_Default_HasDotNetPurpleLed()
+    {
+        var opts = default(FlipperRpcClientOptions);
+        Assert.Equal(RgbColor.DotNetPurple, opts.LedIndicatorColor);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_LedCanBeDisabled()
+    {
+        var opts = new FlipperRpcClientOptions { LedIndicatorColor = null };
+        Assert.Null(opts.LedIndicatorColor);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_LedCanBeOverridden()
+    {
+        var opts = new FlipperRpcClientOptions { LedIndicatorColor = RgbColor.Red };
+        Assert.Equal(RgbColor.Red, opts.LedIndicatorColor);
     }
 }
