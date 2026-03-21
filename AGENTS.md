@@ -45,6 +45,30 @@ dotnet build /p:BuildDaemon=true   # builds ufbt FAP first, then compiles C#
 This requires `ufbt` + Python on `PATH`.  CI must always pass this flag to
 ensure the embedded FAP is current.  Local C#-only work can skip it.
 
+**Deploy script — build + upload + launch in one command**:
+
+`deploy-daemon.csx` (repo root) automates the full iteration cycle:
+builds the C daemon, embeds the FAP, and uses `FlipperBootstrapper.BootstrapAsync`
+to upload and launch it on the device — no qFlipper needed.
+
+First-time setup (once per clone):
+```bash
+dotnet tool restore          # installs dotnet-script from .config/dotnet-tools.json
+dotnet build                 # ensure DLLs exist for the script to load
+```
+
+Run the deploy script:
+```bash
+# Build C daemon + upload + launch (default ports: COM3 system, COM4 daemon)
+dotnet script deploy-daemon.csx
+
+# Skip rebuilding C code (faster when only C# changed)
+dotnet script deploy-daemon.csx -- --no-build
+
+# Override ports
+dotnet script deploy-daemon.csx -- --system COM5 --daemon COM6
+```
+
 ## Project Layout
 
 ```
