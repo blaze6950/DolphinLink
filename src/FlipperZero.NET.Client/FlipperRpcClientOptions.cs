@@ -1,3 +1,5 @@
+using FlipperZero.NET.Transport;
+
 namespace FlipperZero.NET;
 
 /// <summary>

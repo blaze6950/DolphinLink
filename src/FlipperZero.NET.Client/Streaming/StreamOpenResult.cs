@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Streaming;
 
 /// <summary>
 /// Deserialized from the <c>"p"</c> field of a V3 stream-open response:

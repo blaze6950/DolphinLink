@@ -1,4 +1,4 @@
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Exceptions;
 
 /// <summary>
 /// Thrown when the Flipper returns an <c>"error"</c> field in the RPC response,

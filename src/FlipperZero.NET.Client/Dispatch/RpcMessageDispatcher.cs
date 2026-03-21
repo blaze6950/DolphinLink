@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Exceptions;
+using FlipperZero.NET.Streaming;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// Routes a single inbound V3 envelope to the correct pending request or open stream.

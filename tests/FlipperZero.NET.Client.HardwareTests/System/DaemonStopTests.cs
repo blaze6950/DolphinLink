@@ -1,5 +1,7 @@
 using FlipperZero.NET.Extensions;
 using FlipperZero.NET.Client.HardwareTests.Core;
+using FlipperZero.NET.Exceptions;
+using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET.Client.HardwareTests.System;
 
@@ -44,7 +46,7 @@ public sealed class DaemonStopTests
     [RequiresFlipperFact]
     public async Task DaemonStop_ReturnsOkResponse()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         var response = await client.DaemonStopAsync();
@@ -66,7 +68,7 @@ public sealed class DaemonStopTests
     [RequiresFlipperFact]
     public async Task DaemonStop_DisconnectedToken_IsCancelledAfterStop()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         await client.DaemonStopAsync();

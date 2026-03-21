@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Streaming;
 
 /// <summary>
 /// Self-contained state for an open RPC stream.

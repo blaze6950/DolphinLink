@@ -1,4 +1,5 @@
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Dispatch;
 
 namespace FlipperZero.NET.Client.UnitTests;
 

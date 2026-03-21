@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using FlipperZero.NET.Abstractions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Transport;
 
 /// <summary>
 /// USB-CDC <see cref="IFlipperTransport"/> implementation backed by <see cref="SerialPort"/>.
@@ -25,7 +25,7 @@ namespace FlipperZero.NET;
 /// CancellationTokens.  The only reliable way to unblock a pending read is to
 /// close the port — which is what <see cref="DisposeAsync"/> does.
 /// </summary>
-public sealed class FlipperRpcTransport : IFlipperTransport
+public sealed class SerialPortTransport : IFlipperTransport
 {
     private readonly SerialPort _port;
     private StreamWriter? _writer;
@@ -36,7 +36,7 @@ public sealed class FlipperRpcTransport : IFlipperTransport
     /// Baud rate. For USB-CDC this is typically ignored by the OS but must be supplied.
     /// Defaults to 115200.
     /// </param>
-    public FlipperRpcTransport(string portName, int baudRate = 115200)
+    public SerialPortTransport(string portName, int baudRate = 115200)
     {
         _port = new SerialPort(portName, baudRate)
         {

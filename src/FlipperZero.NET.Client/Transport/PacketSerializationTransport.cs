@@ -1,7 +1,8 @@
 using System.Threading.Channels;
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Exceptions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Transport;
 
 /// <summary>
 /// Transport decorator that serialises all outbound writes through a
@@ -12,7 +13,7 @@ namespace FlipperZero.NET;
 /// Architecture
 /// ============
 /// <code>
-///   FlipperRpcTransport   (raw USB-CDC)
+///   SerialPortTransport   (raw USB-CDC)
 ///       ↑
 ///   PacketSerializationTransport   (this class — single-writer serialiser)
 ///       ↑

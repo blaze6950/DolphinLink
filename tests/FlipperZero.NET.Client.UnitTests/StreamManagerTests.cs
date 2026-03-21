@@ -1,3 +1,5 @@
+using FlipperZero.NET.Streaming;
+
 namespace FlipperZero.NET.Client.UnitTests;
 
 /// <summary>

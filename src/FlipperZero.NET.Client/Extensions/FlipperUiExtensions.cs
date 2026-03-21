@@ -1,4 +1,5 @@
 ﻿using FlipperZero.NET.Commands.Ui;
+using FlipperZero.NET.Exceptions;
 
 namespace FlipperZero.NET.Extensions;
 

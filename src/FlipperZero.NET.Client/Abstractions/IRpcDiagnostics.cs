@@ -1,4 +1,4 @@
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Abstractions;
 
 /// <summary>
 /// Receives diagnostic log entries from the RPC infrastructure.

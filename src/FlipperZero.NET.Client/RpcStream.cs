@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using FlipperZero.NET.Exceptions;
 
 namespace FlipperZero.NET;
 

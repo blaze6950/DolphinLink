@@ -1,4 +1,8 @@
 using System.Diagnostics;
+using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Dispatch;
+using FlipperZero.NET.Exceptions;
+using FlipperZero.NET.Streaming;
 
 namespace FlipperZero.NET.Client.UnitTests;
 

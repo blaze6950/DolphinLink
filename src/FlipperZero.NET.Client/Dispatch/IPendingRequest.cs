@@ -1,4 +1,4 @@
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// Type-erased interface for an in-flight RPC request stored in the pending table.

@@ -1,10 +1,12 @@
+using FlipperZero.NET.Transport;
+
 namespace FlipperZero.NET.Abstractions;
 
 /// <summary>
 /// A line-oriented transport for the Flipper NDJSON RPC protocol.
 ///
 /// Implementations include:
-///   - <see cref="FlipperRpcTransport"/> — raw USB-CDC serial
+///   - <see cref="SerialPortTransport"/> — raw USB-CDC serial
 ///   - <see cref="HeartbeatTransport"/> — keep-alive wrapper
 ///   - <see cref="PacketSerializationTransport"/> — single-writer serialiser wrapper
 ///   - In-process fake (tests)

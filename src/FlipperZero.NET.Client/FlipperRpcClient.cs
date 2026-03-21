@@ -2,6 +2,10 @@ using System.Diagnostics;
 using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.System;
+using FlipperZero.NET.Dispatch;
+using FlipperZero.NET.Exceptions;
+using FlipperZero.NET.Streaming;
+using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET;
 
@@ -12,7 +16,7 @@ namespace FlipperZero.NET;
 /// ============
 ///
 /// <code>
-///   FlipperRpcTransport          (raw USB-CDC)
+///   SerialPortTransport          (raw USB-CDC)
 ///       ↑
 ///   PacketSerializationTransport (single-writer serialiser)
 ///       ↑
@@ -155,7 +159,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// <summary>
     /// Creates a client using the supplied transport.
     /// Use this to inject any transport implementation (USB-CDC via
-    /// <see cref="FlipperRpcTransport"/>, BLE, Wi-Fi, WASM/WebSerial bridge,
+    /// <see cref="SerialPortTransport"/>, BLE, Wi-Fi, WASM/WebSerial bridge,
     /// or an in-process fake for unit tests).
     ///
     /// The transport is automatically wrapped in a

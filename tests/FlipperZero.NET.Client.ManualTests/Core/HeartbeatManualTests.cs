@@ -1,6 +1,8 @@
 using FlipperZero.NET.Commands.Gpio;
 using FlipperZero.NET.Commands.Input;
+using FlipperZero.NET.Exceptions;
 using FlipperZero.NET.Extensions;
+using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET.Client.ManualTests.Core;
 
@@ -43,7 +45,7 @@ public sealed class HeartbeatManualTests
     [RequiresFlipperFact]
     public async Task DaemonExitViaBackButton_HostDetectsDisconnect()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         // Give the tester up to 60 s to press Back on the Flipper.
@@ -81,7 +83,7 @@ public sealed class HeartbeatManualTests
     [RequiresFlipperFact]
     public async Task GracefulDisconnect_DuringPendingCommand_FaultsPendingTask()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         using var longTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
@@ -124,7 +126,7 @@ public sealed class HeartbeatManualTests
     public async Task HardDisconnect_DuringPendingCommand_FaultsPendingTask()
     {
         await using var client = new FlipperRpcClient(
-            new FlipperRpcTransport(_portName),
+            new SerialPortTransport(_portName),
             new FlipperRpcClientOptions
             {
                 HeartbeatInterval = TimeSpan.FromSeconds(1),
@@ -170,7 +172,7 @@ public sealed class HeartbeatManualTests
     [RequiresFlipperFact]
     public async Task GracefulDisconnect_DuringStreamIteration_TerminatesEnumeration()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         await using var stream = await client.GpioWatchStartAsync(GpioPin.Pin6);
@@ -221,7 +223,7 @@ public sealed class HeartbeatManualTests
     public async Task HardDisconnect_DuringStreamIteration_TerminatesEnumeration()
     {
         await using var client = new FlipperRpcClient(
-            new FlipperRpcTransport(_portName),
+            new SerialPortTransport(_portName),
             new FlipperRpcClientOptions
             {
                 HeartbeatInterval = TimeSpan.FromSeconds(1),
@@ -280,7 +282,7 @@ public sealed class HeartbeatManualTests
     [RequiresFlipperFact]
     public async Task InputStream_CustomExitCombo_BackPassesThroughAndOkLongDisconnects()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));

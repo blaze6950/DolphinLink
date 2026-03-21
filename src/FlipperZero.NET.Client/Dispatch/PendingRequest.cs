@@ -1,6 +1,6 @@
 using FlipperZero.NET.Abstractions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// Typed implementation of <see cref="IPendingRequest"/> backed by a

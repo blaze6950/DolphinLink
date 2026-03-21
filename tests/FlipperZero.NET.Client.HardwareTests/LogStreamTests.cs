@@ -1,4 +1,6 @@
+using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Extensions;
+using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET.Client.HardwareTests;
 
@@ -36,7 +38,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
         Skip.If(fixture.PortName is null);
 
         var sink = new CapturingSink();
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!), diagnostics: sink);
+        await using var client = new FlipperRpcClient(new SerialPortTransport(fixture.PortName!), diagnostics: sink);
         await client.ConnectAsync();
 
         await client.PingAsync();
@@ -74,7 +76,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
         Skip.If(fixture.PortName is null);
 
         // Construct without diagnostics — uses the no-op NullDiagnostics singleton.
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(fixture.PortName!));
         await client.ConnectAsync();
 
         // Must not throw; the null-sink path is exercised.
@@ -92,7 +94,7 @@ public sealed class LogStreamTests(FlipperFixture fixture)
         Skip.If(fixture.PortName is null);
 
         var sink = new CapturingSink();
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!), diagnostics: sink);
+        await using var client = new FlipperRpcClient(new SerialPortTransport(fixture.PortName!), diagnostics: sink);
         await client.ConnectAsync();
 
         await client.PingAsync();

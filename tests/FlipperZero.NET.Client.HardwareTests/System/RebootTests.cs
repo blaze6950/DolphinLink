@@ -1,5 +1,6 @@
 using FlipperZero.NET.Extensions;
 using FlipperZero.NET.Client.HardwareTests.Core;
+using FlipperZero.NET.Transport;
 
 namespace FlipperZero.NET.Client.HardwareTests.System;
 
@@ -43,7 +44,7 @@ public sealed class RebootTests
     [RequiresFlipperFact]
     public async Task Reboot_ReturnsOkResponse()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         // The daemon sends the OK envelope before calling furi_hal_power_reset().
@@ -65,7 +66,7 @@ public sealed class RebootTests
     [RequiresFlipperFact]
     public async Task Reboot_DisconnectedToken_IsCancelledAfterReset()
     {
-        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
+        await using var client = new FlipperRpcClient(new SerialPortTransport(_portName));
         await client.ConnectAsync();
 
         await client.RebootAsync();

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Streaming;
 
 /// <summary>
 /// Thread-safe registry of open RPC streams.

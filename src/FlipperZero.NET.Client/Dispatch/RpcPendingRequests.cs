@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// Thread-safe store of in-flight RPC request callbacks.

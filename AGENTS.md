@@ -39,13 +39,18 @@ src/FlipperZeroRpcDaemon/
 
 src/FlipperZero.NET.Client/
   FlipperRpcClient.cs                # core RPC logic: SendAsync/SendStreamAsync, reader loop, FaultAll
-  FlipperRpcTransport.cs             # public SerialPort-backed IFlipperTransport (callers construct directly)
   FlipperRpcClientOptions.cs         # readonly record struct: HeartbeatInterval + Timeout (default-safe via backing fields)
-  FlipperRpcException.cs             # typed exception with ErrorCode
+  RpcLogEntry.cs                     # public diagnostic log entry (RpcLogSource, RpcLogKind enums + RpcLogEntry struct)
   RpcStream.cs                       # IAsyncEnumerable<TEvent> + IAsyncDisposable
-  Abstractions/IRpc*.cs              # IRpcCommand<TResponse>, IRpcStreamCommand<TEvent>, IRpcCommandResponse
+  Abstractions/                      # IFlipperTransport, IRpcDiagnostics, IRpcCommand<TResponse>, IRpcStreamCommand<TEvent>, IRpcCommandResponse, IRpcCommandBase
   Commands/<Subsystem>/<Cmd>Command.cs   # one file per command/response pair (readonly structs)
+  Commands/Ui/FlipperScreenSession.cs    # exclusive host-driven screen session with draw/flush helpers
+  Converters/                        # Base64JsonConverter, HexJsonConverter
+  Exceptions/                        # FlipperRpcException (typed exception with ErrorCode), FlipperDisconnectedException (with DisconnectReason enum)
   Extensions/Flipper<Subsystem>Extensions.cs  # convenience async methods on FlipperRpcClient
+  Transport/                         # public: SerialPortTransport (SerialPort-backed IFlipperTransport); internal: HeartbeatTransport, PacketSerializationTransport
+  Streaming/                         # internal: RpcStreamManager, StreamState, StreamOpenResult
+  Dispatch/                          # internal: RpcMessageDispatcher, RpcMessageSerializer, RpcEnvelope, RpcPendingRequests, IPendingRequest, PendingRequest
 
 tests/FlipperZero.NET.Client.UnitTests/
   Infrastructure/FakeTransport.cs    # in-process IFlipperTransport; always use CreateClient(), not new FlipperRpcClient(this)
@@ -56,7 +61,7 @@ tests/FlipperZero.NET.Tests.Infrastructure/
   FlipperFixture.cs                  # shared xUnit collection fixture (FLIPPER_PORT env var)
 ```
 
-Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`.
+Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
 
 `COMMANDS.md` (repo root) — cross-reference table mapping every command name to its C handler file, C# types file, and C# extension method. Keep it in sync when adding or removing commands.
 
@@ -121,7 +126,7 @@ All RPC logic runs on the main thread. ISR does only byte accumulation + queue p
 ```
 User code → SendAsync/SendStreamAsync → Register() pending BEFORE send → PacketSerializationTransport
   ▼                                                                       (BoundedChannel, single writer)
-Transport stack: FlipperRpcTransport → PacketSerializationTransport → HeartbeatTransport
+Transport stack: SerialPortTransport → PacketSerializationTransport → HeartbeatTransport
   ▼
 Reader loop → parse JSON → route by `"t"`: `t:0` → match `"i"` to pending request (complete TCS or raise FlipperRpcException on `"e"`); `t:1` → match `"i"` to stream channel (push `"p"`); `t:2` → FaultAll
   ▼
@@ -145,7 +150,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 | **Format specifiers** | `"%" PRIu32` / `"%" PRIx32` from `<inttypes.h>` | ~~`%lu`~~, ~~`%u`~~ (ARM type widths differ) |
 | **Stream slot ordering** | Call `stream_alloc_slot()` BEFORE `resource_acquire()` | Acquiring first → ghost resources on slot exhaustion |
 | **Register before send (C#)** | `item.Register()` before `SendLineAsync()` in writer loop | Registering after → reader loop race |
-| **Client construction (C#)** | `new FlipperRpcClient(transport, options, diagnostics)` — single ctor; `FlipperRpcTransport` is `public`, callers construct it. `default(FlipperRpcClientOptions)` is safe (backing fields resolve to defaults). | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ — removed |
+| **Client construction (C#)** | `new FlipperRpcClient(transport, options, diagnostics)` — single ctor; `SerialPortTransport` is `public`, callers construct it. `default(FlipperRpcClientOptions)` is safe (backing fields resolve to defaults). | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ — removed |
 
 ---
 

@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Text;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// Serialises outbound RPC commands to NDJSON strings.

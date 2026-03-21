@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using FlipperZero.NET.Abstractions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Transport;
 
 /// <summary>
 /// Transport-level bidirectional keep-alive wrapper.

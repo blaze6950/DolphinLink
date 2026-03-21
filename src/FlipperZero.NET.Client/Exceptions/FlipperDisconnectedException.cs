@@ -1,4 +1,4 @@
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Exceptions;
 
 /// <summary>
 /// Identifies the cause of a <see cref="FlipperDisconnectedException"/>.

@@ -1,5 +1,6 @@
 using FlipperZero.NET.Commands.System;
 using System.Linq;
+using FlipperZero.NET.Dispatch;
 
 namespace FlipperZero.NET.Client.UnitTests;
 

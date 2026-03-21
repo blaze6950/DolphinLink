@@ -1,6 +1,6 @@
-﻿using FlipperZero.NET.Commands.Ui;
+﻿using FlipperZero.NET.Exceptions;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Commands.Ui;
 
 /// <summary>
 /// Represents an exclusive host-driven screen session acquired from the Flipper daemon.

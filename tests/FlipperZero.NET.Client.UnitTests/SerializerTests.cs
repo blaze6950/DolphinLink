@@ -1,3 +1,5 @@
+using FlipperZero.NET.Dispatch;
+
 namespace FlipperZero.NET.Client.UnitTests;
 
 /// <summary>

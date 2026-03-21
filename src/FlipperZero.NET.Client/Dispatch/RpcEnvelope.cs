@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace FlipperZero.NET;
+namespace FlipperZero.NET.Dispatch;
 
 /// <summary>
 /// The three V3 message types the daemon can send.

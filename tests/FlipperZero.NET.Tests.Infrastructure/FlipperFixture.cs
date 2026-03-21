@@ -1,3 +1,5 @@
+using FlipperZero.NET.Transport;
+
 namespace FlipperZero.NET.Tests.Infrastructure;
 
 /// <summary>
@@ -62,7 +64,7 @@ public sealed class FlipperFixture : IAsyncLifetime
 
         try
         {
-            _client = new FlipperRpcClient(new FlipperRpcTransport(PortName));
+            _client = new FlipperRpcClient(new SerialPortTransport(PortName));
             await _client.ConnectAsync().ConfigureAwait(false);
             IsAvailable = true;
         }

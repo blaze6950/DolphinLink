@@ -1,3 +1,5 @@
+using FlipperZero.NET.Commands.Ui;
+using FlipperZero.NET.Exceptions;
 using FlipperZero.NET.Extensions;
 
 namespace FlipperZero.NET.Client.HardwareTests.Ui;

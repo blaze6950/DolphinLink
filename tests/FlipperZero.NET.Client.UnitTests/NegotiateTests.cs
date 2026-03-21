@@ -1,5 +1,6 @@
-using FlipperZero.NET.Commands.Core;
+﻿using FlipperZero.NET.Commands.Core;
 using FlipperZero.NET.Commands.System;
+using FlipperZero.NET.Exceptions;
 using FlipperZero.NET.Extensions;
 
 namespace FlipperZero.NET.Client.UnitTests;
