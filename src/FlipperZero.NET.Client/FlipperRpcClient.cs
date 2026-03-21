@@ -260,6 +260,11 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         where TResponse : struct, IRpcCommandResponse
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
+        if (Volatile.Read(ref _faulted) == 1)
+        {
+            throw new FlipperRpcException("Connection lost.");
+        }
+
         ct.ThrowIfCancellationRequested();
 
         var id = Interlocked.Increment(ref _nextId);
@@ -317,6 +322,11 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         where TEvent : struct, IRpcCommandResponse
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
+        if (Volatile.Read(ref _faulted) == 1)
+        {
+            throw new FlipperRpcException("Connection lost.");
+        }
+
         ct.ThrowIfCancellationRequested();
 
         // Step 1: send the command and wait for the stream-open response.
@@ -362,7 +372,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         // Step 2: register the stream AFTER the stream-open response arrives.
         var stream = _streams.CreateStream<TEvent>(streamId, _disconnectCts.Token);
-        stream.Closed += sid => CloseStreamAsync(sid, CancellationToken.None);
+        stream.Closed += sid => CloseStreamAsync(sid, _disconnectCts.Token);
         return stream;
     }
 
