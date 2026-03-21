@@ -62,7 +62,7 @@ public sealed class FlipperFixture : IAsyncLifetime
 
         try
         {
-            _client = new FlipperRpcClient(PortName);
+            _client = new FlipperRpcClient(new FlipperRpcTransport(PortName));
             await _client.ConnectAsync().ConfigureAwait(false);
             IsAvailable = true;
         }

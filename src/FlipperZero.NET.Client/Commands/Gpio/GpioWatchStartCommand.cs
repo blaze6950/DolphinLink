@@ -11,10 +11,10 @@ namespace FlipperZero.NET.Commands.Gpio;
 /// <code>{"id":N,"cmd":"gpio_watch_start","pin":"1"}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream event):
-/// <code>{"event":{"pin":"1","level":true},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"pin":"1","level":true}}</code>
 ///
 /// Wire format (stream close request):
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Threading.Channels;
 
 namespace FlipperZero.NET.Client.UnitTests;
 
@@ -27,13 +26,19 @@ public sealed class DispatcherTests
         public void Fail(Exception ex) => Failures.Add(ex);
     }
 
+    private sealed class FakeDiagnostics : IRpcDiagnostics
+    {
+        public List<RpcLogEntry> LogEntries { get; } = new();
+        public void Log(RpcLogEntry entry) => LogEntries.Add(entry);
+    }
+
     private sealed class DispatcherFixture
     {
         public RpcPendingRequests Pending { get; } = new();
         public RpcStreamManager Streams { get; } = new();
         public Stopwatch Clock { get; } = Stopwatch.StartNew();
-        public List<RpcLogEntry> LogEntries { get; } = new();
-        public List<Exception> Faults { get; } = new();
+        public FakeDiagnostics Diagnostics { get; } = new();
+        public List<RpcLogEntry> LogEntries => Diagnostics.LogEntries;
 
         public RpcMessageDispatcher Dispatcher { get; }
 
@@ -43,8 +48,14 @@ public sealed class DispatcherTests
                 Pending,
                 Streams,
                 Clock,
-                entry => LogEntries.Add(entry),
-                ex => Faults.Add(ex));
+                Diagnostics);
+        }
+
+        /// <summary>Parses a raw V3 JSON line and calls <see cref="RpcMessageDispatcher.Dispatch"/>.</summary>
+        public void Dispatch(string rawLine)
+        {
+            var envelope = RpcEnvelope.Parse(rawLine);
+            Dispatcher.Dispatch(envelope, rawLine, Clock.ElapsedTicks);
         }
 
         /// <summary>Registers a <see cref="FakePendingRequest"/> and returns it.</summary>
@@ -65,27 +76,11 @@ public sealed class DispatcherTests
     {
         var f = new DispatcherFixture();
 
-        f.Dispatcher.Dispatch("not valid json {{{{");
+        f.Dispatch("not valid json {{{{");
 
         Assert.Single(f.LogEntries);
         Assert.Equal(RpcLogKind.Error, f.LogEntries[0].Kind);
         Assert.Contains("Malformed", f.LogEntries[0].Status);
-    }
-
-    // -------------------------------------------------------------------------
-    // Disconnect message
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public void Dispatch_DisconnectMessage_CallsOnFault()
-    {
-        var f = new DispatcherFixture();
-
-        f.Dispatcher.Dispatch("""{"type":"disconnect"}""");
-
-        Assert.Single(f.Faults);
-        Assert.IsType<FlipperRpcException>(f.Faults[0]);
-        Assert.Contains("Daemon disconnected", f.Faults[0].Message);
     }
 
     // -------------------------------------------------------------------------
@@ -97,18 +92,13 @@ public sealed class DispatcherTests
     {
         var f = new DispatcherFixture();
 
-        var channel = Channel.CreateUnbounded<JsonElement>();
-        f.Streams.Register(3u, new StreamState
-        {
-            EventChannel = channel,
-            Complete = () => channel.Writer.TryComplete(),
-            Fault = ex => channel.Writer.TryComplete(ex),
-        });
+        var state = new StreamState();
+        f.Streams.Register(3u, state);
 
-        f.Dispatcher.Dispatch("""{"type":"event","id":3,"payload":{"value":99}}""");
+        f.Dispatch("""{"t":1,"i":3,"p":{"value":99}}""");
 
         await Task.Delay(10); // give async write path a moment if needed
-        Assert.True(channel.Reader.TryRead(out var received));
+        Assert.True(state.Reader.TryRead(out var received));
         Assert.Equal(99, received.GetProperty("value").GetInt32());
     }
 
@@ -117,15 +107,10 @@ public sealed class DispatcherTests
     {
         var f = new DispatcherFixture();
 
-        var channel = Channel.CreateUnbounded<JsonElement>();
-        f.Streams.Register(5u, new StreamState
-        {
-            EventChannel = channel,
-            Complete = () => channel.Writer.TryComplete(),
-            Fault = ex => channel.Writer.TryComplete(ex),
-        });
+        var state = new StreamState();
+        f.Streams.Register(5u, state);
 
-        f.Dispatcher.Dispatch("""{"type":"event","id":5,"payload":{}}""");
+        f.Dispatch("""{"t":1,"i":5,"p":{}}""");
 
         Assert.Single(f.LogEntries);
         Assert.Equal(RpcLogKind.StreamEventReceived, f.LogEntries[0].Kind);
@@ -142,7 +127,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
         var req = f.RegisterPending(1);
 
-        f.Dispatcher.Dispatch("""{"type":"response","id":1,"payload":{"pong":true}}""");
+        f.Dispatch("""{"t":0,"i":1,"p":{"pong":true}}""");
 
         Assert.Single(req.Completions);
         Assert.Empty(req.Failures);
@@ -154,7 +139,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
         f.RegisterPending(2);
 
-        f.Dispatcher.Dispatch("""{"type":"response","id":2}""");
+        f.Dispatch("""{"t":0,"i":2}""");
 
         Assert.Single(f.LogEntries);
         Assert.Equal(RpcLogKind.ResponseReceived, f.LogEntries[0].Kind);
@@ -171,7 +156,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
         var req = f.RegisterPending(3);
 
-        f.Dispatcher.Dispatch("""{"type":"response","id":3,"error":"resource_busy"}""");
+        f.Dispatch("""{"t":0,"i":3,"e":"resource_busy"}""");
 
         Assert.Empty(req.Completions);
         Assert.Single(req.Failures);
@@ -188,10 +173,9 @@ public sealed class DispatcherTests
     {
         var f = new DispatcherFixture();
 
-        // Should not throw or fault
-        f.Dispatcher.Dispatch("""{"type":"response","id":999}""");
+        // Should not throw or log
+        f.Dispatch("""{"t":0,"i":999}""");
 
-        Assert.Empty(f.Faults);
         Assert.Empty(f.LogEntries);
     }
 
@@ -207,7 +191,7 @@ public sealed class DispatcherTests
         // Stamp a non-zero sent time
         f.Pending.StampSentTicks(4, f.Clock.ElapsedTicks);
 
-        f.Dispatcher.Dispatch("""{"type":"response","id":4}""");
+        f.Dispatch("""{"t":0,"i":4}""");
 
         Assert.Single(f.LogEntries);
         Assert.NotNull(f.LogEntries[0].RoundTrip);

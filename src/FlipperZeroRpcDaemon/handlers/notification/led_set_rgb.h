@@ -7,7 +7,7 @@
  *   {"id":N,"cmd":"led_set_rgb","red":0-255,"green":0-255,"blue":0-255}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none (0).
  */

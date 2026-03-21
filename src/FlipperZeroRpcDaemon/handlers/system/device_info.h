@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"device_info"}
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"t":0,"i":N,"p":{
  *               "name":"<str>","model":"<str>","model_code":"<str>",
  *               "firmware":"<str>","firmware_origin":"<str>","build_date":"<str>",
  *               "git_hash":"<str>","git_branch":"<str>","git_branch_num":"<str>",

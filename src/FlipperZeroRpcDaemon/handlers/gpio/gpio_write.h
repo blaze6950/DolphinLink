@@ -9,7 +9,7 @@
  *     level — true = drive high, false = drive low
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none
  */

@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.SubGhz;
 /// <code>{"id":N,"cmd":"subghz_tx","freq":433920000,"timings":[300,300,600,300]}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Requires the Sub-GHz hardware resource.
 /// </summary>

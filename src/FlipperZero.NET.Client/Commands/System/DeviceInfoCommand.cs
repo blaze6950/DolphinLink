@@ -11,7 +11,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"device_info"}</code>
 ///
 /// Wire format (response, abbreviated):
-/// <code>{"id":N,"status":"ok","data":{"name":"Flipper","firmware":"1.0","uid":"AABBCCDD",...}}</code>
+/// <code>{"t":0,"i":N,"p":{"name":"Flipper","firmware":"1.0","uid":"AABBCCDD",...}}</code>
 /// </summary>
 public readonly struct DeviceInfoCommand : IRpcCommand<DeviceInfoResponse>
 {

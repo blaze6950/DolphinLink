@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_list","path":"/ext/apps"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"entries":[{"name":"MyApp.fap","is_dir":false,"size":12345}]}}</code>
+/// <code>{"t":0,"i":N,"p":{"entries":[{"name":"MyApp.fap","is_dir":false,"size":12345}]}}</code>
 /// </summary>
 public readonly struct StorageListCommand : IRpcCommand<StorageListResponse>
 {

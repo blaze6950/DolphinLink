@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Gpio;
 /// <code>{"id":N,"cmd":"gpio_read","pin":"1"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"level":true}}</code>
+/// <code>{"t":0,"i":N,"p":{"level":true}}</code>
 ///
 /// Supported pins: <see cref="GpioPin.Pin1"/>–<see cref="GpioPin.Pin8"/>.
 /// </summary>

@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Notification;
 /// <code>{"id":N,"cmd":"speaker_stop"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Must be called after <see cref="SpeakerStartCommand"/> to free the resource.
 /// </summary>

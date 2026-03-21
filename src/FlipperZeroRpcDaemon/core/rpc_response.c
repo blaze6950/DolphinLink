@@ -1,5 +1,5 @@
 /**
- * rpc_response.c — RPC response formatting helpers implementation (Wire Format V2)
+ * rpc_response.c — RPC response formatting helpers implementation (Wire Format V3)
  */
 
 #include "rpc_response.h"
@@ -15,7 +15,7 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name) {
     snprintf(
         buf,
         sizeof(buf),
-        "{\"type\":\"response\",\"id\":%" PRIu32 ",\"error\":\"%s\"}\n",
+        "{\"t\":0,\"i\":%" PRIu32 ",\"e\":\"%s\"}\n",
         id,
         error_code);
     cdc_send(buf);
@@ -28,7 +28,7 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name) {
 
 void rpc_send_ok(uint32_t id, const char* cmd_name) {
     char buf[128];
-    snprintf(buf, sizeof(buf), "{\"type\":\"response\",\"id\":%" PRIu32 "}\n", id);
+    snprintf(buf, sizeof(buf), "{\"t\":0,\"i\":%" PRIu32 "}\n", id);
     cdc_send(buf);
 
     char log_entry[CMD_LOG_LINE_LEN];
@@ -37,8 +37,8 @@ void rpc_send_ok(uint32_t id, const char* cmd_name) {
 }
 
 void rpc_send_data_response(uint32_t id, const char* payload_json, const char* log_entry) {
-    /* Header: {"type":"response","id":<id>,"payload":  + payload + }\n
-     * Max header overhead: ~40 bytes + PRIu32 (10 digits) = ~50 bytes */
+    /* Header: {"t":0,"i":<id>,"p":  + payload + }\n
+     * Max header overhead: ~20 bytes + PRIu32 (10 digits) = ~30 bytes */
     size_t payload_len = strlen(payload_json);
     size_t buf_size = payload_len + 64;
 
@@ -62,7 +62,7 @@ void rpc_send_data_response(uint32_t id, const char* payload_json, const char* l
     snprintf(
         buf,
         buf_size,
-        "{\"type\":\"response\",\"id\":%" PRIu32 ",\"payload\":%s}\n",
+        "{\"t\":0,\"i\":%" PRIu32 ",\"p\":%s}\n",
         id,
         payload_json);
 

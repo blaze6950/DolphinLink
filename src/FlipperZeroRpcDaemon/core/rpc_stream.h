@@ -48,7 +48,7 @@
 /** Fixed-size message posted from any hardware callback into stream_event_queue. */
 typedef struct {
     uint32_t stream_id;
-    char json_fragment[STREAM_FRAG_MAX]; /**< Content inside {"event":{...},"stream":N} */
+    char json_fragment[STREAM_FRAG_MAX]; /**< Content inside {"t":1,"i":N,"p":{...}} */
 } StreamEvent;
 
 /* -------------------------------------------------------------------------
@@ -197,7 +197,7 @@ void stream_reset(void);
 
 /**
  * Event-loop subscriber: stream_event_queue has data.
- * Reads StreamEvent items and emits {"event":{<fragment>},"stream":<id>}\n
+ * Reads StreamEvent items and emits {"t":1,"i":<id>,"p":{<fragment>}}\n
  * over CDC.  Registered by the entry point.
  */
 void on_stream_event(FuriEventLoopObject* object, void* ctx);
@@ -222,7 +222,7 @@ void on_stream_event(FuriEventLoopObject* object, void* ctx);
 int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* stream_id_out);
 
 /**
- * Send the stream-opened response: {"id":<request_id>,"stream":<stream_id>}\n
+ * Send the stream-opened response: {"t":0,"i":<request_id>,"p":{"stream":<stream_id>}}\n
  *
  * @param request_id The original request ID.
  * @param stream_id  The newly allocated stream ID.

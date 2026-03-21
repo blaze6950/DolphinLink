@@ -10,7 +10,7 @@
  *     freq    — carrier frequency in Hz (default: 433920000)
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   resource_busy   — RESOURCE_SUBGHZ is held by another stream

@@ -12,10 +12,10 @@ namespace FlipperZero.NET.Commands.IButton;
 /// <code>{"id":N,"cmd":"ibutton_read_start"}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream event):
-/// <code>{"event":{"type":"DS1990Raw","data":"0102030405060708"},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"type":"DS1990Raw","data":"0102030405060708"}}</code>
 ///
 /// Wire format (stream close request):
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>

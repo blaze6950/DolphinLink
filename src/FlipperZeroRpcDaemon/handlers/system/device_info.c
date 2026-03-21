@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"device_info"}
- *   Response: {"type":"response","id":N,"payload":{...}} (see device_info.h)
+ *   Response: {"t":0,"i":N,"p":{...}} (see device_info.h)
  *
  * Reads identity, firmware, hardware OTP, regulatory IDs and UID/BLE MAC
  * via furi_hal_version_* APIs.  The response buffer is built incrementally

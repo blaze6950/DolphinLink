@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"datetime_set","year":2025,"month":6,"day":1,"hour":12,"minute":0,"second":0,"weekday":7}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// <c>weekday</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
 /// It is derived automatically from <see cref="DateTime.DayOfWeek"/>.

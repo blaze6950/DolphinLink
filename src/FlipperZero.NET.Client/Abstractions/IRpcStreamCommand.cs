@@ -2,8 +2,8 @@ namespace FlipperZero.NET.Abstractions;
 
 /// <summary>
 /// An RPC command that opens a server-push stream.
-/// The initial response carries the <c>"stream"</c> id; subsequent messages
-/// carry <c>"event"</c> payloads until the stream is closed.
+/// The initial response carries the stream id in the <c>"p"</c> payload field;
+/// subsequent messages carry event payloads in <c>"p"</c> until the stream is closed.
 /// Implementations must be <c>readonly struct</c>.
 /// </summary>
 /// <typeparam name="TEvent">

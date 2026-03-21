@@ -10,7 +10,7 @@
  *     command  — command code (uint32)
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   missing_protocol — "protocol" field absent

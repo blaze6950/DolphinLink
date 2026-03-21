@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Threading.Channels;
 
 namespace FlipperZero.NET;
 
@@ -19,16 +18,38 @@ internal sealed class RpcStreamManager
         => _streams[streamId] = state;
 
     /// <summary>
+    /// Creates a new <see cref="RpcStream{TEvent}"/>, registers it in the stream table,
+    /// and wires the <see cref="RpcStream{TEvent}.Closed"/> callback.
+    /// </summary>
+    /// <typeparam name="TEvent">The event type the stream emits.</typeparam>
+    /// <param name="streamId">The stream id assigned by the Flipper.</param>
+    /// <param name="disconnectToken">
+    /// Cancelled when the connection is lost; passed through to
+    /// <see cref="RpcStream{TEvent}"/> so enumeration exits promptly.
+    /// </param>
+    public RpcStream<TEvent> CreateStream<TEvent>(
+        uint streamId,
+        CancellationToken disconnectToken)
+        where TEvent : struct
+    {
+        var state = new StreamState();
+        _streams[streamId] = state;
+        var stream = new RpcStream<TEvent>(streamId, state.Reader, disconnectToken);
+        // Wire the stream's Closed callback to remove and complete the stream state.
+        stream.Closed += sId => Task.FromResult(TryRemoveAndComplete(sId));
+        return stream;
+    }
+
+    /// <summary>
     /// Routes an incoming event to the channel of the stream identified by
     /// <paramref name="streamId"/>.
     ///
-    /// Tries a non-blocking <see cref="ChannelWriter{T}.TryWrite"/> first (fast path).
-    /// Falls back to a <c>Task.Run</c> + <see cref="ChannelWriter{T}.WriteAsync"/>
-    /// only under back-pressure to avoid allocating a <see cref="System.Threading.ThreadPool"/>
-    /// work item per event in the common case.
+    /// Because <see cref="StreamState"/> uses an unbounded channel with
+    /// <c>SingleWriter = true</c>, <c>TryWrite</c> always succeeds and never
+    /// needs a <c>Task.Run</c> fallback.
     /// </summary>
     /// <returns>
-    /// <see langword="true"/> if the stream was found (event was dispatched or queued);
+    /// <see langword="true"/> if the stream was found (event was written);
     /// <see langword="false"/> if no stream with that id is registered.
     /// </returns>
     public bool TryRouteEvent(uint streamId, JsonElement eventElement)
@@ -38,20 +59,7 @@ internal sealed class RpcStreamManager
             return false;
         }
 
-        if (!state.EventChannel.Writer.TryWrite(eventElement))
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await state.EventChannel.Writer
-                        .WriteAsync(eventElement)
-                        .ConfigureAwait(false);
-                }
-                catch { /* channel completed */ }
-            });
-        }
-
+        state.Writer.TryWrite(eventElement);
         return true;
     }
 

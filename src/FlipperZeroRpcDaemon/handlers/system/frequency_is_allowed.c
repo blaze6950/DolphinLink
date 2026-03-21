@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"frequency_is_allowed","freq":<u32>}
- *   Response: {"type":"response","id":N,"payload":{"allowed":<bool>}}
+ *   Response: {"t":0,"i":N,"p":{"allowed":<bool>}}
  *   Errors:   missing_freq
  *
  * Checks whether the given frequency (in Hz) is permitted under the active

@@ -8,7 +8,7 @@
  *     pin  — external connector pin label ("1"–"8")
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"level":true}}
+ *   {"t":0,"i":N,"p":{"level":true}}
  *     level — true = high, false = low
  *
  * Resources: none

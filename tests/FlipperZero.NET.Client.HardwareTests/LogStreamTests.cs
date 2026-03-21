@@ -3,7 +3,7 @@ using FlipperZero.NET.Extensions;
 namespace FlipperZero.NET.Client.HardwareTests;
 
 /// <summary>
-/// Hardware tests for client-side log streaming via <see cref="FlipperRpcClient.OnLogEntry"/>.
+/// Hardware tests for client-side diagnostics via <see cref="IRpcDiagnostics"/> injection.
 ///
 /// Run with a Flipper Zero connected:
 ///   set FLIPPER_PORT=COM3
@@ -12,34 +12,38 @@ namespace FlipperZero.NET.Client.HardwareTests;
 [Collection(FlipperCollection.Name)]
 public sealed class LogStreamTests(FlipperFixture fixture)
 {
-    private FlipperRpcClient Client => fixture.Client;
+    /// <summary>
+    /// A capturing <see cref="IRpcDiagnostics"/> used as an injected sink in tests
+    /// that need their own <see cref="FlipperRpcClient"/> instance.
+    /// </summary>
+    private sealed class CapturingSink : IRpcDiagnostics
+    {
+        private readonly List<RpcLogEntry> _entries = [];
+        public IReadOnlyList<RpcLogEntry> Entries => _entries;
+        public void Log(RpcLogEntry entry) => _entries.Add(entry);
+    }
 
     /// <summary>
     /// A ping round-trip must produce at least one <see cref="RpcLogKind.CommandSent"/>
-    /// and one <see cref="RpcLogKind.ResponseReceived"/> entry via
-    /// <see cref="FlipperRpcClient.OnLogEntry"/>, with the expected field values
+    /// and one <see cref="RpcLogKind.ResponseReceived"/> entry via the injected
+    /// <see cref="IRpcDiagnostics"/> sink, with the expected field values
     /// and a positive round-trip time.
     /// </summary>
     [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
-    public async Task OnLogEntry_PingProducesExpectedEntries()
+    public async Task Diagnostics_PingProducesExpectedEntries()
     {
-        var entries = new List<RpcLogEntry>();
-        Action<RpcLogEntry> handler = e => entries.Add(e);
+        Skip.If(fixture.PortName is null);
 
-        Client.OnLogEntry += handler;
-        try
-        {
-            await Client.PingAsync();
-        }
-        finally
-        {
-            Client.OnLogEntry -= handler;
-        }
+        var sink = new CapturingSink();
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!), diagnostics: sink);
+        await client.ConnectAsync();
 
-        var sent = entries.FirstOrDefault(e =>
+        await client.PingAsync();
+
+        var sent = sink.Entries.FirstOrDefault(e =>
             e is { Kind: RpcLogKind.CommandSent, CommandName: "ping" });
-        var received = entries.FirstOrDefault(e =>
+        var received = sink.Entries.FirstOrDefault(e =>
             e is { Kind: RpcLogKind.ResponseReceived, Status: "ok" });
 
         // CommandSent entry
@@ -60,54 +64,43 @@ public sealed class LogStreamTests(FlipperFixture fixture)
     }
 
     /// <summary>
-    /// Two independently registered handlers must each receive entries for the
-    /// same command — validates multicast delegate fan-out.
+    /// A client created without a diagnostics sink (no-op path) must still execute
+    /// commands successfully — verifies the JIT-eliminated logging path does not fault.
     /// </summary>
     [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
-    public async Task OnLogEntry_MultipleHandlers_BothReceiveEntries()
+    public async Task Diagnostics_NullSink_CommandSucceeds()
     {
-        var firstEntries = new List<RpcLogEntry>();
-        var secondEntries = new List<RpcLogEntry>();
+        Skip.If(fixture.PortName is null);
 
-        Action<RpcLogEntry> first = e => firstEntries.Add(e);
-        Action<RpcLogEntry> second = e => secondEntries.Add(e);
+        // Construct without diagnostics — uses the no-op NullDiagnostics singleton.
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!));
+        await client.ConnectAsync();
 
-        Client.OnLogEntry += first;
-        Client.OnLogEntry += second;
-        try
-        {
-            await Client.PingAsync();
-        }
-        finally
-        {
-            Client.OnLogEntry -= first;
-            Client.OnLogEntry -= second;
-        }
-
-        Assert.Contains(firstEntries, e =>
-            e is { Kind: RpcLogKind.CommandSent, CommandName: "ping" });
-        Assert.Contains(secondEntries, e =>
-            e is { Kind: RpcLogKind.CommandSent, CommandName: "ping" });
+        // Must not throw; the null-sink path is exercised.
+        await client.PingAsync();
     }
 
     /// <summary>
-    /// After unsubscribing, the handler must not receive entries for subsequent
-    /// commands.
+    /// The injected sink receives entries for every command sent during the
+    /// lifetime of the client, covering multiple sequential commands.
     /// </summary>
     [Trait("Category", "Hardware")]
     [RequiresFlipperFact]
-    public async Task OnLogEntry_UnsubscribeStopsDelivery()
+    public async Task Diagnostics_MultipleCommands_AllEntriesCaptured()
     {
-        var entries = new List<RpcLogEntry>();
-        Action<RpcLogEntry> handler = e => entries.Add(e);
+        Skip.If(fixture.PortName is null);
 
-        Client.OnLogEntry += handler;
-        Client.OnLogEntry -= handler;
+        var sink = new CapturingSink();
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(fixture.PortName!), diagnostics: sink);
+        await client.ConnectAsync();
 
-        // Command sent after unsubscribe — handler must not be called.
-        await Client.PingAsync();
+        await client.PingAsync();
+        await client.PingAsync();
 
-        Assert.Empty(entries);
+        var sentCount = sink.Entries.Count(e =>
+            e is { Kind: RpcLogKind.CommandSent, CommandName: "ping" });
+
+        Assert.Equal(2, sentCount);
     }
 }

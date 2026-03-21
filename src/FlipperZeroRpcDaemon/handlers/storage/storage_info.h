@@ -8,11 +8,11 @@
  *   {"id":N,"cmd":"storage_info","path":"/int"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
+ *   {"t":0,"i":N,"p":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}    — "path" field absent
- *   {"id":N,"error":"storage_error"}   — storage API returned non-OK status
+ *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent
+ *   {"t":0,"i":N,"e":"storage_error"}   — storage API returned non-OK status
  *
  * Resources: none (0).
  */

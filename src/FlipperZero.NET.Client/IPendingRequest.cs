@@ -14,8 +14,8 @@ internal interface IPendingRequest
 
     /// <summary>
     /// Called when a success response arrives.
-    /// <paramref name="payload"/> is the content of the <c>"payload"</c> field
-    /// from the V2 envelope, or a default <see cref="JsonElement"/> for void responses.
+    /// <paramref name="payload"/> is the content of the <c>"p"</c> field
+    /// from the V3 envelope, or a default <see cref="JsonElement"/> for void responses.
     /// </summary>
     void Complete(JsonElement payload);
 

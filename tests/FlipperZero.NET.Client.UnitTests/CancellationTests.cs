@@ -20,7 +20,7 @@ public sealed class CancellationTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"type":"response","id":1,"payload":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
+            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
         await _client.ConnectAsync();
     }
 

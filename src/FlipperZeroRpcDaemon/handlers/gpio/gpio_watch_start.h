@@ -8,10 +8,10 @@
  *     pin — external connector pin label ("1"–"8")
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"stream":M}}
  *
  * Wire format (stream event — emitted on every rising or falling edge):
- *   {"event":{"pin":"1","level":true},"stream":M}
+ *   {"t":1,"i":M,"p":{"pin":"1","level":true}}
  *     pin   — pin label echoed from the request
  *     level — current digital level sampled inside the EXTI ISR
  *

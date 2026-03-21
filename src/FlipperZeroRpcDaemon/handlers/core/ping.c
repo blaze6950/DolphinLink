@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"ping"}
- *   Response: {"type":"response","id":N,"payload":{"pong":true}}
+ *   Response: {"t":0,"i":N,"p":{"pong":true}}
  *
  * Resources required: none.
  * Threading: main thread (FuriEventLoop).

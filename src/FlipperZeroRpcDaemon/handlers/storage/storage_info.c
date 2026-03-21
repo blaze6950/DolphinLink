@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_info","path":"/int"}
  *
  * Wire format (response — success):
- *   {"type":"response","id":N,"payload":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
+ *   {"t":0,"i":N,"p":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent

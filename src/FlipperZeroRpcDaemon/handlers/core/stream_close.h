@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"stream_close","stream":M}
- *   Response: {"id":N,"status":"ok"}
+ *   Response: {"t":0,"i":N}
  *   Errors:   missing_stream_id, stream_not_found
  *
  * Closes the stream identified by the "stream" field, invoking its

@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Notification;
 /// <code>{"id":N,"cmd":"speaker_start","freq":440,"volume":128}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Returns <c>resource_busy</c> if the speaker resource is already held.
 /// Always pair with a <see cref="SpeakerStopCommand"/> to release the resource.

@@ -7,11 +7,11 @@
  *   {"id":N,"cmd":"storage_remove","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}    — "path" field absent
- *   {"id":N,"error":"remove_failed"}   — removal returned non-OK status
+ *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent
+ *   {"t":0,"i":N,"e":"remove_failed"}   — removal returned non-OK status
  *
  * Resources: none (0).
  */

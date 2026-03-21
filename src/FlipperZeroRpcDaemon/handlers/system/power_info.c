@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"power_info"}
- *   Response: {"type":"response","id":N,"payload":{
+ *   Response: {"t":0,"i":N,"p":{
  *               "charge":<u8>,"charging":<bool>,
  *               "voltage_mv":<i32>,"current_ma":<i32>}}
  *

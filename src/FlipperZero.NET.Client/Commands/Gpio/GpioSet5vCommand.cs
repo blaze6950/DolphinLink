@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Gpio;
 /// <code>{"id":N,"cmd":"gpio_set_5v","enable":true}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// The 5 V rail powers external peripherals connected to the expansion port.
 /// Disable it when not in use to reduce power consumption.

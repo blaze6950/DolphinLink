@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"frequency_is_allowed","freq":<u32>}
- *   Response: {"id":N,"status":"ok","data":{"allowed":<bool>}}
+ *   Response: {"t":0,"i":N,"p":{"allowed":<bool>}}
  *   Errors:   missing_freq
  *
  * Resources required: none.

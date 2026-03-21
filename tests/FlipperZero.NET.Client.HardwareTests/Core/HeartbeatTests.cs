@@ -54,7 +54,7 @@ public sealed class HeartbeatTests
     [RequiresFlipperFact]
     public async Task IdleConnection_SurvivesBeyondTimeout_PingSucceeds()
     {
-        await using var client = new FlipperRpcClient(_portName);
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.ConnectAsync();
 
         // Wait 15 s — comfortably beyond the 10 s heartbeat timeout.
@@ -95,7 +95,7 @@ public sealed class HeartbeatTests
     public async Task HostDispose_DaemonReleasesResources_ReconnectCanAcquireSameResource()
     {
         // First connection — acquire IR receiver (exclusive resource).
-        var firstClient = new FlipperRpcClient(_portName);
+        var firstClient = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await firstClient.ConnectAsync();
 
         var irStream = await firstClient.IrReceiveStartAsync();
@@ -108,7 +108,7 @@ public sealed class HeartbeatTests
         await Task.Delay(200);
 
         // Second connection — must be able to acquire the same resource.
-        await using var secondClient = new FlipperRpcClient(_portName);
+        await using var secondClient = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await secondClient.ConnectAsync();
 
         // If daemon did not release resources this throws FlipperRpcException("resource_busy").

@@ -7,10 +7,10 @@
  *   {"id":N,"cmd":"vibro","enable":true|false}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_enable"}  — "enable" field absent
+ *   {"t":0,"i":N,"e":"missing_enable"}  — "enable" field absent
  *
  * Resources: none (0).
  */

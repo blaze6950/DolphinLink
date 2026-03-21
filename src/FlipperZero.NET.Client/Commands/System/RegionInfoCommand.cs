@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"region_info"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"region":"EU"}}</code>
+/// <code>{"t":0,"i":N,"p":{"region":"EU"}}</code>
 /// </summary>
 public readonly struct RegionInfoCommand : IRpcCommand<RegionInfoResponse>
 {

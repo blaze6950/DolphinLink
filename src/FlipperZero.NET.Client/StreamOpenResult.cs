@@ -4,8 +4,8 @@ using FlipperZero.NET.Abstractions;
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Deserialized from the <c>"payload"</c> field of a V2 stream-open response:
-/// <code>{"type":"response","id":N,"payload":{"stream":M}}</code>
+/// Deserialized from the <c>"p"</c> field of a V3 stream-open response:
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 /// Used as the <typeparamref name="TResponse"/> for stream-opening commands so the
 /// generic pending-request machinery can extract the assigned stream id.
 /// </summary>

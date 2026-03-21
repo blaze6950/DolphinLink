@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Gpio;
 /// <code>{"id":N,"cmd":"adc_read","pin":"1"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"raw":2048,"mv":1650}}</code>
+/// <code>{"t":0,"i":N,"p":{"raw":2048,"mv":1650}}</code>
 ///
 /// ADC-capable pins: <see cref="GpioPin.Pin1"/> (PC0), <see cref="GpioPin.Pin2"/> (PC1),
 /// <see cref="GpioPin.Pin3"/> (PC3), <see cref="GpioPin.Pin6"/> (PA4),

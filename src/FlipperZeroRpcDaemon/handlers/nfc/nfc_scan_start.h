@@ -7,10 +7,10 @@
  *   {"id":N,"cmd":"nfc_scan_start"}
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"stream":M}}
  *
  * Wire format (stream event — emitted each time a tag protocol is detected):
- *   {"event":{"protocol":"ISO15693-3"},"stream":M}
+ *   {"t":1,"i":M,"p":{"protocol":"ISO15693-3"}}
  *     protocol — NFC protocol name from nfc_device_get_protocol_name()
  *
  * Error codes:

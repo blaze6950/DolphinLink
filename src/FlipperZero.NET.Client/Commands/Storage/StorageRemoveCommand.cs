@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_remove","path":"/ext/test.txt"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Non-empty directories are not removed; use recursive deletion on the host if needed.
 /// </summary>

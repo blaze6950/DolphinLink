@@ -7,11 +7,11 @@
  *   {"id":N,"cmd":"storage_mkdir","path":"/int/mydir"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}    — "path" field absent
- *   {"id":N,"error":"mkdir_failed"}    — directory creation failed
+ *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent
+ *   {"t":0,"i":N,"e":"mkdir_failed"}    — directory creation failed
  *
  * Resources: none (0).
  */

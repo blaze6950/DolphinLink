@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"adc_read","pin":"1"}
  *
  * Wire format (response):
- *   {"type":"response","id":N,"payload":{"raw":2048,"mv":1650}}
+ *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}
  *     raw — 12-bit raw ADC count (0–4095)
  *     mv  — voltage in millivolts (integer)
  *

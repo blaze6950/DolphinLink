@@ -9,13 +9,13 @@
  * Protocol (request):
  *   {"id":<uint>,"cmd":"<name>"[,"stream":<uint>][,...args...]}
  *
- * Protocol (response – V2 envelope):
- *   {"type":"response","id":<uint>}                           <- void ok
- *   {"type":"response","id":<uint>,"payload":{...}}           <- ok with data
- *   {"type":"response","id":<uint>,"payload":{"stream":<uint>}} <- stream opened
- *   {"type":"event","id":<stream_id>,"payload":{...}}         <- stream event
- *   {"type":"response","id":<uint>,"error":"<code>"}          <- error
- *   {"type":"disconnect"}                                     <- graceful exit
+ * Protocol (response – V3 envelope):
+ *   {"t":0,"i":<uint>}                        <- void ok
+ *   {"t":0,"i":<uint>,"p":{...}}              <- ok with data
+ *   {"t":0,"i":<uint>,"p":{"stream":<uint>}}  <- stream opened
+ *   {"t":1,"i":<stream_id>,"p":{...}}         <- stream event
+ *   {"t":0,"i":<uint>,"e":"<code>"}           <- error
+ *   {"t":2}                                   <- graceful exit
  *
  * Keep-alive / heartbeat:
  *   Both sides send a bare '\n' (minimum NDJSON frame) when their respective
@@ -244,7 +244,7 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     /* Send while the TX pipeline is still alive so the host can detect the
      * exit immediately (without waiting for a USB disconnect or DTR drop). */
     if(host_connected) {
-        cdc_send("{\"type\":\"disconnect\"}\n");
+        cdc_send("{\"t\":2}\n");
     }
 
     /* --- Cleanup --- */

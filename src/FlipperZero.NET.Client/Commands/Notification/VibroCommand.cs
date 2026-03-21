@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Notification;
 /// <code>{"id":N,"cmd":"vibro","enable":true}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 /// </summary>
 public readonly struct VibroCommand : IRpcCommand<VibroResponse>
 {

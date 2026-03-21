@@ -11,10 +11,10 @@ namespace FlipperZero.NET.Commands.Ir;
 /// <code>{"id":N,"cmd":"ir_receive_start"}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream event):
-/// <code>{"event":{"protocol":"NEC","address":32,"command":11,"repeat":false},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"protocol":"NEC","address":32,"command":11,"repeat":false}}</code>
 ///
 /// Wire format (stream close request):
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>

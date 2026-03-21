@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Notification;
 /// <code>{"id":N,"cmd":"backlight","value":200}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// A value of <c>0</c> turns the backlight off; <c>255</c> is maximum brightness.
 /// </summary>

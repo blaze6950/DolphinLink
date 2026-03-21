@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"storage_stat","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"type":"response","id":N,"payload":{"size":1234,"is_dir":false}}
+ *   {"t":0,"i":N,"p":{"size":1234,"is_dir":false}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}  — "path" field absent

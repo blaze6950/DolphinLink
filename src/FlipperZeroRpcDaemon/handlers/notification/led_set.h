@@ -8,11 +8,11 @@
  *   {"id":N,"cmd":"led_set","color":"red"|"green"|"blue","value":0-255}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_color"}   — "color" field absent or unrecognised
- *   {"id":N,"error":"invalid_color"}   — color string is not red/green/blue
+ *   {"t":0,"i":N,"e":"missing_color"}   — "color" field absent or unrecognised
+ *   {"t":0,"i":N,"e":"invalid_color"}   — color string is not red/green/blue
  *
  * Resources: none (0).
  */

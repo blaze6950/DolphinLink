@@ -25,7 +25,7 @@ public enum LedChannel
 /// <code>{"id":N,"cmd":"led_set","color":"red","value":255}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// To set all three channels atomically in a single round-trip, use
 /// <see cref="LedSetRgbCommand"/> instead.

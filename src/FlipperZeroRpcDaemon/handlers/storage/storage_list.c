@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_list","path":"/int"}
  *
  * Wire format (response — success):
- *   {"type":"response","id":N,"payload":{"entries":[...]}}
+ *   {"t":0,"i":N,"p":{"entries":[...]}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent

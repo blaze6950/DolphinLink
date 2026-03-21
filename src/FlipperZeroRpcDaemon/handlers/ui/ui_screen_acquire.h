@@ -11,7 +11,7 @@
  *   {"id":N,"cmd":"ui_screen_acquire"}
  *
  * Wire format (response – ok):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   resource_busy — another client already holds RESOURCE_GUI

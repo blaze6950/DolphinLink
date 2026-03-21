@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"frequency_is_allowed","freq":433920000}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"allowed":true}}</code>
+/// <code>{"t":0,"i":N,"p":{"allowed":true}}</code>
 /// </summary>
 public readonly struct FrequencyIsAllowedCommand : IRpcCommand<FrequencyIsAllowedResponse>
 {

@@ -8,15 +8,15 @@
  *   {"id":N,"cmd":"storage_list","path":"/int"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"entries":[
+ *   {"t":0,"i":N,"p":{"entries":[
  *     {"name":"foo.txt","is_dir":false,"size":1234},
  *     {"name":"mydir","is_dir":true,"size":0}
  *   ]}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}    — "path" field absent
- *   {"id":N,"error":"open_failed"}     — directory could not be opened
- *   {"id":N,"error":"out_of_memory"}   — heap allocation failed
+ *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent
+ *   {"t":0,"i":N,"e":"open_failed"}     — directory could not be opened
+ *   {"t":0,"i":N,"e":"out_of_memory"}   — heap allocation failed
  *
  * Resources: none (0).
  */

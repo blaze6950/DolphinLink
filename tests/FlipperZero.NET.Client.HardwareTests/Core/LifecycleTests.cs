@@ -45,7 +45,7 @@ public sealed class LifecycleTests
     [RequiresFlipperFact]
     public async Task Dispose_BeforeConnect_DoesNotThrow()
     {
-        var client = new FlipperRpcClient(_portName);
+        var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.DisposeAsync(); // Should be a no-op
     }
 
@@ -58,7 +58,7 @@ public sealed class LifecycleTests
     [RequiresFlipperFact]
     public async Task Dispose_AfterSuccessfulPing_DoesNotThrow()
     {
-        await using var client = new FlipperRpcClient(_portName);
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.ConnectAsync();
 
         var pong = await client.PingAsync();
@@ -75,7 +75,7 @@ public sealed class LifecycleTests
     [RequiresFlipperFact]
     public async Task Dispose_WithOpenIrStream_DoesNotThrow()
     {
-        await using var client = new FlipperRpcClient(_portName);
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.ConnectAsync();
 
         // Open an IR receive stream — do NOT dispose it; let the client do it.
@@ -93,7 +93,7 @@ public sealed class LifecycleTests
     [RequiresFlipperFact]
     public async Task Dispose_WithOpenGpioStream_DoesNotThrow()
     {
-        await using var client = new FlipperRpcClient(_portName);
+        await using var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.ConnectAsync();
 
         // Open a GPIO watch stream — do NOT dispose it; let the client do it.
@@ -109,7 +109,7 @@ public sealed class LifecycleTests
     [RequiresFlipperFact]
     public async Task Dispose_CalledTwice_DoesNotThrow()
     {
-        var client = new FlipperRpcClient(_portName);
+        var client = new FlipperRpcClient(new FlipperRpcTransport(_portName));
         await client.ConnectAsync();
         await client.PingAsync();
 

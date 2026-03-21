@@ -8,10 +8,10 @@
  *     freq — carrier frequency in Hz (default: 433920000)
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"stream":M}}
  *
  * Wire format (stream event — emitted for each raw pair):
- *   {"event":{"level":true,"duration_us":9000},"stream":M}
+ *   {"t":1,"i":M,"p":{"level":true,"duration_us":9000}}
  *     level       — true = mark (carrier on), false = space (carrier off)
  *     duration_us — duration in microseconds (uint32)
  *

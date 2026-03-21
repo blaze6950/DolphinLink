@@ -9,7 +9,7 @@
  *   {"id":N,"cmd":"storage_read","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"type":"response","id":N,"payload":{"data":"<base64>"}}
+ *   {"t":0,"i":N,"p":{"data":"<base64>"}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent

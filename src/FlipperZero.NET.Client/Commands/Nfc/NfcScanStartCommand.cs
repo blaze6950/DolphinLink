@@ -11,10 +11,10 @@ namespace FlipperZero.NET.Commands.Nfc;
 /// <code>{"id":N,"cmd":"nfc_scan_start"}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream event):
-/// <code>{"event":{"protocol":"Iso14443-3a"},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"protocol":"Iso14443-3a"}}</code>
 ///
 /// Wire format (stream close request):
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>

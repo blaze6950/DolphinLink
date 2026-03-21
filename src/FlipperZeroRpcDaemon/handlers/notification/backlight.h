@@ -7,7 +7,7 @@
  *   {"id":N,"cmd":"backlight","value":0-255}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none (0).
  */

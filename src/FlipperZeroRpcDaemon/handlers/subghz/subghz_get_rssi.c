@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"subghz_get_rssi","freq":433920000}
  *
  * Wire format (response):
- *   {"type":"response","id":N,"payload":{"rssi_dbm10":-750}}
+ *   {"t":0,"i":N,"p":{"rssi_dbm10":-750}}
  *
  * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler,
  *            released before returning)

@@ -9,10 +9,10 @@
  *   {"id":N,"cmd":"input_listen_start"}
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"stream":M}}
  *
  * Wire format (stream events):
- *   {"event":{"key":"ok","type":"short"},"stream":M}
+ *   {"t":1,"i":M,"p":{"key":"ok","type":"short"}}
  *
  *   key  : "up" | "down" | "left" | "right" | "ok" | "back"
  *   type : "press" | "release" | "short" | "long" | "repeat"

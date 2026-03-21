@@ -8,7 +8,7 @@
  *     pin — external connector pin label ("1", "2", "3", "6", "7" are ADC-capable)
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"raw":2048,"mv":1650}}
+ *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}
  *     raw — raw 12-bit ADC count (0–4095)
  *     mv  — voltage in millivolts (integer)
  *

@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Ir;
 /// <code>{"id":N,"cmd":"ir_tx","protocol":"NEC","address":32,"command":11}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Requires the IR hardware resource; returns <c>resource_busy</c> if another
 /// IR command is active (e.g. <c>ir_receive_start</c>).

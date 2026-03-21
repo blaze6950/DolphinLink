@@ -9,7 +9,7 @@
  *               even-indexed values are marks (carrier on), odd are spaces
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   missing_timings — "timings" array absent or empty

@@ -11,7 +11,7 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_write","path":"/ext/test.txt","data":"SGVsbG8gV29ybGQ="}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 /// </summary>
 public readonly struct StorageWriteCommand : IRpcCommand<StorageWriteResponse>
 {

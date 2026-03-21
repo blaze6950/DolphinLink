@@ -5,7 +5,7 @@
  *   Request:  {"id":N,"cmd":"datetime_set",
  *               "year":<u32>,"month":<u32>,"day":<u32>,
  *               "hour":<u32>,"minute":<u32>,"second":<u32>}
- *   Response: {"id":N,"status":"ok"}
+ *   Response: {"t":0,"i":N}
  *   Errors:   missing_datetime_fields
  *
  * Resources required: none.

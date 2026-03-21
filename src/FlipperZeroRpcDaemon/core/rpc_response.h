@@ -1,11 +1,12 @@
 /**
- * rpc_response.h — RPC response formatting helpers (Wire Format V2)
+ * rpc_response.h — RPC response formatting helpers (Wire Format V3)
  *
- * All daemon-to-host messages now use a consistent envelope:
+ * All daemon-to-host messages now use a compact envelope with single-letter
+ * field names and a numeric type discriminator:
  *
- *   {"type":"response","id":<id>}                        ← void success
- *   {"type":"response","id":<id>,"payload":<obj>}        ← success with data
- *   {"type":"response","id":<id>,"error":"<code>"}       ← error
+ *   {"t":0,"i":<id>}                    ← void success
+ *   {"t":0,"i":<id>,"p":<obj>}          ← success with data
+ *   {"t":0,"i":<id>,"e":"<code>"}       ← error
  *
  * Handlers build ONLY the payload object (without wrapping braces) and pass it
  * to rpc_send_data_response().  The envelope is added by these helpers.
@@ -21,7 +22,7 @@
 /**
  * Send an error response and log it.
  *
- *   Wire:   {"type":"response","id":<id>,"error":"<error_code>"}\n
+ *   Wire:   {"t":0,"i":<id>,"e":"<error_code>"}\n
  *   Screen: #<id> <cmd_name> -> err:<error_code>   (truncated to fit)
  *
  * @param id          Request ID from the incoming JSON.
@@ -33,7 +34,7 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name);
 /**
  * Send a simple success response (no data payload) and log it.
  *
- *   Wire:   {"type":"response","id":<id>}\n
+ *   Wire:   {"t":0,"i":<id>}\n
  *   Screen: #<id> <cmd_name> -> ok
  *
  * @param id        Request ID.
@@ -44,7 +45,7 @@ void rpc_send_ok(uint32_t id, const char* cmd_name);
 /**
  * Send a success response with a data payload and log it.
  *
- *   Wire:   {"type":"response","id":<id>,"payload":<payload_json>}\n
+ *   Wire:   {"t":0,"i":<id>,"p":<payload_json>}\n
  *   Screen: <log_entry>
  *
  * Use this when the success response contains a custom data payload that
@@ -56,7 +57,7 @@ void rpc_send_ok(uint32_t id, const char* cmd_name);
  * payload_json on the heap and free it after this call returns.
  *
  * @param id           Request ID.
- * @param payload_json Complete JSON object string for the "payload" field,
+ * @param payload_json Complete JSON object string for the "p" field,
  *                     e.g. "{\"pong\":true}" or "{\"level\":false}".
  * @param log_entry    Short string to display in the on-screen log.
  */

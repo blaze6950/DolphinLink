@@ -53,8 +53,11 @@ public sealed class FakeTransport : IFlipperTransport
     public FlipperRpcClient CreateClient() =>
         new FlipperRpcClient(
             this,
-            heartbeatInterval: TimeSpan.FromHours(1),
-            timeout: TimeSpan.FromHours(2));
+            new FlipperRpcClientOptions
+            {
+                HeartbeatInterval = TimeSpan.FromHours(1),
+                Timeout = TimeSpan.FromHours(2),
+            });
 
     /// <summary>
     /// All JSON lines sent by the client (in order, without trailing newline).

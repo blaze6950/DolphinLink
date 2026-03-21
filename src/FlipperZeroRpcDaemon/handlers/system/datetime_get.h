@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"datetime_get"}
- *   Response: {"id":N,"status":"ok","data":{
+ *   Response: {"t":0,"i":N,"p":{
  *               "year":<u16>,"month":<u8>,"day":<u8>,
  *               "hour":<u8>,"minute":<u8>,"second":<u8>}}
  *

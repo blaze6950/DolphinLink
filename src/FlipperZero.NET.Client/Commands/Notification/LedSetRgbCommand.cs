@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Notification;
 /// <code>{"id":N,"cmd":"led_set_rgb","red":255,"green":0,"blue":128}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// To set a single channel, use <see cref="LedSetCommand"/> instead.
 /// </summary>

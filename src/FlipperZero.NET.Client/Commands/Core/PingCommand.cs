@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Core;
 /// <code>{"id":N,"cmd":"ping"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"pong":true}}</code>
+/// <code>{"t":0,"i":N,"p":{"pong":true}}</code>
 /// </summary>
 public readonly struct PingCommand : IRpcCommand<PingResponse>
 {

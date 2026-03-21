@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"datetime_get"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"year":2025,"month":6,"day":1,"hour":12,"minute":0,"second":0,"weekday":7}}</code>
+/// <code>{"t":0,"i":N,"p":{"year":2025,"month":6,"day":1,"hour":12,"minute":0,"second":0,"weekday":7}}</code>
 ///
 /// <c>weekday</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
 /// The <c>weekday</c> field is derived from the <see cref="DateTime.DayOfWeek"/>
@@ -64,8 +64,7 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
                 case "hour": hour = reader.GetInt32(); break;
                 case "minute": minute = reader.GetInt32(); break;
                 case "second": second = reader.GetInt32(); break;
-                case "status": break; // ignored
-                                      // "weekday" and any other fields are intentionally skipped
+                // "weekday" and any other fields are intentionally skipped
             }
             reader.Read(); // next property name or EndObject
         }

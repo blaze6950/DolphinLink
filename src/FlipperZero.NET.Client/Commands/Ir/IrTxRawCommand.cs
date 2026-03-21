@@ -11,7 +11,7 @@ namespace FlipperZero.NET.Commands.Ir;
 /// <code>{"id":N,"cmd":"ir_tx_raw","timings":[500,250,500,250]}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// Requires the IR hardware resource.
 /// </summary>

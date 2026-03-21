@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_mkdir","path":"/ext/mydir"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 /// </summary>
 public readonly struct StorageMkdirCommand : IRpcCommand<StorageMkdirResponse>
 {

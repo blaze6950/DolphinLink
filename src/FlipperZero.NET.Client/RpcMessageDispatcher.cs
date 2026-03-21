@@ -3,70 +3,88 @@ using System.Diagnostics;
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Parses a single inbound V2 NDJSON line and routes it to the correct pending
-/// request or open stream.
+/// Routes a single inbound V3 envelope to the correct pending request or open stream.
 ///
 /// Injected dependencies (all <see cref="FlipperRpcClient"/> internals):
 /// <list type="bullet">
 ///   <item><see cref="RpcPendingRequests"/> — resolved request/response callbacks.</item>
 ///   <item><see cref="RpcStreamManager"/> — active stream event channels.</item>
 ///   <item><see cref="Stopwatch"/> — monotonic clock for log timestamps and round-trip times.</item>
-///   <item><c>onLogEntry</c> — optional log subscriber (invoked synchronously; must not throw).</item>
-///   <item><c>onFault</c> — called when a <c>{"type":"disconnect"}</c> message is received.</item>
+///   <item><see cref="IRpcDiagnostics"/> — log sink; defaults to <see cref="NullDiagnostics"/> (no-op).</item>
 /// </list>
+///
+/// The <see cref="RpcMessageType.Disconnect"/> case is intentionally NOT handled here.
+/// It is handled directly in the reader loop of <see cref="FlipperRpcClient"/> so that
+/// the disconnect path is collocated with all other transport-level faulting logic.
 /// </summary>
 internal sealed class RpcMessageDispatcher
 {
+    /// <summary>
+    /// No-op <see cref="IRpcDiagnostics"/> singleton used when no diagnostics sink is supplied.
+    /// Allows the dispatcher to call <c>_diagnostics.Log</c> unconditionally; the JIT can
+    /// inline and eliminate the call entirely.
+    /// </summary>
+    private sealed class NullDiagnostics : IRpcDiagnostics
+    {
+        public static readonly NullDiagnostics Instance = new();
+        private NullDiagnostics() { }
+        public void Log(RpcLogEntry entry) { }
+    }
+
+    /// <summary>
+    /// The no-op <see cref="IRpcDiagnostics"/> singleton, exposed so that
+    /// <see cref="FlipperRpcClient"/> can use the same instance as its own
+    /// <c>_diagnostics</c> field default without duplicating the type.
+    /// </summary>
+    internal static IRpcDiagnostics NullDiagnosticsInstance => NullDiagnostics.Instance;
+
     private readonly RpcPendingRequests _pending;
     private readonly RpcStreamManager _streams;
-
     private readonly Stopwatch _clock;
-
-    // todo revise the need of these two action fields.
-    private readonly Action<RpcLogEntry>? _onLogEntry;
-    private readonly Action<Exception> _onFault;
+    private readonly IRpcDiagnostics _diagnostics;
 
     public RpcMessageDispatcher(
         RpcPendingRequests pending,
         RpcStreamManager streams,
         Stopwatch clock,
-        Action<RpcLogEntry>? onLogEntry,
-        Action<Exception> onFault)
+        IRpcDiagnostics? diagnostics = null)
     {
-        _pending = pending;
-        _streams = streams;
-        _clock = clock;
-        _onLogEntry = onLogEntry;
-        _onFault = onFault;
+        _pending     = pending;
+        _streams     = streams;
+        _clock       = clock;
+        _diagnostics = diagnostics ?? NullDiagnostics.Instance;
     }
 
     /// <summary>
-    /// Parses <paramref name="line"/> (a single trimmed, non-empty NDJSON line)
-    /// and dispatches it to the correct pending request or stream.
+    /// Dispatches a pre-parsed V3 envelope to the correct pending request or stream.
+    /// <see cref="RpcMessageType.Disconnect"/> is ignored — callers handle it externally.
     /// </summary>
-    public void Dispatch(string line)
+    public void Dispatch(RpcEnvelope envelope, string rawLine, long receivedTicks)
     {
-        var receivedTicks = _clock.ElapsedTicks;
-        var envelope = RpcEnvelope.Parse(line);
-
         switch (envelope.Type)
         {
-            case RpcMessageType.Disconnect:
-                LogErrorWithJson("Daemon disconnected.", line, receivedTicks);
-                _onFault(new FlipperRpcException("Daemon disconnected."));
-                return;
-
             case RpcMessageType.Event:
-                DispatchEvent(envelope, line, receivedTicks);
+                DispatchEvent(envelope, rawLine, receivedTicks);
                 return;
 
             case RpcMessageType.Response:
-                DispatchResponse(envelope, line, receivedTicks);
+                DispatchResponse(envelope, rawLine, receivedTicks);
+                return;
+
+            case RpcMessageType.Disconnect:
+                // Handled by the reader loop; dispatcher ignores it.
                 return;
 
             case RpcMessageType.Unknown:
             default:
-                LogErrorWithJson("Malformed JSON received.", line, receivedTicks);
+                _diagnostics.Log(new RpcLogEntry
+                {
+                    Source  = RpcLogSource.Client,
+                    Kind    = RpcLogKind.Error,
+                    Status  = "Malformed JSON received.",
+                    RawJson = rawLine,
+                    Elapsed = TimeSpan.FromTicks(receivedTicks),
+                });
                 return;
         }
     }
@@ -75,20 +93,20 @@ internal sealed class RpcMessageDispatcher
     // Event dispatch
     // -------------------------------------------------------------------------
 
-    private void DispatchEvent(RpcEnvelope envelope, string line, long receivedTicks)
+    private void DispatchEvent(RpcEnvelope envelope, string rawLine, long receivedTicks)
     {
         if (envelope.Id is not { } streamId)
         {
             return;
         }
 
-        _onLogEntry?.Invoke(new RpcLogEntry
+        _diagnostics.Log(new RpcLogEntry
         {
-            Source = RpcLogSource.Client,
-            Kind = RpcLogKind.StreamEventReceived,
+            Source   = RpcLogSource.Client,
+            Kind     = RpcLogKind.StreamEventReceived,
             StreamId = streamId,
-            RawJson = line,
-            Elapsed = TimeSpan.FromTicks(receivedTicks),
+            RawJson  = rawLine,
+            Elapsed  = TimeSpan.FromTicks(receivedTicks),
         });
 
         _streams.TryRouteEvent(streamId, envelope.Payload);
@@ -98,7 +116,7 @@ internal sealed class RpcMessageDispatcher
     // Response dispatch
     // -------------------------------------------------------------------------
 
-    private void DispatchResponse(RpcEnvelope envelope, string line, long receivedTicks)
+    private void DispatchResponse(RpcEnvelope envelope, string rawLine, long receivedTicks)
     {
         if (envelope.Id is not { } requestId)
         {
@@ -119,14 +137,14 @@ internal sealed class RpcMessageDispatcher
 
         var status = envelope.Error ?? "ok";
 
-        _onLogEntry?.Invoke(new RpcLogEntry
+        _diagnostics.Log(new RpcLogEntry
         {
-            Source = RpcLogSource.Client,
-            Kind = RpcLogKind.ResponseReceived,
+            Source    = RpcLogSource.Client,
+            Kind      = RpcLogKind.ResponseReceived,
             RequestId = requestId,
-            Status = status,
-            RawJson = line,
-            Elapsed = TimeSpan.FromTicks(receivedTicks),
+            Status    = status,
+            RawJson   = rawLine,
+            Elapsed   = TimeSpan.FromTicks(receivedTicks),
             RoundTrip = roundTrip,
         });
 
@@ -139,18 +157,4 @@ internal sealed class RpcMessageDispatcher
             pending.Complete(envelope.Payload);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Logging helpers
-    // -------------------------------------------------------------------------
-
-    private void LogErrorWithJson(string status, string rawJson, long ticks) =>
-        _onLogEntry?.Invoke(new RpcLogEntry
-        {
-            Source = RpcLogSource.Client,
-            Kind = RpcLogKind.Error,
-            Status = status,
-            RawJson = rawJson,
-            Elapsed = TimeSpan.FromTicks(ticks),
-        });
 }

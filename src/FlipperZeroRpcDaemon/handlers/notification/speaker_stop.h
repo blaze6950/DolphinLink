@@ -8,7 +8,7 @@
  *   {"id":N,"cmd":"speaker_stop"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none claimed by the dispatcher (0), but the handler calls
  * resource_release(RESOURCE_SPEAKER) to release the previously held lock.

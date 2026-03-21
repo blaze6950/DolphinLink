@@ -8,7 +8,7 @@
  *     freq — frequency to tune to in Hz (default: 433920000)
  *
  * Wire format (response):
- *   {"id":N,"status":"ok","data":{"rssi_dbm10":-750}}
+ *   {"t":0,"i":N,"p":{"rssi_dbm10":-750}}
  *     rssi_dbm10 — RSSI in tenths-of-dBm (integer, e.g. -750 = -75.0 dBm)
  *
  * Error codes:

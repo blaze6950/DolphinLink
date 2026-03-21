@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>{"id":N,"cmd":"power_info"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"charge":85,"voltage_mv":4050,"charging":true}}</code>
+/// <code>{"t":0,"i":N,"p":{"charge":85,"voltage_mv":4050,"charging":true}}</code>
 /// </summary>
 public readonly struct PowerInfoCommand : IRpcCommand<PowerInfoResponse>
 {

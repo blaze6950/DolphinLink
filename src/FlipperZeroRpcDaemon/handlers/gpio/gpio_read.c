@@ -7,7 +7,7 @@
  *   {"id":N,"cmd":"gpio_read","pin":"1"}
  *
  * Wire format (response):
- *   {"type":"response","id":N,"payload":{"level":true}}
+ *   {"t":0,"i":N,"p":{"level":true}}
  *
  * Error codes:
  *   missing_pin — "pin" field absent

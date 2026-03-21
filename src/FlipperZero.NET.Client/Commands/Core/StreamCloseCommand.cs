@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Core;
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// This command is called automatically by <see cref="RpcStream{TEvent}.DisposeAsync"/>;
 /// callers should prefer disposing the stream handle rather than invoking this directly.

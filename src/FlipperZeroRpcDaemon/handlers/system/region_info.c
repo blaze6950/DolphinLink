@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"id":N,"cmd":"region_info"}
- *   Response: {"type":"response","id":N,"payload":{
+ *   Response: {"t":0,"i":N,"p":{
  *               "region":"<name>",
  *               "bands":[{"start":<u32>,"end":<u32>,"power_limit":<u8>},...] }}
  *

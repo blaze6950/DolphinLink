@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_info","path":"/ext"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"path":"/ext","total_kb":30000,"free_kb":25000}}</code>
+/// <code>{"t":0,"i":N,"p":{"path":"/ext","total_kb":30000,"free_kb":25000}}</code>
 ///
 /// Supported paths: <c>"/int"</c> (internal flash), <c>"/ext"</c> (SD card).
 /// </summary>

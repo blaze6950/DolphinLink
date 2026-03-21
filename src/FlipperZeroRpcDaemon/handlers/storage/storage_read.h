@@ -8,12 +8,12 @@
  *   {"id":N,"cmd":"storage_read","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"data":"<base64>"}}
+ *   {"t":0,"i":N,"p":{"data":"<base64>"}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}    — "path" field absent
- *   {"id":N,"error":"open_failed"}     — file could not be opened
- *   {"id":N,"error":"out_of_memory"}   — heap allocation failed
+ *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent
+ *   {"t":0,"i":N,"e":"open_failed"}     — file could not be opened
+ *   {"t":0,"i":N,"e":"out_of_memory"}   — heap allocation failed
  *
  * Resources: none (0).
  */

@@ -7,10 +7,10 @@
  *   {"id":N,"cmd":"ir_receive_start"}
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"stream":M}}
  *
  * Wire format (stream event — emitted for each decoded infrared frame):
- *   {"event":{"protocol":"NEC","address":0,"command":0,"repeat":false},"stream":M}
+ *   {"t":1,"i":M,"p":{"protocol":"NEC","address":0,"command":0,"repeat":false}}
  *     protocol — infrared protocol name
  *     address  — device address (uint32)
  *     command  — command code (uint32)

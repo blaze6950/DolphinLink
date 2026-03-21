@@ -17,11 +17,11 @@ namespace FlipperZero.NET.Commands.Input;
 /// <code>{"id":N,"cmd":"input_listen_start","exit_key":"ok","exit_type":"long"}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream events):
-/// <code>{"event":{"key":"ok","type":"short"},"stream":M}</code>
-/// <code>{"event":{"key":"back","type":"long"},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"key":"ok","type":"short"}}</code>
+/// <code>{"t":1,"i":M,"p":{"key":"back","type":"long"}}</code>
 ///
 /// Dispose the returned <see cref="RpcStream{TEvent}"/> to unsubscribe.
 /// </summary>

@@ -1,5 +1,3 @@
-using System.Threading.Channels;
-
 namespace FlipperZero.NET.Client.UnitTests;
 
 /// <summary>
@@ -11,22 +9,6 @@ public sealed class StreamManagerTests
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private static (StreamState state, Channel<JsonElement> channel) MakeStream(
-        out List<Exception?> completions)
-    {
-        var log = new List<Exception?>();
-        completions = log;
-
-        var ch = Channel.CreateUnbounded<JsonElement>();
-        var state = new StreamState
-        {
-            EventChannel = ch,
-            Complete = () => { ch.Writer.TryComplete(); log.Add(null); },
-            Fault = ex => { ch.Writer.TryComplete(ex); log.Add(ex); },
-        };
-        return (state, ch);
-    }
 
     private static JsonElement ParseElement(string json)
     {
@@ -52,17 +34,18 @@ public sealed class StreamManagerTests
     public async Task TryRouteEvent_WritesEventToChannel_WhenStreamRegistered()
     {
         var sut = new RpcStreamManager();
-        var (state, ch) = MakeStream(out _);
+        var state = new StreamState();
         sut.Register(1, state);
 
         var element = ParseElement("""{"value":42}""");
         var result = sut.TryRouteEvent(1, element);
 
         Assert.True(result);
-        // Give the write a moment if it went async
-        await Task.Delay(10);
-        Assert.True(ch.Reader.TryRead(out var received));
+        // TryWrite on an unbounded channel always succeeds synchronously
+        Assert.True(state.Reader.TryRead(out var received));
         Assert.Equal(42, received.GetProperty("value").GetInt32());
+
+        await Task.CompletedTask; // satisfy async signature
     }
 
     // -------------------------------------------------------------------------
@@ -83,22 +66,21 @@ public sealed class StreamManagerTests
     public void TryRemoveAndComplete_ReturnsTrue_AndCompletesChannel()
     {
         var sut = new RpcStreamManager();
-        var (state, ch) = MakeStream(out var completions);
+        var state = new StreamState();
         sut.Register(1, state);
 
         var result = sut.TryRemoveAndComplete(1);
 
         Assert.True(result);
-        Assert.Single(completions);
-        Assert.Null(completions[0]); // Complete() was called, not Fault()
-        Assert.True(ch.Reader.Completion.IsCompleted);
+        Assert.True(state.Reader.Completion.IsCompleted);
+        Assert.Null(state.Reader.Completion.Exception); // normal completion, no fault
     }
 
     [Fact]
     public void TryRemoveAndComplete_ReturnsFalse_AfterAlreadyRemoved()
     {
         var sut = new RpcStreamManager();
-        var (state, _) = MakeStream(out _);
+        var state = new StreamState();
         sut.Register(1, state);
         sut.TryRemoveAndComplete(1);
 
@@ -115,25 +97,26 @@ public sealed class StreamManagerTests
     public void FaultAll_FaultsEveryRegisteredStream()
     {
         var sut = new RpcStreamManager();
-        var (s1, _) = MakeStream(out var completions1);
-        var (s2, _) = MakeStream(out var completions2);
+        var s1 = new StreamState();
+        var s2 = new StreamState();
         sut.Register(1, s1);
         sut.Register(2, s2);
 
         var ex = new Exception("test fault");
         sut.FaultAll(ex);
 
-        Assert.Single(completions1);
-        Assert.Same(ex, completions1[0]);
-        Assert.Single(completions2);
-        Assert.Same(ex, completions2[0]);
+        Assert.True(s1.Reader.Completion.IsCompleted);
+        Assert.True(s2.Reader.Completion.IsCompleted);
+        // Both channels should be faulted (exception present on completion task)
+        Assert.NotNull(s1.Reader.Completion.Exception);
+        Assert.NotNull(s2.Reader.Completion.Exception);
     }
 
     [Fact]
     public void FaultAll_RemovesAllStreams_SoSubsequentTryRouteReturnsFalse()
     {
         var sut = new RpcStreamManager();
-        var (state, _) = MakeStream(out _);
+        var state = new StreamState();
         sut.Register(1, state);
 
         sut.FaultAll(new Exception("gone"));

@@ -9,7 +9,7 @@ namespace FlipperZero.NET.Commands.Gpio;
 /// <code>{"id":N,"cmd":"gpio_write","pin":"1","level":true}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok"}</code>
+/// <code>{"t":0,"i":N}</code>
 ///
 /// The pin is configured as a push-pull output before driving.
 /// Supported pins: <see cref="GpioPin.Pin1"/>–<see cref="GpioPin.Pin8"/>.

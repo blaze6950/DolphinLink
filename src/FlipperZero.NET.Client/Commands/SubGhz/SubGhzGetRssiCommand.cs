@@ -10,7 +10,7 @@ namespace FlipperZero.NET.Commands.SubGhz;
 /// <code>{"id":N,"cmd":"subghz_get_rssi","freq":433920000}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"rssi":-70}}</code>
+/// <code>{"t":0,"i":N,"p":{"rssi":-70}}</code>
 ///
 /// Requires the Sub-GHz hardware resource briefly (tunes, samples, releases).
 /// </summary>

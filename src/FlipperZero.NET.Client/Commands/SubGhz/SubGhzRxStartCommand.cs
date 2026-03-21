@@ -13,10 +13,10 @@ namespace FlipperZero.NET.Commands.SubGhz;
 /// <code>{"id":N,"cmd":"subghz_rx_start","freq":433920000}</code>
 ///
 /// Wire format (stream open response):
-/// <code>{"id":N,"stream":M}</code>
+/// <code>{"t":0,"i":N,"p":{"stream":M}}</code>
 ///
 /// Wire format (stream event):
-/// <code>{"event":{"level":true,"duration_us":300},"stream":M}</code>
+/// <code>{"t":1,"i":M,"p":{"level":true,"duration_us":300}}</code>
 ///
 /// Wire format (stream close request):
 /// <code>{"id":N,"cmd":"stream_close","stream":M}</code>

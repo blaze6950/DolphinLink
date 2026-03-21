@@ -8,6 +8,10 @@ namespace FlipperZero.NET;
 /// <summary>
 /// USB-CDC <see cref="IFlipperTransport"/> implementation backed by <see cref="SerialPort"/>.
 ///
+/// Pass an instance of this class to the
+/// <see cref="FlipperRpcClient(IFlipperTransport,FlipperRpcClientOptions,IRpcDiagnostics)"/>
+/// constructor to connect to a Flipper Zero over a serial port.
+///
 /// Threading contract (inherited from <see cref="IFlipperTransport"/>):
 ///   - <see cref="SendAsync"/> may be called from any thread; callers that need a
 ///     single-writer guarantee should wrap this in a
@@ -21,7 +25,7 @@ namespace FlipperZero.NET;
 /// CancellationTokens.  The only reliable way to unblock a pending read is to
 /// close the port — which is what <see cref="DisposeAsync"/> does.
 /// </summary>
-internal sealed class FlipperRpcTransport : IFlipperTransport
+public sealed class FlipperRpcTransport : IFlipperTransport
 {
     private readonly SerialPort _port;
     private StreamWriter? _writer;

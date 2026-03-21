@@ -13,11 +13,11 @@ namespace FlipperZero.NET.Commands.Storage;
 /// <code>{"id":N,"cmd":"storage_read","path":"/ext/test.txt"}</code>
 ///
 /// Wire format (response):
-/// <code>{"id":N,"status":"ok","data":{"data":"SGVsbG8gV29ybGQ="}}</code>
+/// <code>{"t":0,"i":N,"p":{"data":"SGVsbG8gV29ybGQ="}}</code>
 ///
 /// The daemon reads the file in fragments of up to 128 bytes each; for files
 /// larger than one fragment the daemon sends multiple JSON lines with the same
-/// request id before the final <c>{"id":N,"status":"ok"}</c>.  The C# client
+/// request id before the final <c>{"t":0,"i":N}</c>.  The C# client
 /// concatenates the fragments automatically.
 /// </summary>
 public readonly struct StorageReadCommand : IRpcCommand<StorageReadResponse>

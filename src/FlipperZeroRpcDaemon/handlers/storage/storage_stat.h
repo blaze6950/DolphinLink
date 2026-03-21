@@ -7,11 +7,11 @@
  *   {"id":N,"cmd":"storage_stat","path":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok","data":{"size":1234,"is_dir":false}}
+ *   {"t":0,"i":N,"p":{"size":1234,"is_dir":false}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}  — "path" field absent
- *   {"id":N,"error":"stat_failed"}   — stat returned non-OK status
+ *   {"t":0,"i":N,"e":"missing_path"}  — "path" field absent
+ *   {"t":0,"i":N,"e":"stat_failed"}   — stat returned non-OK status
  *
  * Resources: none (0).
  */
