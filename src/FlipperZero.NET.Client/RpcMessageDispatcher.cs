@@ -49,9 +49,9 @@ internal sealed class RpcMessageDispatcher
         Stopwatch clock,
         IRpcDiagnostics? diagnostics = null)
     {
-        _pending     = pending;
-        _streams     = streams;
-        _clock       = clock;
+        _pending = pending;
+        _streams = streams;
+        _clock = clock;
         _diagnostics = diagnostics ?? NullDiagnostics.Instance;
     }
 
@@ -79,9 +79,9 @@ internal sealed class RpcMessageDispatcher
             default:
                 _diagnostics.Log(new RpcLogEntry
                 {
-                    Source  = RpcLogSource.Client,
-                    Kind    = RpcLogKind.Error,
-                    Status  = "Malformed JSON received.",
+                    Source = RpcLogSource.Client,
+                    Kind = RpcLogKind.Error,
+                    Status = "Malformed JSON received.",
                     RawJson = rawLine,
                     Elapsed = TimeSpan.FromTicks(receivedTicks),
                 });
@@ -102,11 +102,11 @@ internal sealed class RpcMessageDispatcher
 
         _diagnostics.Log(new RpcLogEntry
         {
-            Source   = RpcLogSource.Client,
-            Kind     = RpcLogKind.StreamEventReceived,
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.StreamEventReceived,
             StreamId = streamId,
-            RawJson  = rawLine,
-            Elapsed  = TimeSpan.FromTicks(receivedTicks),
+            RawJson = rawLine,
+            Elapsed = TimeSpan.FromTicks(receivedTicks),
         });
 
         _streams.TryRouteEvent(streamId, envelope.Payload);
@@ -139,12 +139,12 @@ internal sealed class RpcMessageDispatcher
 
         _diagnostics.Log(new RpcLogEntry
         {
-            Source    = RpcLogSource.Client,
-            Kind      = RpcLogKind.ResponseReceived,
+            Source = RpcLogSource.Client,
+            Kind = RpcLogKind.ResponseReceived,
             RequestId = requestId,
-            Status    = status,
-            RawJson   = rawLine,
-            Elapsed   = TimeSpan.FromTicks(receivedTicks),
+            Status = status,
+            RawJson = rawLine,
+            Elapsed = TimeSpan.FromTicks(receivedTicks),
             RoundTrip = roundTrip,
         });
 

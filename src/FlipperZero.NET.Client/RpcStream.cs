@@ -49,8 +49,8 @@ public sealed class RpcStream<TEvent> : IAsyncEnumerable<TEvent>, IAsyncDisposab
         ChannelReader<JsonElement> reader,
         CancellationToken disconnectToken)
     {
-        _streamId        = streamId;
-        _reader          = reader;
+        _streamId = streamId;
+        _reader = reader;
         _disconnectToken = disconnectToken;
     }
 

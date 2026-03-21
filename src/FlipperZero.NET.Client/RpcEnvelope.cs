@@ -7,10 +7,10 @@ namespace FlipperZero.NET;
 /// </summary>
 internal enum RpcMessageType
 {
-    Response   = 0,
-    Event      = 1,
+    Response = 0,
+    Event = 1,
     Disconnect = 2,
-    Unknown    = 255,
+    Unknown = 255,
 }
 
 /// <summary>
@@ -34,10 +34,10 @@ internal enum RpcMessageType
 /// </summary>
 internal readonly struct RpcEnvelope
 {
-    [JsonPropertyName("t")] public RpcMessageType Type    { get; init; }
-    [JsonPropertyName("i")] public uint?          Id      { get; init; }
-    [JsonPropertyName("p")] public JsonElement    Payload { get; init; }
-    [JsonPropertyName("e")] public string?        Error   { get; init; }
+    [JsonPropertyName("t")] public RpcMessageType Type { get; init; }
+    [JsonPropertyName("i")] public uint? Id { get; init; }
+    [JsonPropertyName("p")] public JsonElement Payload { get; init; }
+    [JsonPropertyName("e")] public string? Error { get; init; }
 
     /// <summary>
     /// Parses a single V3 NDJSON line into an <see cref="RpcEnvelope"/>.

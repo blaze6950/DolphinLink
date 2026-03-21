@@ -15,7 +15,7 @@ namespace FlipperZero.NET.Commands.System;
 /// Wire format (request):
 /// <code>{"id":N,"cmd":"daemon_info"}</code>
 ///
- /// Wire format (response):
+/// Wire format (response):
 /// <code>
 /// {"t":0,"i":N,"p":{
 ///   "name":"flipper_zero_rpc_daemon",

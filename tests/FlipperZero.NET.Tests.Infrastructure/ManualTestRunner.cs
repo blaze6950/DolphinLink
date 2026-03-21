@@ -133,11 +133,11 @@ public sealed class ManualTestRunner
         {
             var icon = r.Status switch
             {
-                StepStatus.Passed          => "OK  ",
-                StepStatus.Failed          => "FAIL",
+                StepStatus.Passed => "OK  ",
+                StepStatus.Failed => "FAIL",
                 StepStatus.ManualConfirmed => "CONF",
-                StepStatus.TimedOut        => "TIME",
-                _                          => "????"
+                StepStatus.TimedOut => "TIME",
+                _ => "????"
             };
 
             Log($"  [{icon}] {r.Description,-60} {r.Elapsed.TotalMilliseconds,6:0} ms" +
@@ -145,10 +145,10 @@ public sealed class ManualTestRunner
 
             switch (r.Status)
             {
-                case StepStatus.Passed:          passed++;    break;
-                case StepStatus.Failed:          failed++;    break;
+                case StepStatus.Passed: passed++; break;
+                case StepStatus.Failed: failed++; break;
                 case StepStatus.ManualConfirmed: confirmed++; break;
-                case StepStatus.TimedOut:        timedOut++;  break;
+                case StepStatus.TimedOut: timedOut++; break;
             }
         }
 

@@ -64,7 +64,7 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
                 case "hour": hour = reader.GetInt32(); break;
                 case "minute": minute = reader.GetInt32(); break;
                 case "second": second = reader.GetInt32(); break;
-                // "weekday" and any other fields are intentionally skipped
+                    // "weekday" and any other fields are intentionally skipped
             }
             reader.Read(); // next property name or EndObject
         }
