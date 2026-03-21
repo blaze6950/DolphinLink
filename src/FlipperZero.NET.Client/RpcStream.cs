@@ -19,9 +19,10 @@ namespace FlipperZero.NET;
 /// the associated hardware resource (e.g. IR receiver).
 ///
 /// If the connection to the Flipper is lost while iterating, the enumeration
-/// is cancelled via the client's <see cref="FlipperRpcClient.Disconnected"/>
-/// token, so the <c>await foreach</c> exits with an
-/// <see cref="OperationCanceledException"/> instead of hanging forever.
+/// exits with a <see cref="FlipperDisconnectedException"/> that describes why
+/// the connection was lost (cable pull, daemon exit, heartbeat timeout, etc.).
+/// User-requested cancellation via <see cref="WithCancellation"/> still throws
+/// <see cref="OperationCanceledException"/> as usual.
 ///
 /// Concurrent enumeration is not supported: a second call to
 /// <see cref="GetAsyncEnumerator"/> while one is already active throws
@@ -75,18 +76,48 @@ public sealed class RpcStream<TEvent> : IAsyncEnumerable<TEvent>, IAsyncDisposab
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, _disconnectToken);
 
-            await foreach (var element in _reader.ReadAllAsync(linked.Token).ConfigureAwait(false))
+            var enumerator = _reader.ReadAllAsync(linked.Token).GetAsyncEnumerator(linked.Token);
+            await using var _ = enumerator.ConfigureAwait(false);
+
+            while (true)
             {
+                // Advance the enumerator — this is where OCE / channel faults throw.
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (
+                    _disconnectToken.IsCancellationRequested &&
+                    !cancellationToken.IsCancellationRequested)
+                {
+                    // The disconnect token fired (connection lost), NOT user cancellation.
+                    // The channel was already faulted with a FlipperDisconnectedException
+                    // before the token was cancelled, so surface that exception instead of
+                    // an opaque OperationCanceledException.
+                    // Channel.Completion holds the fault exception set by FaultAll.
+                    await _reader.Completion.ConfigureAwait(false);
+                    // Completion did not throw (e.g. clean close race) — fall through as normal end.
+                    yield break;
+                }
+
+                if (!hasNext)
+                {
+                    yield break;
+                }
+
+                // Deserialize — yield return is now outside any try/catch block.
                 TEvent evt;
                 try
                 {
-                    evt = JsonSerializer.Deserialize<TEvent>(element.GetRawText());
+                    evt = JsonSerializer.Deserialize<TEvent>(enumerator.Current.GetRawText());
                 }
                 catch (JsonException)
                 {
                     // Malformed event payload — skip
                     continue;
                 }
+
                 yield return evt;
             }
         }

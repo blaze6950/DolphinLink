@@ -4,7 +4,7 @@ namespace FlipperZero.NET;
 /// Thrown when the Flipper returns an <c>"error"</c> field in the RPC response,
 /// or when the transport encounters a protocol-level problem.
 /// </summary>
-public sealed class FlipperRpcException : Exception
+public class FlipperRpcException : Exception
 {
     /// <summary>
     /// The error code string returned by the daemon, e.g. <c>"resource_busy"</c>,

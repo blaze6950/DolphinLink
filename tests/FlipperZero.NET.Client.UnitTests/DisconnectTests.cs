@@ -54,10 +54,11 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
         // Give the reader loop a moment to detect the EOF and call FaultAll.
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
-        // SendAsync must throw immediately, NOT hang waiting for a response
-        // that will never arrive.
-        await Assert.ThrowsAsync<FlipperRpcException>(
+        // SendAsync must throw immediately with the correct disconnect reason,
+        // NOT hang waiting for a response that will never arrive.
+        var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
             () => _client.SendAsync<PingCommand, PingResponse>(new PingCommand()));
+        Assert.Equal(DisconnectReason.ConnectionLost, ex.Reason);
     }
 
     [Fact]
@@ -68,9 +69,10 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
 
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
-        await Assert.ThrowsAsync<FlipperRpcException>(
+        var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
             () => _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
                 new InputListenStartCommand()));
+        Assert.Equal(DisconnectReason.ConnectionLost, ex.Reason);
     }
 
     [Fact]
@@ -82,8 +84,9 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
         // Give the reader loop time to process the envelope and call FaultAll.
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
-        await Assert.ThrowsAsync<FlipperRpcException>(
+        var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
             () => _client.SendAsync<PingCommand, PingResponse>(new PingCommand()));
+        Assert.Equal(DisconnectReason.DaemonExited, ex.Reason);
     }
 
     // -------------------------------------------------------------------------
@@ -187,7 +190,7 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
         {
             await foreach (var _ in stream)
             {
-                // consume events; exits when stream is faulted/cancelled
+                // consume events; exits when stream is faulted
             }
         });
 
@@ -199,15 +202,10 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
         var completed = await Task.WhenAny(iterationTask, Task.Delay(Timeout.Infinite, timeout.Token));
 
         Assert.Same(iterationTask, completed);
-        // The task may complete with OperationCanceledException or a FlipperRpcException —
-        // both are acceptable; what matters is that it does NOT hang.
-        await iterationTask.ContinueWith(t =>
-        {
-            if (t.IsFaulted && t.Exception!.InnerException is not OperationCanceledException
-                                                             and not FlipperRpcException)
-            {
-                throw t.Exception;
-            }
-        });
+        // Must be a FlipperDisconnectedException with the correct reason —
+        // no longer acceptable to see a generic OperationCanceledException.
+        var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
+            () => iterationTask);
+        Assert.Equal(DisconnectReason.ConnectionLost, ex.Reason);
     }
 }

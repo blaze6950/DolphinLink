@@ -56,10 +56,21 @@ internal sealed class PacketSerializationTransport : IFlipperTransport
     /// <remarks>
     /// Enqueues <paramref name="data"/> on the outbound channel.  The writer
     /// loop dequeues and calls <c>_inner.SendAsync</c>, ensuring a single writer.
+    /// If the channel has been sealed due to a transport error, throws
+    /// <see cref="FlipperDisconnectedException"/> instead of the raw
+    /// <see cref="ChannelClosedException"/> so callers see a consistent exception type.
     /// </remarks>
     public async ValueTask SendAsync(string data, CancellationToken ct = default)
     {
-        await _outbound.Writer.WriteAsync(data, ct).ConfigureAwait(false);
+        try
+        {
+            await _outbound.Writer.WriteAsync(data, ct).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException ex)
+        {
+            throw new FlipperDisconnectedException(
+                DisconnectReason.ConnectionLost, "Connection lost.", ex);
+        }
     }
 
     /// <inheritdoc/>

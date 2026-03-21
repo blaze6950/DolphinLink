@@ -96,6 +96,16 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     private int _faulted;
 
     /// <summary>
+    /// The exception that caused the fault, stored so pre-send guards can
+    /// rethrow the exact same <see cref="FlipperDisconnectedException"/> (with the
+    /// correct <see cref="DisconnectReason"/>) that pending callers already received.
+    /// Written once by <see cref="FaultAll"/> under the interlocked guard;
+    /// read by <see cref="SendAsync{TCommand,TResponse}"/> and
+    /// <see cref="SendStreamAsync{TCommand,TEvent}"/> after the guard fires.
+    /// </summary>
+    private volatile FlipperDisconnectedException? _faultException;
+
+    /// <summary>
     /// 0 = live; 1 = <see cref="DisposeAsync"/> has been called.
     /// Checked by <see cref="SendAsync{TCommand,TResponse}"/>,
     /// <see cref="SendStreamAsync{TCommand,TEvent}"/>, and
@@ -262,7 +272,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
         if (Volatile.Read(ref _faulted) == 1)
         {
-            throw new FlipperRpcException("Connection lost.");
+            throw _faultException
+                ?? new FlipperDisconnectedException(DisconnectReason.ConnectionLost, "Connection lost.");
         }
 
         ct.ThrowIfCancellationRequested();
@@ -324,7 +335,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
         if (Volatile.Read(ref _faulted) == 1)
         {
-            throw new FlipperRpcException("Connection lost.");
+            throw _faultException
+                ?? new FlipperDisconnectedException(DisconnectReason.ConnectionLost, "Connection lost.");
         }
 
         ct.ThrowIfCancellationRequested();
@@ -418,7 +430,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
                 if (envelope.Type == RpcMessageType.Disconnect)
                 {
-                    FaultAll(new FlipperRpcException("Daemon disconnected."));
+                    FaultAll(new FlipperDisconnectedException(
+                        DisconnectReason.DaemonExited, "Daemon disconnected."));
                     return;
                 }
 
@@ -428,7 +441,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             // ReceiveAsync enumeration ended normally (transport EOF / cancelled).
             if (!ct.IsCancellationRequested)
             {
-                FaultAll(new FlipperRpcException("Connection lost."));
+                FaultAll(new FlipperDisconnectedException(
+                    DisconnectReason.ConnectionLost, "Connection lost."));
             }
         }
         catch (OperationCanceledException)
@@ -438,7 +452,8 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         catch (Exception ex)
         {
             LogError(ex.Message);
-            FaultAll(new FlipperRpcException("Reader loop failed.", ex));
+            FaultAll(new FlipperDisconnectedException(
+                DisconnectReason.ReaderFailed, "Reader loop failed.", ex));
         }
     }
 
@@ -458,10 +473,11 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     private void OnHeartbeatDisconnected()
     {
         LogError("Connection lost — heartbeat timeout.");
-        FaultAll(new FlipperRpcException("Connection lost — heartbeat timeout."));
+        FaultAll(new FlipperDisconnectedException(
+            DisconnectReason.HeartbeatTimeout, "Connection lost — heartbeat timeout."));
     }
 
-    private void FaultAll(Exception ex)
+    private void FaultAll(FlipperDisconnectedException ex)
     {
         // Only the first caller executes the teardown; subsequent calls are no-ops.
         if (Interlocked.CompareExchange(ref _faulted, 1, 0) != 0)
@@ -469,15 +485,22 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             return;
         }
 
-        // Signal disconnect token so consumers react immediately.
-        _disconnectCts.Cancel();
+        // Store the fault so pre-send guards can rethrow the exact same exception.
+        _faultException = ex;
 
         // Cancel the reader loop CTS.
         _cts.Cancel();
 
-        // Fail all pending requests and active streams.
+        // Fail all pending requests and active streams with the typed exception FIRST,
+        // so that stream consumers see FlipperDisconnectedException rather than
+        // OperationCanceledException when the disconnect token fires next.
         _pending.FailAll(ex);
         _streams.FaultAll(ex);
+
+        // Signal disconnect token last — any code awaiting it will unblock now.
+        // Because the channel fault is already in place, RpcStream enumerators
+        // will throw FlipperDisconnectedException rather than OperationCanceledException.
+        _disconnectCts.Cancel();
     }
 
     // -------------------------------------------------------------------------
@@ -488,7 +511,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     {
         Interlocked.Exchange(ref _disposed, 1);
 
-        FaultAll(new FlipperRpcException("Client disposed."));
+        FaultAll(new FlipperDisconnectedException(DisconnectReason.ClientDisposed, "Client disposed."));
 
         if (_readerTask is not null)
         {
