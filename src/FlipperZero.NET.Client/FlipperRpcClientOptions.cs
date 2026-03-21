@@ -3,8 +3,10 @@ namespace FlipperZero.NET;
 /// <summary>
 /// Connection-behaviour options for <see cref="FlipperRpcClient"/>.
 ///
-/// All properties have sensible defaults so the struct can be used with
-/// <c>default</c> or a <c>with</c>-expression to override only what differs:
+/// Both <c>default</c> and <c>new FlipperRpcClientOptions()</c> produce an
+/// instance with the standard heartbeat timing (3 s interval, 10 s timeout).
+/// Use a <c>with</c>-expression or object initialiser to override individual
+/// values:
 ///
 /// <code>
 /// // Zero-config — default 3 s heartbeat interval, 10 s timeout:
@@ -20,19 +22,32 @@ namespace FlipperZero.NET;
 /// </summary>
 public readonly record struct FlipperRpcClientOptions
 {
+    // Raw backing values — TimeSpan.Zero means "use the default".
+    private readonly TimeSpan _heartbeatInterval;
+    private readonly TimeSpan _timeout;
+
     /// <summary>
     /// How long outbound silence is allowed before a keep-alive frame is sent.
     /// Defaults to <see cref="HeartbeatTransport.DefaultHeartbeatInterval"/> (3 s).
     /// </summary>
-    public TimeSpan HeartbeatInterval { get; init; } = HeartbeatTransport.DefaultHeartbeatInterval;
+    public TimeSpan HeartbeatInterval
+    {
+        get => _heartbeatInterval == TimeSpan.Zero
+            ? HeartbeatTransport.DefaultHeartbeatInterval
+            : _heartbeatInterval;
+        init => _heartbeatInterval = value;
+    }
 
     /// <summary>
     /// How long inbound silence is allowed before the connection is declared lost.
     /// Must be strictly greater than <see cref="HeartbeatInterval"/>.
     /// Defaults to <see cref="HeartbeatTransport.DefaultTimeout"/> (10 s).
     /// </summary>
-    public TimeSpan Timeout { get; init; } = HeartbeatTransport.DefaultTimeout;
-
-    /// <summary>Initialises an options instance with default timing.</summary>
-    public FlipperRpcClientOptions() { }
+    public TimeSpan Timeout
+    {
+        get => _timeout == TimeSpan.Zero
+            ? HeartbeatTransport.DefaultTimeout
+            : _timeout;
+        init => _timeout = value;
+    }
 }
