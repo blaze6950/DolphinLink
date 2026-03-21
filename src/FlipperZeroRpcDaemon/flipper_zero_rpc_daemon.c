@@ -191,7 +191,25 @@ int32_t flipper_zero_rpc_daemon_app(void* p) {
     /* --- USB CDC setup --- */
     /* Save whatever USB config is active so we can restore it on exit */
     FuriHalUsbInterface* prev_usb = furi_hal_usb_get_config();
-    furi_hal_usb_set_config(&usb_cdc_dual, NULL);
+
+    /* furi_hal_usb_set_config() returns false when USB is locked.
+     * This happens when the bootstrapper launched us via the native protobuf
+     * RPC's start_rpc_session command — that command holds furi_hal_usb_lock()
+     * for the entire session.  The lock is released only after the host closes
+     * the native RPC port (DTR drops → pipe breaks → furi_hal_usb_unlock()).
+     *
+     * Since the bootstrapper closes the native RPC port immediately after
+     * sending app_start, the lock release is imminent but asynchronous
+     * (message-queue based).  We retry with a short delay to give the USB
+     * thread time to process the unlock event. */
+    {
+        const int max_attempts = 20; /* 20 × 100 ms = 2 s max wait */
+        for(int i = 0; i < max_attempts; i++) {
+            if(furi_hal_usb_set_config(&usb_cdc_dual, NULL)) break;
+            FURI_LOG_I("RPC", "USB locked, retrying (%d/%d)...", i + 1, max_attempts);
+            furi_delay_ms(100);
+        }
+    }
 
     /* Allocate TX thread + stream buffer + semaphore before registering
      * callbacks, so cdc_tx_callback() is safe to fire immediately. */

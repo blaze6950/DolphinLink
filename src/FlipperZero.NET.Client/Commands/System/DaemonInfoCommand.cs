@@ -19,7 +19,7 @@ namespace FlipperZero.NET.Commands.System;
 /// <code>
 /// {"t":0,"i":N,"p":{
 ///   "name":"flipper_zero_rpc_daemon",
-///   "version":3,
+///   "version":4,
 ///   "commands":["ping","stream_close",...]}}
 /// </code>
 ///
@@ -49,7 +49,7 @@ public readonly struct DaemonInfoResponse : IRpcCommandResponse
 
     /// <summary>
     /// Monotonically increasing integer protocol version.
-    /// The current version is <c>3</c>.
+    /// The current version is <c>4</c>.
     /// Increment this in the C daemon whenever a breaking wire-format change is made.
     /// </summary>
     [JsonPropertyName("version")]

@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FlipperZero.NET.Bootstrapper\FlipperZero.NET.Bootstrapper.csproj" />
     <ProjectReference Include="..\..\src\FlipperZero.NET.Client\FlipperZero.NET.Client.csproj" />
     <ProjectReference Include="..\FlipperZero.NET.Tests.Infrastructure\FlipperZero.NET.Tests.Infrastructure.csproj" />
   </ItemGroup>

@@ -2,12 +2,13 @@
 
 ## Overview
 
-Monorepo with two sub-projects communicating over USB CDC serial via NDJSON RPC:
+Monorepo with three sub-projects. The daemon and client communicate over USB CDC serial via NDJSON RPC; the bootstrapper uses the Flipper's native protobuf RPC to install and launch the daemon before handing off to the client.
 
 | Sub-project | Language | Location | Build |
 |---|---|---|---|
 | **RPC Daemon** | C (Flipper Zero FAP) | `src/FlipperZeroRpcDaemon/` | `ufbt` |
 | **RPC Client** | C# (.NET 8 library) | `src/FlipperZero.NET.Client/` | `dotnet build` |
+| **Bootstrapper** | C# (.NET 8 library) | `src/FlipperZero.NET.Bootstrapper/` | `dotnet build` |
 
 ## Build
 
@@ -26,8 +27,23 @@ python -m ufbt format    # auto-fix formatting
 
 **C# Client**:
 ```bash
-dotnet build   # from repo root; must produce 0 warnings, 0 errors
+dotnet build   # from repo root; must produce 0 warnings, 0 errors (covers Client + Bootstrapper)
 ```
+
+**Bootstrapper — embedding a freshly-built FAP**:
+
+By default `dotnet build` embeds the pre-committed FAP from
+`src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap`.
+
+To rebuild the C daemon and automatically copy the new `.fap` into `Resources/`
+before compilation, pass `BuildDaemon=true`:
+
+```bash
+dotnet build /p:BuildDaemon=true   # builds ufbt FAP first, then compiles C#
+```
+
+This requires `ufbt` + Python on `PATH`.  CI must always pass this flag to
+ensure the embedded FAP is current.  Local C#-only work can skip it.
 
 ## Project Layout
 
@@ -59,6 +75,22 @@ tests/FlipperZero.NET.Client.HardwareTests/
   Infrastructure/                    # FlipperFixture, RequiresFlipperFact, StreamTestHelper
 tests/FlipperZero.NET.Tests.Infrastructure/
   FlipperFixture.cs                  # shared xUnit collection fixture (FLIPPER_PORT env var)
+
+src/FlipperZero.NET.Bootstrapper/
+  FlipperBootstrapper.cs             # public static BootstrapAsync() — full install/launch state machine
+  FlipperBootstrapOptions.cs         # readonly record struct: AutoInstall, InstallPath, Timeout, DaemonStartTimeout
+  FlipperBootstrapResult.cs          # FlipperBootstrapResult (owns Client), BootstrapAction enum, FlipperBootstrapException
+  NativeRpc/
+    NativeRpcTransport.cs            # varint-length-delimited protobuf framing over SerialPort (CDC interface 0)
+    FlipperNativeRpcClient.cs        # typed native RPC client: PingAsync, StorageStatAsync, StorageMd5SumAsync,
+                                     #   StorageMkdirAsync, StorageWriteAsync (chunked), AppStartAsync
+  Proto/                             # vendored + trimmed .proto files compiled by Grpc.Tools (message-only, no gRPC services)
+    flipper.proto                    # PB.Main envelope + imports
+    storage.proto                    # Stat, Md5Sum, Write, Mkdir
+    application.proto                # App.StartRequest
+    system.proto                     # System.PingRequest/Response
+  Resources/
+    flipper_zero_rpc_daemon.fap      # pre-built FAP binary embedded as assembly resource
 ```
 
 Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
@@ -132,6 +164,35 @@ Reader loop → parse JSON → route by `"t"`: `t:0` → match `"i"` to pending 
   ▼
 User code receives Task<TResponse> or IAsyncEnumerable<TEvent>
 ```
+
+**C# Bootstrapper:**
+```
+BootstrapAsync()
+  │  1. Try ConnectAsync on daemonPortName → if success, return AlreadyRunning
+  │  2. Open NativeRpcTransport on systemPortName (CDC interface 0)
+  │     PingAsync → StorageStatAsync (check FAP exists) → StorageMd5SumAsync (compare vs bundled MD5)
+  │     If missing or MD5 differs: StorageMkdirAsync + StorageWriteAsync (chunked, 512B) → Installed/Updated
+  │     AppStartAsync → launch FAP
+  │  3. Poll ConnectAsync on daemonPortName until daemon appears (DaemonStartTimeout)
+  ▼
+Returns FlipperBootstrapResult (owns FlipperRpcClient on CDC interface 1)
+```
+
+## Hardware Tests
+
+Hardware and bootstrap tests require a physical Flipper Zero connected over USB.
+
+| Environment variable | CDC interface | Example (Windows) | Example (Linux) |
+|---|---|---|---|
+| `FLIPPER_PORT` | Interface 1 — NDJSON daemon port | `COM4` | `/dev/ttyACM1` |
+| `FLIPPER_SYSTEM_PORT` | Interface 0 — native protobuf RPC port | `COM3` | `/dev/ttyACM0` |
+
+`FLIPPER_PORT` is required for all hardware tests (`RequiresFlipperFact`).
+`FLIPPER_SYSTEM_PORT` is additionally required for bootstrap tests (`RequiresBootstrapFact`).
+
+Bootstrap tests run in the `"Flipper bootstrap"` xUnit collection (no shared fixture, own
+client per test). They execute sequentially **after** the `"Flipper integration"` collection
+finishes, so both ports are free.
 
 ## Flipper SDK Rules
 

@@ -1,6 +1,8 @@
 using System.IO.Ports;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Transport;
@@ -112,16 +114,32 @@ public sealed class SerialPortTransport : IFlipperTransport
 
     public async ValueTask DisposeAsync()
     {
-        // Close the port first to unblock any pending ReadLineAsync (Windows
-        // SerialPort ignores CancellationToken on BaseStream.ReadAsync).
+        // Force-close the underlying OS handle to immediately abort any pending
+        // ReadFile/WriteFile operations on the port.
+        //
+        // On Windows, SerialPort.Close() deadlocks when async I/O is in-flight:
+        // it waits for its internal read thread to exit, but that thread is
+        // blocked on a synchronous ReadFile() call which only returns once the
+        // handle is closed — a circular dependency.
+        //
+        // SerialPort.BaseStream is typed as Stream (not FileStream), so
+        // SafeFileHandle is not directly accessible. The actual runtime type on
+        // Windows is the internal System.IO.Ports.SerialStream, which holds the
+        // native handle in a private "_handle" field of type SafeFileHandle.
+        // Closing it via reflection yanks the handle at the OS level: all
+        // pending I/O returns immediately with an error, the internal read
+        // thread exits, and SerialPort.Dispose() can then clean up cleanly.
         try
         {
-            if (_port.IsOpen)
+            var handleField = _port.BaseStream
+                .GetType()
+                .GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (handleField?.GetValue(_port.BaseStream) is SafeFileHandle handle)
             {
-                _port.Close();
+                handle.Close();
             }
         }
-        catch { /* best-effort */ }
+        catch { /* best-effort — port may not be open or already disposed */ }
 
         if (_writer is not null)
         {
@@ -129,10 +147,13 @@ public sealed class SerialPortTransport : IFlipperTransport
             {
                 await _writer.DisposeAsync().ConfigureAwait(false);
             }
-            catch (ObjectDisposedException) { }
+            catch { /* handle already closed — exceptions are expected here */ }
         }
 
-        _reader?.Dispose();
-        _port.Dispose();
+        try { _reader?.Dispose(); }
+        catch { /* handle already closed */ }
+
+        try { _port.Dispose(); }
+        catch { /* best-effort */ }
     }
 }

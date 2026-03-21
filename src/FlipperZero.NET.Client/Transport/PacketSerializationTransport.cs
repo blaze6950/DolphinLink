@@ -105,9 +105,16 @@ internal sealed class PacketSerializationTransport : IFlipperTransport
 
     public async ValueTask DisposeAsync()
     {
-        // Seal the outbound channel and cancel the writer loop.
+        // Seal the outbound channel and signal the writer loop to stop.
         _outbound.Writer.TryComplete();
         await _writerCts.CancelAsync().ConfigureAwait(false);
+
+        // Dispose the inner transport BEFORE awaiting the writer task.
+        // On Windows, SerialPort.BaseStream.WriteAsync ignores CancellationToken;
+        // closing the port (inside SerialPortTransport.DisposeAsync) is the only
+        // reliable way to unblock a pending WriteAsync/FlushAsync.  Awaiting
+        // _writerTask first would deadlock for the same reason as the reader side.
+        await _inner.DisposeAsync().ConfigureAwait(false);
 
         if (_writerTask is not null)
         {
@@ -115,6 +122,5 @@ internal sealed class PacketSerializationTransport : IFlipperTransport
         }
 
         _writerCts.Dispose();
-        await _inner.DisposeAsync().ConfigureAwait(false);
     }
 }

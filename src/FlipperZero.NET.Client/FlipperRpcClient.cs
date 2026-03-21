@@ -539,12 +539,18 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         FaultAll(new FlipperDisconnectedException(DisconnectReason.ClientDisposed, "Client disposed."));
 
+        // Dispose the transport BEFORE awaiting the reader task.
+        // On Windows, SerialPort.BaseStream.ReadAsync ignores CancellationToken;
+        // closing the port (done inside SerialPortTransport.DisposeAsync) is the
+        // only reliable way to unblock a pending ReadLineAsync and let the reader
+        // loop exit.  Awaiting _readerTask first would deadlock because the port
+        // close only happens after the await — which never completes.
+        await _transport.DisposeAsync().ConfigureAwait(false);
+
         if (_readerTask is not null)
         {
             await _readerTask.ConfigureAwait(false);
         }
-
-        await _transport.DisposeAsync().ConfigureAwait(false);
         _disconnectCts.Dispose();
         _cts.Dispose();
     }

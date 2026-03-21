@@ -98,3 +98,26 @@ public static class FlipperCollection
 {
     public const string Name = "Flipper integration";
 }
+
+/// <summary>
+/// Provides constants for the bootstrapper hardware test collection.
+///
+/// Bootstrap tests need exclusive access to both CDC interfaces:
+/// <list type="bullet">
+///   <item><c>FLIPPER_SYSTEM_PORT</c> — CDC interface 0 (native protobuf RPC, used by qFlipper)</item>
+///   <item><c>FLIPPER_PORT</c> — CDC interface 1 (daemon NDJSON port)</item>
+/// </list>
+/// They run in their own collection so they do not contend with the shared
+/// <see cref="FlipperFixture"/> that holds CDC interface 1 open.
+/// </summary>
+public static class BootstrapCollection
+{
+    public const string Name = "Flipper bootstrap";
+
+    /// <summary>
+    /// Environment variable that specifies the serial port for CDC interface 0
+    /// (the Flipper's native protobuf RPC port, also used by qFlipper).
+    /// Example: <c>COM3</c> on Windows, <c>/dev/ttyACM0</c> on Linux.
+    /// </summary>
+    public const string SystemPortEnvVar = "FLIPPER_SYSTEM_PORT";
+}
