@@ -4,9 +4,11 @@
  * Command: ir_tx_raw
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ir_tx_raw","timings":[9000,4500,560,...]}
- *     timings — array of mark/space durations in microseconds (max 512 values)
- *               even-indexed values are marks (carrier on), odd are spaces
+ *   {"c":18,"i":N,"fr":38000,"dc":33,"tm":[9000,4500,560,...]}
+ *     fr — carrier frequency in Hz (uint32, default 38000)
+ *     dc — duty cycle percent (uint32, default 33)
+ *     tm — array of mark/space durations in microseconds (max 512 values)
+ *          even-indexed values are marks (carrier on), odd are spaces
  *
  * Wire format (response):
  *   {"t":0,"i":N}

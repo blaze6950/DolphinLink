@@ -6,7 +6,7 @@ namespace FlipperZero.NET.Commands.System;
 /// Sets the RTC date and time on the Flipper.
 ///
 /// Wire format (request):
-/// <code>{"i":N,"c":8,"yr":2025,"mo":6,"dy":1,"hr":12,"mn":0,"sc":0,"wd":7}</code>
+/// <code>{"c":8,"i":N,"yr":2025,"mo":6,"dy":1,"hr":12,"mn":0,"sc":0,"wd":7}</code>
 ///
 /// Wire format (response):
 /// <code>{"t":0,"i":N}</code>

@@ -9,16 +9,16 @@
  * Stream teardown stops the worker thread and frees protocol/key objects.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ibutton_read_start"}
+ *   {"c":38,"i":N}
  *
  * Wire format (response — stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream events):
  *   {"t":1,"i":M,"p":{"ty":"<protocol_name>","d":"<hex>"}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"stream_table_full"}  — no free stream slot
+ *   {"t":0,"i":N,"e":"stream_table_full"}  — no free stream slot
  *
  * Resources: RESOURCE_IBUTTON.
  * Thread: handler on main; callback on iButtonWorker thread.

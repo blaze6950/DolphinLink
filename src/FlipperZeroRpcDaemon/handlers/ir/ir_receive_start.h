@@ -4,17 +4,17 @@
  * Command: ir_receive_start  (streaming)
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ir_receive_start"}
+ *   {"c":19,"i":N}
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream event — emitted for each decoded infrared frame):
- *   {"t":1,"i":M,"p":{"protocol":"NEC","address":0,"command":0,"repeat":false}}
- *     protocol — infrared protocol name
- *     address  — device address (uint32)
- *     command  — command code (uint32)
- *     repeat   — true if this is a repeat frame
+ *   {"t":1,"i":M,"p":{"pr":"NEC","a":0,"cm":0,"rp":false}}
+ *     pr — infrared protocol name
+ *     a  — device address (uint32)
+ *     cm — command code (uint32)
+ *     rp — true if this is a repeat frame
  *
  * Error codes:
  *   stream_table_full — no free stream slots

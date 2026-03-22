@@ -7,7 +7,9 @@
  * The line is rendered at the next ui_flush call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_draw_line","x1":0,"y1":0,"x2":127,"y2":63}
+ *   {"c":44,"i":N,"x1":0,"y1":0,"x2":127,"y2":63,"c":0}
+ *
+ *   c: 0 = black (default), 1 = white
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

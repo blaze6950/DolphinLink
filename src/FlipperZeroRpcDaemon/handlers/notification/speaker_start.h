@@ -6,9 +6,9 @@
  * "speaker_stop" is issued.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"speaker_start","freq":440,"volume":128}
- *     freq   — frequency in Hz (uint32; passed as float to the HAL)
- *     volume — 0–255 mapped linearly to 0.0–1.0 HAL volume
+ *   {"c":27,"i":N,"fr":440,"vo":128}
+ *     fr — frequency in Hz (uint32; passed as float to the HAL)
+ *     vo — 0–100 mapped to 0.0–1.0 HAL volume
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

@@ -5,7 +5,7 @@
  *   Request:  {"c":N,"i":M,
  *               "yr":<u32>,"mo":<u32>,"dy":<u32>,
  *               "hr":<u32>,"mn":<u32>,"sc":<u32>}
- *   Response: {"id":N,"status":"ok"}
+ *   Response: {"t":0,"i":N}
  *   Errors:   missing_datetime_fields (year, month, or day == 0)
  *
  * Writes the supplied date/time to the hardware RTC.  The weekday field

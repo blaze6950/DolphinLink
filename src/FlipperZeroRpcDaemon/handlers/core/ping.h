@@ -2,8 +2,8 @@
  * ping.h — ping command handler declaration
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"ping"}
- *   Response: {"t":0,"i":N,"p":{"pong":true}}
+ *   Request:  {"c":0,"i":N}
+ *   Response: {"t":0,"i":N,"p":{"pg":true}}
  *
  * The ping command is a simple round-trip health-check with no arguments
  * and no resource requirements.

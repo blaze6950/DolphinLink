@@ -10,7 +10,7 @@
  *   font: 0 = FontPrimary, 1 = FontSecondary (default), 2 = FontBigNumbers
  *
  * Wire format (response – ok):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   resource_busy — RESOURCE_GUI is not held; call ui_screen_acquire first

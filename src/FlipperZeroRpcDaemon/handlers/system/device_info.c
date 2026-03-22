@@ -2,7 +2,7 @@
  * device_info.c — device_info command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"device_info"}
+ *   Request:  {"c":5,"i":N}
  *   Response: {"t":0,"i":N,"p":{...}} (see device_info.h)
  *
  * Reads identity, firmware, hardware OTP, regulatory IDs and UID/BLE MAC

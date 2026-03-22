@@ -5,14 +5,14 @@
  * in the range 0–255.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"led_set","color":"red"|"green"|"blue","value":0-255}
+ *   {"c":24,"i":N,"l":<led_enum>,"r":0-255,"g":0-255,"b":0-255}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"t":0,"i":N,"e":"missing_color"}   — "color" field absent or unrecognised
- *   {"t":0,"i":N,"e":"invalid_color"}   — color string is not red/green/blue
+ *   {"t":0,"i":N,"e":"missing_color"}   — "l" field absent or unrecognised
+ *   {"t":0,"i":N,"e":"invalid_color"}   — led enum value not recognised
  *
  * Resources: none (0).
  */

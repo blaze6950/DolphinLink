@@ -4,7 +4,7 @@
  * Sets the LCD backlight brightness to a value in the range 0–255.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"backlight","value":0-255}
+ *   {"c":29,"i":N,"lv":0-255}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

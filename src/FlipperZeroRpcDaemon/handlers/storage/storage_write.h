@@ -5,7 +5,7 @@
  * decoded bytes to a file, creating or overwriting it.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_write","path":"/int/foo.txt","data":"<base64>"}
+ *   {"c":33,"i":N,"p":"/int/foo.txt","d":"<base64>"}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

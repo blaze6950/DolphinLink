@@ -4,8 +4,8 @@
  * Command: gpio_set_5v
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_set_5v","enable":true}
- *     enable — true = enable the 5 V OTG rail, false = disable it
+ *   {"c":15,"i":N,"en":1}
+ *     en — 1 = enable the 5 V OTG rail, 0 = disable it
  *
  * Wire format (response):
  *   {"t":0,"i":N}

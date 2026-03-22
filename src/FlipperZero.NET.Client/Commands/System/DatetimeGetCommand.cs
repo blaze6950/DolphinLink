@@ -7,7 +7,7 @@ namespace FlipperZero.NET.Commands.System;
 /// Returns the current RTC date and time from the Flipper.
 ///
 /// Wire format (request):
-/// <code>{"i":N,"c":7}</code>
+/// <code>{"c":7,"i":N}</code>
 ///
 /// Wire format (response):
 /// <code>{"t":0,"i":N,"p":{"yr":2025,"mo":6,"dy":1,"hr":12,"mn":0,"sc":0,"wd":7}}</code>

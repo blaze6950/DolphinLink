@@ -2,7 +2,7 @@
  * region_info.c — region_info command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"region_info"}
+ *   Request:  {"c":9,"i":N}
  *   Response: {"t":0,"i":N,"p":{
  *               "region":"<name>",
  *               "bands":[{"start":<u32>,"end":<u32>,"power_limit":<u8>},...] }}

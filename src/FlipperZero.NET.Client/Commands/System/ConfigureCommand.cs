@@ -15,7 +15,7 @@ namespace FlipperZero.NET.Commands.System;
 /// value (initially the compile-time default: 3 s interval, 10 s timeout, LED off).
 ///
 /// Wire format (request — all fields optional):
-/// <code>{"i":N,"c":2,"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}</code>
+/// <code>{"c":2,"i":N,"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}</code>
 ///
 /// Wire format (response — effective values; "led" omitted when not configured):
 /// <code>{"t":0,"i":N,"p":{"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}}</code>

@@ -4,7 +4,7 @@
  * Removes a file or empty directory using storage_common_remove().
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_remove","path":"/int/foo.txt"}
+ *   {"c":35,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

@@ -12,8 +12,8 @@
  *   {"t":0,"i":N,"p":{"p":"/int","tk":NNN,"fk":NNN}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}   — "path" field absent
- *   {"id":N,"error":"storage_error"}  — storage API returned non-OK status
+ *   {"t":0,"i":N,"e":"missing_path"}   — "path" field absent
+ *   {"t":0,"i":N,"e":"storage_error"}  — storage API returned non-OK status
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

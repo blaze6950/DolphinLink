@@ -4,14 +4,14 @@
  * Command: nfc_scan_start  (streaming)
  *
  * Wire format (request):
- *   {"id":N,"cmd":"nfc_scan_start"}
+ *   {"c":23,"i":N}
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream event — emitted each time a tag protocol is detected):
- *   {"t":1,"i":M,"p":{"protocol":"ISO15693-3"}}
- *     protocol — NFC protocol name from nfc_device_get_protocol_name()
+ *   {"t":1,"i":M,"p":{"pr":"ISO15693-3"}}
+ *     pr — NFC protocol name from nfc_device_get_protocol_name()
  *
  * Error codes:
  *   stream_table_full — no free stream slots

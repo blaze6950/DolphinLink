@@ -8,7 +8,7 @@
  * ViewPort is restored.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_screen_release"}
+ *   {"c":41,"i":N}
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

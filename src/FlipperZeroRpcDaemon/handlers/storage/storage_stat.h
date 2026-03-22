@@ -4,10 +4,10 @@
  * Stats a file or directory, returning its size and whether it is a directory.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_stat","path":"/int/foo.txt"}
+ *   {"c":36,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"size":1234,"is_dir":false}}
+ *   {"t":0,"i":N,"p":{"sz":1234,"d":false}}
  *
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"missing_path"}  — "path" field absent

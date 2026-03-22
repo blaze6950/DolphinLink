@@ -12,7 +12,7 @@
  * Protocol (response — V3 envelope):
  *   {"t":0,"i":<uint>}                        <- void ok
  *   {"t":0,"i":<uint>,"p":{...}}              <- ok with data
- *   {"t":0,"i":<uint>,"p":{"stream":<uint>}}  <- stream opened
+ *   {"t":0,"i":<uint>,"p":{"s":<uint>}}       <- stream opened
  *   {"t":1,"i":<stream_id>,"p":{...}}         <- stream event
  *   {"t":0,"i":<uint>,"e":"<code>"}           <- error
  *   {"t":2}                                   <- graceful exit

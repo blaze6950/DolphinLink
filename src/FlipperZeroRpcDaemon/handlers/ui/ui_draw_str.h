@@ -7,9 +7,10 @@
  * The text is rendered at the next ui_flush call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_draw_str","x":10,"y":20,"text":"Hello","font":1}
+ *   {"c":42,"i":N,"x":10,"y":20,"tx":"Hello","fn":1,"c":1}
  *
- *   font: 0 = FontPrimary, 1 = FontSecondary (default), 2 = FontBigNumbers
+ *   fn: 0 = FontPrimary, 1 = FontSecondary (default), 2 = FontBigNumbers
+ *   c:  0 = black (default), 1 = white
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

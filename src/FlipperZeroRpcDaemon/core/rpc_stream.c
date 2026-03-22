@@ -7,7 +7,7 @@
  *
  *   stream_open()        — allocate slot, acquire resource, assign ID
  *   stream_send_opened() — emit V3 stream-open response over CDC:
- *                          {"t":0,"i":N,"p":{"stream":M}}\n
+ *                          {"t":0,"i":N,"p":{"s":M}}\n
  *
  * These were previously copy-pasted as static functions into every handler
  * file.  They are now the single canonical implementations.
@@ -132,7 +132,7 @@ int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* s
 }
 
 void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd_name) {
-    /* V5 payload: {"s":M} — rpc_send_data_response wraps in the t/i envelope */
+    /* V3 payload: {"s":M} — rpc_send_data_response wraps in the t/i envelope */
     char payload[32];
     snprintf(payload, sizeof(payload), "{\"s\":%" PRIu32 "}", stream_id);
 

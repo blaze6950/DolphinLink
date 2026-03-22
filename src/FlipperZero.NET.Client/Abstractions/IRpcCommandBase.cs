@@ -20,7 +20,7 @@ public interface IRpcCommandBase
     string CommandName { get; }
 
     /// <summary>
-    /// Numeric command id used in the V5 wire protocol <c>"c"</c> field.
+    /// Numeric command id used in the V1 wire protocol <c>"c"</c> field.
     /// Matches the zero-based index of the command in the <c>command-registry.json</c>
     /// array, which is also its position in the daemon's COMMAND_NAMES dispatch table.
     /// </summary>

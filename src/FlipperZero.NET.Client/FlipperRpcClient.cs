@@ -370,7 +370,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         // Step 1: send the command and wait for the stream-open response.
         // Reuse the standard request/response path — the daemon replies with
-        // {"t":0,"i":N,"p":{"stream":M}}.
+        // {"t":0,"i":N,"p":{"s":M}}.
         var openPending = new PendingRequest<StreamOpenResult>();
         var id = Interlocked.Increment(ref _nextId);
 

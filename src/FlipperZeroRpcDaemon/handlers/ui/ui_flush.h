@@ -8,7 +8,7 @@
  * After flushing the op buffer is cleared.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_flush"}
+ *   {"c":45,"i":N}
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

@@ -222,7 +222,7 @@ void on_stream_event(FuriEventLoopObject* object, void* ctx);
 int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* stream_id_out);
 
 /**
- * Send the stream-opened response: {"t":0,"i":<request_id>,"p":{"stream":<stream_id>}}\n
+ * Send the stream-opened response: {"t":0,"i":<request_id>,"p":{"s":<stream_id>}}\n
  *
  * @param request_id The original request ID.
  * @param stream_id  The newly allocated stream ID.

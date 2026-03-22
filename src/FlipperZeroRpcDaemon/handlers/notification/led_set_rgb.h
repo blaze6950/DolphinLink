@@ -4,7 +4,7 @@
  * Sets all three RGB LED channels atomically in a single call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"led_set_rgb","red":0-255,"green":0-255,"blue":0-255}
+ *   {"c":25,"i":N,"r":0-255,"g":0-255,"b":0-255}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

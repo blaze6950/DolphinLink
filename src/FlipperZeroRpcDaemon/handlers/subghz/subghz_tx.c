@@ -8,7 +8,7 @@
  *   {"c":N,"i":M,"tm":[9000,4500,...],"fr":433920000}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler;
  *            dispatcher pre-check is skipped for subghz_tx because the

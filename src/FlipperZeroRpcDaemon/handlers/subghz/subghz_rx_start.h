@@ -4,16 +4,16 @@
  * Command: subghz_rx_start  (streaming)
  *
  * Wire format (request):
- *   {"id":N,"cmd":"subghz_rx_start","freq":433920000}
- *     freq — carrier frequency in Hz (default: 433920000)
+ *   {"c":22,"i":N,"fr":433920000}
+ *     fr — carrier frequency in Hz (optional, default: 433920000)
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream event — emitted for each raw pair):
- *   {"t":1,"i":M,"p":{"level":true,"duration_us":9000}}
- *     level       — true = mark (carrier on), false = space (carrier off)
- *     duration_us — duration in microseconds (uint32)
+ *   {"t":1,"i":M,"p":{"lv":true,"du":9000}}
+ *     lv — true = mark (carrier on), false = space (carrier off)
+ *     du — duration in microseconds (uint32)
  *
  * Error codes:
  *   stream_table_full — no free stream slots

@@ -5,7 +5,7 @@
  * "speaker_start" can acquire it.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"speaker_stop"}
+ *   {"c":28,"i":N}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

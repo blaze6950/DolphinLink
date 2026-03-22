@@ -5,10 +5,10 @@
  * content as a Base64-encoded string.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_read","path":"/int/foo.txt"}
+ *   {"c":32,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"data":"<base64>"}}
+ *   {"t":0,"i":N,"p":{"d":"<base64>"}}
  *
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent

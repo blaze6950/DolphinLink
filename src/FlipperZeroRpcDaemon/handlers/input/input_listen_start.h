@@ -8,17 +8,13 @@
  * active streams receive every event (pub/sub broadcast, no exclusive lock).
  *
  * Wire format (request):
- *   {"id":N,"cmd":"input_listen_start"}
+ *   {"c":39,"i":N[,"ek":<key_enum>][,"et":<type_enum>]}
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream events):
- *   {"t":1,"i":M,"p":{"key":"ok","type":"short"}}
- *   {"t":1,"i":M,"p":{"key":"back","type":"long"}}
- *
- *   key  : "up" | "down" | "left" | "right" | "ok" | "back"
- *   type : "press" | "release" | "short" | "long" | "repeat"
+ *   {"t":1,"i":M,"p":{"k":<key_enum>,"ty":<type_enum>}}
  *
  * Error codes:
  *   stream_table_full — no free stream slots

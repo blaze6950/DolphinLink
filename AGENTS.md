@@ -76,7 +76,7 @@ dotnet script deploy-daemon.csx -- --system COM5 --daemon COM6
 
 ## Codegen
 
-Command schemas, stream schemas, and enums are defined under `schema/` and are the **single source of truth** for all wire field names and command IDs. The `codegen.csx` script at the repo root generates both C# (`.g.cs`) and C (`rpc_dispatch_generated.h`) from these schemas.
+Command schemas, stream schemas, and enums are defined under `schema/` and are the **single source of truth** for all wire field names and command IDs. Two scripts in `codegens/` generate output from these schemas: `codegens/codegen.csx` generates C# (`.g.cs`) files and `codegens/c-codegen.csx` generates the C dispatch header (`rpc_dispatch_generated.h`).
 
 ```
 schema/
@@ -85,12 +85,15 @@ schema/
   streams/<stream>.json              # one file per stream command
   enums/<Name>.json                  # enum definitions referenced via "$EnumName" in schemas
 
-codegen.csx                          # run with: dotnet script codegen.csx
+codegens/
+  codegen.csx                        # run with: dotnet script codegens/codegen.csx
+  c-codegen.csx                      # run with: dotnet script codegens/c-codegen.csx
 ```
 
 **Re-generate after any schema change:**
 ```bash
-dotnet script codegen.csx
+dotnet script codegens/codegen.csx
+dotnet script codegens/c-codegen.csx
 dotnet build   # verify 0 warnings, 0 errors
 ```
 
@@ -112,54 +115,9 @@ src/FlipperZeroRpcDaemon/generated/
 
 ```
 schema/                              # JSON schemas (source of truth — see Codegen section)
-codegen.csx                          # code generator (C# + C)
-
-src/FlipperZeroRpcDaemon/
-  flipper_zero_rpc_daemon.c          # entry point (~120 lines)
-  core/rpc_*.{h,c}                   # protocol infra: transport, dispatch, streams, json, base64, gui, response, resource, cmd_log
-  handlers/<subsystem>/<cmd>.{h,c}   # one file pair per command
-  generated/rpc_dispatch_generated.h # auto-generated dispatch table (COMMAND_NAMES[], commands[])
-
-src/FlipperZero.NET.Client/
-  FlipperRpcClient.cs                # core RPC logic: SendAsync/SendStreamAsync, reader loop, FaultAll
-  FlipperRpcClientOptions.cs         # readonly record struct: HeartbeatInterval + Timeout (default-safe via backing fields)
-  RpcLogEntry.cs                     # public diagnostic log entry (RpcLogSource, RpcLogKind enums + RpcLogEntry struct)
-  RpcStream.cs                       # IAsyncEnumerable<TEvent> + IAsyncDisposable
-  Abstractions/                      # IFlipperTransport, IRpcDiagnostics, IRpcCommand<TResponse>, IRpcStreamCommand<TEvent>, IRpcCommandResponse, IRpcCommandBase
-  Commands/<Subsystem>/<Cmd>Command.cs   # hand-written files for commands with skip flags (configure, daemon_info, etc.)
-  Commands/Ui/FlipperScreenSession.cs    # exclusive host-driven screen session with draw/flush helpers
-  Commands/RgbColor.cs               # shared RGB color struct (namespace: FlipperZero.NET.Commands)
-  Converters/                        # Base64JsonConverter, HexJsonConverter
-  Exceptions/                        # FlipperRpcException (typed exception with ErrorCode), FlipperDisconnectedException (with DisconnectReason enum)
-  Extensions/Flipper<Subsystem>Extensions.cs  # hand-written extension methods (configure, storage_list, notifications, ui)
-  Generated/                         # auto-generated .g.cs files (do not edit)
-  Transport/                         # public: SerialPortTransport (SerialPort-backed IFlipperTransport); internal: HeartbeatTransport, PacketSerializationTransport
-  Streaming/                         # internal: RpcStreamManager, StreamState, StreamOpenResult
-  Dispatch/                          # internal: RpcMessageDispatcher, RpcMessageSerializer, RpcEnvelope, RpcPendingRequests, IPendingRequest, PendingRequest
-
-tests/FlipperZero.NET.Client.UnitTests/
-  Infrastructure/FakeTransport.cs    # in-process IFlipperTransport; always use CreateClient(), not new FlipperRpcClient(this)
-tests/FlipperZero.NET.Client.HardwareTests/
-  <Subsystem>/<Cmd>Tests.cs          # mirrors command structure; requires physical device
-  Infrastructure/                    # FlipperFixture, RequiresFlipperFact, StreamTestHelper
-tests/FlipperZero.NET.Tests.Infrastructure/
-  FlipperFixture.cs                  # shared xUnit collection fixture (FLIPPER_PORT env var)
-
-src/FlipperZero.NET.Bootstrapper/
-  FlipperBootstrapper.cs             # public static BootstrapAsync() — full install/launch state machine
-  FlipperBootstrapOptions.cs         # readonly record struct: AutoInstall, InstallPath, Timeout, DaemonStartTimeout
-  FlipperBootstrapResult.cs          # FlipperBootstrapResult (owns Client), BootstrapAction enum, FlipperBootstrapException
-  NativeRpc/
-    NativeRpcTransport.cs            # varint-length-delimited protobuf framing over SerialPort (CDC interface 0)
-    FlipperNativeRpcClient.cs        # typed native RPC client: PingAsync, StorageStatAsync, StorageMd5SumAsync,
-                                     #   StorageMkdirAsync, StorageWriteAsync (chunked), AppStartAsync
-  Proto/                             # vendored + trimmed .proto files compiled by Grpc.Tools (message-only, no gRPC services)
-    flipper.proto                    # PB.Main envelope + imports
-    storage.proto                    # Stat, Md5Sum, Write, Mkdir
-    application.proto                # App.StartRequest
-    system.proto                     # System.PingRequest/Response
-  Resources/
-    flipper_zero_rpc_daemon.fap      # pre-built FAP binary embedded as assembly resource
+codegens/
+  codegen.csx                        # C# code generator
+  c-codegen.csx                      # C code generator
 ```
 
 Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
@@ -183,16 +141,16 @@ Namespace rule: `FlipperZero.NET.Commands` for request/response types; stream ev
 
 One compact JSON object per line (`\n`-terminated). Never dispatch on `}`.
 
-**Request** (host → Flipper) — V5 format uses integer command IDs from `command-registry.json`:
+**Request** (host → Flipper) — V1 format uses integer command IDs from `command-registry.json`:
 ```json
-{"i":1,"c":0}
-{"i":2,"c":19}
-{"i":3,"c":1,"s":1}
+{"c":0,"i":1}
+{"c":19,"i":2}
+{"c":1,"i":3,"s":1}
 ```
 
-Request envelope reserved keys: `"i"` (request ID, uint) and `"c"` (command ID integer from registry). Additional fields are command-specific args using abbreviated wire keys defined in the schema.
+Request envelope reserved keys: `"c"` (command ID integer from registry) and `"i"` (request ID, uint). Additional fields are command-specific args using abbreviated wire keys defined in the schema.
 
-All messages use a compact V5 envelope with single-character keys:
+All messages use a compact V3 envelope with single-character keys:
 
 | Field | Type | Role |
 |---|---|---|
@@ -212,9 +170,9 @@ Error codes: `resource_busy`, `unknown_command`, `missing_cmd`, `missing_stream_
 
 ### C# Client mapping
 
-- `SendAsync<TCmd, TResp>()` → sends `{"i":N,"c":<id>,...}`, routes daemon reply by `"i"` on `t:0`.
+- `SendAsync<TCmd, TResp>()` → sends `{"c":<id>,"i":N,...}`, routes daemon reply by `"i"` on `t:0`.
 - `SendStreamAsync<TCmd, TEvent>()` → sends open command, daemon replies `{"t":0,"i":N,"p":{"s":M}}`; unsolicited `{"t":1,"i":M,"p":{...}}` events follow.
-- `RpcStream<T>.DisposeAsync()` → sends `{"i":N,"c":1,"s":M}` to release daemon resources.
+- `RpcStream<T>.DisposeAsync()` → sends `{"c":1,"i":N,"s":M}` to release daemon resources.
 
 ### Resource Management (`RESOURCE_SUBGHZ`, `RESOURCE_IR`, `RESOURCE_NFC`, etc.). Dispatcher checks availability before invoking handler. Releasing a stream releases its resources. Max 8 concurrent streams (`MAX_STREAMS`).
 
@@ -330,7 +288,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
    ```
 3. **Capability negotiation**: add the command name to `SUPPORTED_COMMANDS[]` in `handlers/system/daemon_info.c` so the host detects it via `daemon_info`. If the change is a **breaking wire-format change**, also bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h`.
 4. Implement: parse args with `json_extract_string`/`json_extract_uint32` (`core/rpc_json.h`), respond with `rpc_send_ok()`/`rpc_send_error()` (`core/rpc_response.h`).
-5. **Stream commands**: call `stream_alloc_slot()` first (return error if `-1`), then `resource_acquire()`, then send `{"id":N,"stream":M}\n`.
+5. **Stream commands**: call `stream_alloc_slot()` first (return error if `-1`), then `resource_acquire()`, then send `{"t":0,"i":N,"p":{"s":M}}\n` via `stream_send_opened()`.
 
 ### C# Client
 

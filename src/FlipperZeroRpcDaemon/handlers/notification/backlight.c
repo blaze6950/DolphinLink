@@ -8,7 +8,7 @@
  *   {"c":N,"i":M,"vl":0-255}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

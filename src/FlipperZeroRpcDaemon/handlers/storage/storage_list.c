@@ -6,15 +6,15 @@
  * (each entry can be up to ~290 bytes; 64 × 290 ≈ 18 560 bytes).
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_list","path":"/int"}
+ *   {"c":31,"i":N,"p":"/int"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"entries":[...]}}
+ *   {"t":0,"i":N,"p":{"en":[...]}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}   — "path" field absent
- *   {"id":N,"error":"open_failed"}    — directory could not be opened
- *   {"id":N,"error":"out_of_memory"}  — heap allocation failed
+ *   {"t":0,"i":N,"e":"missing_path"}   — "path" field absent
+ *   {"t":0,"i":N,"e":"open_failed"}    — directory could not be opened
+ *   {"t":0,"i":N,"e":"out_of_memory"}  — heap allocation failed
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

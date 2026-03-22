@@ -9,7 +9,7 @@
  *   {"c":N,"i":M,"tm":[9000,4500,560,...]}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: RESOURCE_IR (pre-acquired by the dispatcher)
  */

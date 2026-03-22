@@ -4,12 +4,12 @@
  * Command: gpio_read
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_read","pin":"1"}
- *     pin  — external connector pin label ("1"–"8")
+ *   {"c":12,"i":N,"p":<pin_enum>}
+ *     p  — pin enum integer (see GpioPin enum)
  *
  * Wire format (response):
- *   {"t":0,"i":N,"p":{"level":true}}
- *     level — true = high, false = low
+ *   {"t":0,"i":N,"p":{"lv":true}}
+ *     lv — true = high, false = low
  *
  * Resources: none
  */

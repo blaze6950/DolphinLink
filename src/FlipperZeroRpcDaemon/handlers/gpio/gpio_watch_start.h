@@ -4,16 +4,16 @@
  * Command: gpio_watch_start  (streaming)
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_watch_start","pin":"1"}
- *     pin — external connector pin label ("1"–"8")
+ *   {"c":16,"i":N,"p":<pin_enum>}
+ *     p — pin enum integer
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream event — emitted on every rising or falling edge):
- *   {"t":1,"i":M,"p":{"pin":"1","level":true}}
- *     pin   — pin label echoed from the request
- *     level — current digital level sampled inside the EXTI ISR
+ *   {"t":1,"i":M,"p":{"p":<pin_enum>,"lv":true}}
+ *     p  — pin enum integer echoed from the request
+ *     lv — current digital level sampled inside the EXTI ISR
  *
  * Error codes:
  *   missing_pin     — "pin" field absent

@@ -5,16 +5,16 @@ JSON name, abbreviated wire keys, resource lock, stream flag, C handler file, C#
 and C# public extension method.
 
 > **Source of truth**: `schema/command-registry.json` + `schema/commands/` + `schema/streams/` (schemas).
-> `codegen.csx` generates `rpc_dispatch_generated.h` (C) and `.g.cs` files (C#) from these schemas.
+> `codegens/codegen.csx` generates `.g.cs` files (C#) and `codegens/c-codegen.csx` generates `rpc_dispatch_generated.h` (C) from these schemas.
 > Keep this table in sync when adding or removing commands.
 
-## Request wire format (V5)
+## Request wire format (V1)
 
 ```
-{"i":<request_id>,"c":<command_id>[,<arg_key>:<value>,...]}
+{"c":<command_id>,"i":<request_id>[,<arg_key>:<value>,...]}
 ```
 
-`"i"` = request ID (uint, host-assigned), `"c"` = integer command ID from registry below.
+`"c"` = integer command ID from registry below, `"i"` = request ID (uint, host-assigned).
 All argument and response field names are abbreviated; see the **Wire keys** column.
 
 ## Table
@@ -72,6 +72,6 @@ All argument and response field names are abbreviated; see the **Wire keys** col
 
 - **Command ID** is the 0-based index in `schema/command-registry.json`. The registry is append-only; never reorder or remove entries.
 - **Wire keys** use abbreviated names defined in the schema files under `schema/commands/` and `schema/streams/`. The C# `[JsonPropertyName]` attributes and C `json_extract_*` calls in handlers both use these abbreviated keys.
-- **Generated files** (`Generated/`) are produced by `codegen.csx` — do not edit by hand.
+- **Generated files** (`Generated/`) are produced by `codegens/codegen.csx` — do not edit by hand.
 - **Hand-written files** without a `Generated/` prefix exist because the command has `"csharp": { "skip": [...] }` in its schema (e.g. `configure`, `daemon_info`, `device_info`, `region_info`) or requires custom logic (`StorageListCommand.cs`, `DatetimeGetCommand.cs`, `DatetimeSetCommand.cs`).
 - **Stream event type names**: `GpioWatchEvent`, `IrReceiveEvent`, `SubghzRxEvent`, `NfcScanEvent`, `LfrfidReadEvent`, `IbuttonReadEvent`, `InputListenEvent` — all in `FlipperZero.NET.Commands.<Subsystem>` namespace.

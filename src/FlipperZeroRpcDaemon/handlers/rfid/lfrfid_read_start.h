@@ -6,13 +6,13 @@
  * a tag is detected.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"lfrfid_read_start"}
+ *   {"c":37,"i":N}
  *
  * Wire format (response — stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream events):
- *   {"t":1,"i":M,"p":{"type":"<protocol_name>","data":"<hex>"}}
+ *   {"t":1,"i":M,"p":{"ty":"<protocol_name>","d":"<hex>"}}
  *
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"stream_table_full"}  — no free stream slot

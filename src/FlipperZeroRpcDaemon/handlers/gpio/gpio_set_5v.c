@@ -7,7 +7,7 @@
  *   {"c":N,"i":M,"en":1}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   missing_enable — "enable" field absent

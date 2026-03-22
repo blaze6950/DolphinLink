@@ -4,8 +4,8 @@
  * Command: adc_read
  *
  * Wire format (request):
- *   {"id":N,"cmd":"adc_read","pin":"1"}
- *     pin — external connector pin label ("1", "2", "3", "6", "7" are ADC-capable)
+ *   {"c":14,"i":N,"p":<pin_enum>}
+ *     p — pin enum integer (ADC-capable pins only)
  *
  * Wire format (response):
  *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}

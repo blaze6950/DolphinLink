@@ -4,10 +4,11 @@
  * Command: ir_tx
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ir_tx","protocol":"NEC","address":0,"command":0}
- *     protocol — infrared protocol name (e.g. "NEC", "Samsung32", "RC6")
- *     address  — device address (uint32)
- *     command  — command code (uint32)
+ *   {"c":17,"i":N,"pr":"NEC","a":0,"cm":0,"rp":0}
+ *     pr — infrared protocol name (e.g. "NEC", "Samsung32", "RC6")
+ *     a  — device address (uint32)
+ *     cm — command code (uint32)
+ *     rp — repeat flag (0 or 1)
  *
  * Wire format (response):
  *   {"t":0,"i":N}

@@ -2,12 +2,12 @@
  * power_info.h — power_info command handler declaration
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"power_info"}
+ *   Request:  {"c":6,"i":N}
  *   Response: {"t":0,"i":N,"p":{
- *               "charge":<u8>,
- *               "charging":<bool>,
- *               "voltage_mv":<i32>,
- *               "current_ma":<i32>}}
+ *               "ch":<u8>,
+ *               "cg":<bool>,
+ *               "mv":<i32>,
+ *               "ma":<i32>}}
  *
  * Resources required: none.
  */

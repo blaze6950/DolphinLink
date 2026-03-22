@@ -8,7 +8,7 @@
  * ViewPort that it can paint via ui_draw_* + ui_flush.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_screen_acquire"}
+ *   {"c":40,"i":N}
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

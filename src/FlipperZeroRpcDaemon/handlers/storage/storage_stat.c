@@ -11,8 +11,8 @@
  *   {"t":0,"i":N,"p":{"sz":1234,"d":0}}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}  — "path" field absent
- *   {"id":N,"error":"stat_failed"}   — storage_common_stat returned non-OK
+ *   {"t":0,"i":N,"e":"missing_path"}  — "path" field absent
+ *   {"t":0,"i":N,"e":"stat_failed"}   — storage_common_stat returned non-OK
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

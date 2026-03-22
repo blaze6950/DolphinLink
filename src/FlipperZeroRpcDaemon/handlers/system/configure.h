@@ -7,13 +7,13 @@
  * expectations.
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"configure"[,"heartbeat_ms":<u32>][,"timeout_ms":<u32>][,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}
+ *   Request:  {"c":2,"i":N[,"hb":<u32>][,"to":<u32>][,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}
  *
  *   All arguments are optional.  If a field is absent the daemon retains its
  *   current value (initially the compile-time default).
  *
  *   Response (success):
- *     {"t":0,"i":N,"p":{"heartbeat_ms":<u32>,"timeout_ms":<u32>[,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}}
+ *     {"t":0,"i":N,"p":{"hb":<u32>,"to":<u32>[,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}}
  *   The response carries the *effective* values the daemon is now using.
  *   The "led" object is included in the response only when an LED indicator
  *   colour has been configured (i.e. when the request included a "led" field).

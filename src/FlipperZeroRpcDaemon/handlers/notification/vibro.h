@@ -4,13 +4,14 @@
  * Enables or disables the Flipper Zero vibration motor.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"vibro","enable":true|false}
+ *   {"c":26,"i":N,"en":1}
+ *     en — 1 = enable vibration, 0 = disable
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"t":0,"i":N,"e":"missing_enable"}  — "enable" field absent
+ *   {"t":0,"i":N,"e":"missing_enable"}  — "en" field absent
  *
  * Resources: none (0).
  */

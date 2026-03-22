@@ -2,9 +2,9 @@
  * datetime_set.h — datetime_set command handler declaration
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"datetime_set",
- *               "year":<u32>,"month":<u32>,"day":<u32>,
- *               "hour":<u32>,"minute":<u32>,"second":<u32>}
+ *   Request:  {"c":8,"i":N,
+ *               "yr":<u32>,"mo":<u32>,"dy":<u32>,
+ *               "hr":<u32>,"mn":<u32>,"sc":<u32>,"wd":<u32>}
  *   Response: {"t":0,"i":N}
  *   Errors:   missing_datetime_fields
  *

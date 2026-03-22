@@ -5,10 +5,10 @@
  * point (e.g. "/int", "/ext", "/any").
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_info","path":"/int"}
+ *   {"c":30,"i":N,"p":"/int"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
+ *   {"t":0,"i":N,"p":{"p":"/int","tk":NNN,"fk":NNN}}
  *
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"missing_path"}    — "path" field absent

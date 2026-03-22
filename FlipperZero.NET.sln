@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 
+#
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.NET.Client", "src\FlipperZero.NET.Client\FlipperZero.NET.Client.csproj", "{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{01B5A30A-9E98-4333-8196-597B05CC25F9}"
@@ -21,6 +21,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.NET.Client.ManualTests", "tests\FlipperZero.NET.Client.ManualTests\FlipperZero.NET.Client.ManualTests.csproj", "{64DC315E-544E-4CD2-9249-8D6267BFDE67}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.NET.Bootstrapper", "src\FlipperZero.NET.Bootstrapper\FlipperZero.NET.Bootstrapper.csproj", "{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codegens", "codegens", "{C3BCFC60-5114-4C8A-A639-1F98FC59AA26}"
+	ProjectSection(SolutionItems) = preProject
+		codegens\c-codegen.csx = codegens\c-codegen.csx
+		codegens\codegen.csx = codegens\codegen.csx
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -60,5 +66,6 @@ Global
 		{89604884-A430-4C7D-A750-A00D59D1D3BB} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
 		{64DC315E-544E-4CD2-9249-8D6267BFDE67} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
 		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+		{C3BCFC60-5114-4C8A-A639-1F98FC59AA26} = {01B5A30A-9E98-4333-8196-597B05CC25F9}
 	EndGlobalSection
 EndGlobal

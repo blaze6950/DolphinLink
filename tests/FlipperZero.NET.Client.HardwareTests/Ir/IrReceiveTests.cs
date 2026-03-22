@@ -21,7 +21,7 @@ public sealed class IrReceiveTests(FlipperFixture fixture)
     /// <see cref="FlipperRpcClient.IrReceiveStartAsync"/> must return an
     /// <see cref="RpcStream{TEvent}"/> with a non-zero stream id.
     /// Validates: the stream-open handshake (Flipper responds with
-    /// <c>{"id":N,"stream":M}</c>).
+    /// <c>{"t":0,"i":N,"p":{"s":M}}</c>).
     /// </summary>
     [Trait("Category", "Hardware")]
     [RequiresFlipperFact]

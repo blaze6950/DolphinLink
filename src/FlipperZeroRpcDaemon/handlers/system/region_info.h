@@ -2,10 +2,8 @@
  * region_info.h — region_info command handler declaration
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"region_info"}
- *   Response: {"t":0,"i":N,"p":{
- *               "region":"<name>",
- *               "bands":[{"start":<u32>,"end":<u32>,"power_limit":<u8>},...]}}
+ *   Request:  {"c":9,"i":N}
+ *   Response: {"t":0,"i":N,"p":{"rg":"<name>"}}
  *
  * Resources required: none.
  */

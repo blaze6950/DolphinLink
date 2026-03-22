@@ -9,13 +9,13 @@
  *   {"c":N,"i":M,"p":"/int/foo.txt","d":"<base64>"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}   — "path" field absent
- *   {"id":N,"error":"missing_data"}   — "data" field absent
- *   {"id":N,"error":"out_of_memory"}  — heap allocation failed
- *   {"id":N,"error":"open_failed"}    — file could not be opened for writing
+ *   {"t":0,"i":N,"e":"missing_path"}   — "path" field absent
+ *   {"t":0,"i":N,"e":"missing_data"}   — "data" field absent
+ *   {"t":0,"i":N,"e":"out_of_memory"}  — heap allocation failed
+ *   {"t":0,"i":N,"e":"open_failed"}    — file could not be opened for writing
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

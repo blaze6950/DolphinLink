@@ -2,7 +2,7 @@
  * power_info.c — power_info command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"power_info"}
+ *   Request:  {"c":6,"i":N}
  *   Response: {"t":0,"i":N,"p":{
  *               "charge":<u8>,"charging":<bool>,
  *               "voltage_mv":<i32>,"current_ma":<i32>}}

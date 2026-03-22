@@ -4,7 +4,7 @@
  * Creates a directory at the specified path using storage_simply_mkdir().
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_mkdir","path":"/int/mydir"}
+ *   {"c":34,"i":N,"p":"/int/mydir"}
  *
  * Wire format (response — success):
  *   {"t":0,"i":N}

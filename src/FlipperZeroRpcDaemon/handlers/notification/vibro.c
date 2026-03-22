@@ -7,7 +7,7 @@
  *   {"c":26,"i":N,"en":0|1}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"missing_enable"}  — "en" field absent

@@ -2,7 +2,7 @@
  * stream_close.c — stream_close command handler implementation
  *
  * Wire protocol:
- *   Request:  {"i":N,"c":1,"s":M}
+ *   Request:  {"c":1,"i":N,"s":M}
  *   Response: {"t":0,"i":N}
  *   Errors:   missing_stream_id, stream_not_found
  *

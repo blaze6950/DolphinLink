@@ -5,10 +5,10 @@
  * consecutive furi_hal_light_set() calls (red, green, blue).
  *
  * Wire format (request):
- *   {"id":N,"cmd":"led_set_rgb","red":0-255,"green":0-255,"blue":0-255}
+ *   {"c":25,"i":N,"r":0-255,"g":0-255,"b":0-255}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).
@@ -24,9 +24,9 @@
 
 void led_set_rgb_handler(uint32_t id, const char* json) {
     uint32_t r = 0, g = 0, b = 0;
-    json_extract_uint32(json, "red", &r);
-    json_extract_uint32(json, "green", &g);
-    json_extract_uint32(json, "blue", &b);
+    json_extract_uint32(json, "r", &r);
+    json_extract_uint32(json, "g", &g);
+    json_extract_uint32(json, "b", &b);
     if(r > 255) r = 255;
     if(g > 255) g = 255;
     if(b > 255) b = 255;

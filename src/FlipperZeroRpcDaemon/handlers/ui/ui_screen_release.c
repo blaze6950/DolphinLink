@@ -6,10 +6,10 @@
  * re-enables the daemon's own status ViewPort.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_screen_release"}
+ *   {"c":41,"i":N}
  *
  * Wire format (response – ok):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Error codes:
  *   resource_busy — RESOURCE_GUI is not currently held

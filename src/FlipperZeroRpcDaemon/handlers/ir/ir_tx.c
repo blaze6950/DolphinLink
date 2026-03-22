@@ -8,7 +8,7 @@
  *   {"c":N,"i":M,"pr":"NEC","a":0,"cm":0}
  *
  * Wire format (response):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: RESOURCE_IR (pre-acquired by the dispatcher)
  */

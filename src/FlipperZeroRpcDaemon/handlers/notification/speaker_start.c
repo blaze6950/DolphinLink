@@ -12,10 +12,10 @@
  *     vo   — 0–255 mapped linearly to 0.0–1.0 HAL volume
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"resource_busy"}  — HAL-level acquire failed
+ *   {"t":0,"i":N,"e":"resource_busy"}  — HAL-level acquire failed
  *
  * Resources: RESOURCE_SPEAKER (acquired by dispatcher before call).
  * Thread: main (FuriEventLoop).

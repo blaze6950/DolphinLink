@@ -7,11 +7,11 @@
  *   {"c":N,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_path"}   — "path" field absent
- *   {"id":N,"error":"remove_failed"}  — storage_common_remove returned non-OK
+ *   {"t":0,"i":N,"e":"missing_path"}   — "path" field absent
+ *   {"t":0,"i":N,"e":"remove_failed"}  — storage_common_remove returned non-OK
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).

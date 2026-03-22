@@ -5,10 +5,10 @@
  * each with name, is_dir flag, and size in bytes.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_list","path":"/int"}
+ *   {"c":31,"i":N,"p":"/int"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"entries":[
+ *   {"t":0,"i":N,"p":{"e":[
  *     {"name":"foo.txt","is_dir":false,"size":1234},
  *     {"name":"mydir","is_dir":true,"size":0}
  *   ]}}

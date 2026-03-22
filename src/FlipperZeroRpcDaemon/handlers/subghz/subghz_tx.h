@@ -4,10 +4,10 @@
  * Command: subghz_tx
  *
  * Wire format (request):
- *   {"id":N,"cmd":"subghz_tx","timings":[9000,4500,...],"freq":433920000}
- *     timings — mark/space duration array in microseconds (max 512 values)
- *               even-indexed = mark (TX on), odd = space (TX off)
- *     freq    — carrier frequency in Hz (default: 433920000)
+ *   {"c":20,"i":N,"lv":[9000,4500,...],"du":[...],"fr":433920000}
+ *     lv  — mark level durations array in microseconds (max 512 values)
+ *     du  — space durations array in microseconds
+ *     fr  — carrier frequency in Hz (default: 433920000)
  *
  * Wire format (response):
  *   {"t":0,"i":N}

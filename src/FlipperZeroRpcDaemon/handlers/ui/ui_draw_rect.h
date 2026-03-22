@@ -7,9 +7,10 @@
  * The rectangle is rendered at the next ui_flush call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_draw_rect","x":0,"y":0,"w":128,"h":64,"filled":false}
+ *   {"c":43,"i":N,"x":0,"y":0,"w":128,"h":64,"c":0,"fi":0}
  *
- *   filled: true = canvas_draw_box (filled), false = canvas_draw_frame (outline, default)
+ *   c:  0 = black (default), 1 = white
+ *   fi: 1 = filled (canvas_draw_box), 0 = outline (canvas_draw_frame, default)
  *
  * Wire format (response – ok):
  *   {"t":0,"i":N}

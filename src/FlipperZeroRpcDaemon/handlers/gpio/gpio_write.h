@@ -4,9 +4,9 @@
  * Command: gpio_write
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_write","pin":"1","level":true}
- *     pin   — external connector pin label ("1"–"8")
- *     level — true = drive high, false = drive low
+ *   {"c":13,"i":N,"p":<pin_enum>,"lv":1}
+ *     p  — pin enum integer
+ *     lv — 1 = drive high, 0 = drive low
  *
  * Wire format (response):
  *   {"t":0,"i":N}

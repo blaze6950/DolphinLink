@@ -2,18 +2,18 @@
  * device_info.h — device_info command handler declaration
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"device_info"}
+ *   Request:  {"c":5,"i":N}
  *   Response: {"t":0,"i":N,"p":{
- *               "name":"<str>","model":"<str>","model_code":"<str>",
- *               "firmware":"<str>","firmware_origin":"<str>","build_date":"<str>",
- *               "git_hash":"<str>","git_branch":"<str>","git_branch_num":"<str>",
- *               "git_origin":"<str>","dirty":<bool>,
- *               "hardware":<u32>,"hw_target":<u32>,"hw_body":<u32>,
- *               "hw_color":<u32>,"hw_connect":<u32>,"hw_display":<u32>,
- *               "hw_region":<u32>,"hw_region_name":"<str>","hw_timestamp":<u32>,
- *               "uid":"<16 hex chars>","ble_mac":"<12 hex chars>",
- *               "fcc_id":"<str>","ic_id":"<str>","mic_id":"<str>",
- *               "srrc_id":"<str>","ncc_id":"<str>"}}
+ *               "nm":"<str>","m":"<str>","mc":"<str>",
+ *               "fw":"<str>","fo":"<str>","bd":"<str>",
+ *               "gh":"<str>","gb":"<str>","gbn":"<str>",
+ *               "go":"<str>","dy":<bool>,
+ *               "hw":<u32>,"hwt":<u32>,"hwb":<u32>,
+ *               "hwc":<u32>,"hwcn":<u32>,"hwd":<u32>,
+ *               "hwr":<u32>,"hwrn":"<str>","hwts":<u32>,
+ *               "uid":"<16 hex chars>","bm":"<12 hex chars>",
+ *               "fcc":"<str>","ic":"<str>","mic":"<str>",
+ *               "srrc":"<str>","ncc":"<str>"}}
  *
  * Resources required: none.
  */

@@ -5,10 +5,10 @@
  * re-acquired by a subsequent "speaker_start" call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"speaker_stop"}
+ *   {"c":28,"i":N}
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Resources: none claimed by dispatcher, but handler releases RESOURCE_SPEAKER.
  * Thread: main (FuriEventLoop).
