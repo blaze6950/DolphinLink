@@ -32,12 +32,15 @@
 
 #define PATH_MAX_LEN 256
 
-void storage_stat_handler(uint32_t id, const char* json) {
+void storage_stat_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "p", path, sizeof(path))) {
+    if(!json_find(json, "p", offset, &val)) {
         rpc_send_error(id, "missing_path", "storage_stat");
         return;
     }
+    json_value_string(&val, path, sizeof(path));
+    (void)offset;
 
     FileInfo fi;
     FS_Error err = storage_common_stat(g_storage, path, &fi);

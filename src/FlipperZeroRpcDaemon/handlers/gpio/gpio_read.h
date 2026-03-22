@@ -17,13 +17,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "gpio_read" request.
  *
- * Initialises the named pin as a pull-up input and reads its digital level.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void gpio_read_handler(uint32_t id, const char* json);
+void gpio_read_handler(uint32_t id, const char* json, size_t offset);

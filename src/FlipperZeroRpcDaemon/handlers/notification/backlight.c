@@ -22,9 +22,13 @@
 #include <furi_hal_light.h>
 #include <inttypes.h>
 
-void backlight_handler(uint32_t id, const char* json) {
+void backlight_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     uint32_t value = 255;
-    json_extract_uint32(json, "vl", &value);
+    if(json_find(json, "vl", offset, &val)) {
+        json_value_uint32(&val, &value);
+    }
+    (void)offset;
     if(value > 255) value = 255;
 
     furi_hal_light_set(LightBacklight, (uint8_t)value);

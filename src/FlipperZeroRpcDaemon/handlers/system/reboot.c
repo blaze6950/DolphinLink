@@ -14,8 +14,9 @@
 #include <furi_hal_power.h>
 #include <inttypes.h>
 
-void reboot_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void reboot_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     /* Acknowledge before resetting so the host receives the response. */
     rpc_send_ok(id, "reboot");

@@ -21,8 +21,9 @@
 #include "../../core/rpc_resource.h"
 #include "../../core/rpc_response.h"
 
-void ui_flush_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void ui_flush_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     if(!resource_is_held(RESOURCE_GUI)) {
         rpc_send_error(id, "resource_busy", "ui_flush");

@@ -26,13 +26,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle an "ir_tx" request.
  *
- * Transmits a single decoded infrared frame synchronously.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void ir_tx_handler(uint32_t id, const char* json);
+void ir_tx_handler(uint32_t id, const char* json, size_t offset);

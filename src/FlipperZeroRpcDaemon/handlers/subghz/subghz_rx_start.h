@@ -27,14 +27,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "subghz_rx_start" request.
  *
- * Tunes the CC1101 to the requested frequency, starts the SubGhzWorker,
- * allocates a stream slot, and sends the stream-opened response.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void subghz_rx_start_handler(uint32_t id, const char* json);
+void subghz_rx_start_handler(uint32_t id, const char* json, size_t offset);

@@ -24,12 +24,15 @@
 #include <furi_hal_vibro.h>
 #include <stdbool.h>
 
-void vibro_handler(uint32_t id, const char* json) {
+void vibro_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     bool enable = false;
-    if(!json_extract_bool(json, "en", &enable)) {
+    if(!json_find(json, "en", offset, &val)) {
         rpc_send_error(id, "missing_enable", "vibro");
         return;
     }
+    json_value_bool(&val, &enable);
+    (void)offset;
 
     furi_hal_vibro_on(enable);
     rpc_send_ok(id, "vibro");

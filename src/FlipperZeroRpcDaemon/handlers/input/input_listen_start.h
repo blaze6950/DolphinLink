@@ -31,6 +31,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle an "input_listen_start" request.
@@ -40,7 +41,8 @@
  * posted to stream_event_queue by the pubsub callback and serialised to
  * the host by the main event loop.
  *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line (no args required).
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line (null-terminated).
+ * @param offset Byte offset past the already-parsed "c" and "i" fields.
  */
-void input_listen_start_handler(uint32_t id, const char* json);
+void input_listen_start_handler(uint32_t id, const char* json, size_t offset);

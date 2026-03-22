@@ -12,11 +12,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "ping" request.
  *
- * @param id   Request ID from the JSON envelope.
- * @param json Full JSON line (unused — ping takes no arguments).
+ * @param id     Request ID from the JSON envelope.
+ * @param json   Full JSON line (unused — ping takes no arguments).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void ping_handler(uint32_t id, const char* json);
+void ping_handler(uint32_t id, const char* json, size_t offset);

@@ -119,8 +119,9 @@ static void ibutton_teardown(size_t slot_idx) {
  * Command handler
  * ========================================================= */
 
-void ibutton_read_start_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void ibutton_read_start_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     uint32_t stream_id = 0;
     int slot = stream_open(id, "ibutton_read_start", RESOURCE_IBUTTON, &stream_id);

@@ -57,8 +57,9 @@ static void ir_teardown(size_t slot_idx) {
     }
 }
 
-void ir_receive_start_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void ir_receive_start_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     uint32_t stream_id = 0;
     int slot = stream_open(id, "ir_receive_start", RESOURCE_IR, &stream_id);

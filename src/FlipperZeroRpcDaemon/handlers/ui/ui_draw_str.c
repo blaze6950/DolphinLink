@@ -26,22 +26,34 @@
 
 #include <string.h>
 
-void ui_draw_str_handler(uint32_t id, const char* json) {
+void ui_draw_str_handler(uint32_t id, const char* json, size_t offset) {
     if(!resource_is_held(RESOURCE_GUI)) {
         rpc_send_error(id, "resource_busy", "ui_draw_str");
         return;
     }
 
+    JsonValue val;
     char text[UI_STR_MAX] = {0};
-    if(!json_extract_string(json, "tx", text, sizeof(text)) || text[0] == '\0') {
+    if(!json_find(json, "tx", offset, &val) || val.len == 0) {
         rpc_send_error(id, "missing_text", "ui_draw_str");
         return;
     }
+    json_value_string(&val, text, sizeof(text));
+    offset = val.offset;
 
     uint32_t x = 0, y = 0, font = 1;
-    json_extract_uint32(json, "x", &x);
-    json_extract_uint32(json, "y", &y);
-    json_extract_uint32(json, "fn", &font);
+    if(json_find(json, "x", offset, &val)) {
+        json_value_uint32(&val, &x);
+        offset = val.offset;
+    }
+    if(json_find(json, "y", offset, &val)) {
+        json_value_uint32(&val, &y);
+        offset = val.offset;
+    }
+    if(json_find(json, "fn", offset, &val)) {
+        json_value_uint32(&val, &font);
+    }
+    (void)offset;
 
     UiDrawOp op = {.type = UI_OP_DRAW_STR};
     op.draw_str.x = (uint8_t)x;

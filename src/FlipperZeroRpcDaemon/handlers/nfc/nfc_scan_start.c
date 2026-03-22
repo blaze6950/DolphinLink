@@ -55,8 +55,9 @@ static void nfc_teardown(size_t slot_idx) {
     }
 }
 
-void nfc_scan_start_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void nfc_scan_start_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     uint32_t stream_id = 0;
     int slot = stream_open(id, "nfc_scan_start", RESOURCE_NFC, &stream_id);

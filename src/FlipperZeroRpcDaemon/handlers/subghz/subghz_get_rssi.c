@@ -25,14 +25,16 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void subghz_get_rssi_handler(uint32_t id, const char* json) {
+void subghz_get_rssi_handler(uint32_t id, const char* json, size_t offset) {
     if(!resource_can_acquire(RESOURCE_SUBGHZ)) {
         rpc_send_error(id, "resource_busy", "subghz_get_rssi");
         return;
     }
 
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "fr", &freq);
+    JsonValue val;
+    if(json_find(json, "fr", offset, &val)) { json_value_uint32(&val, &freq); }
+    (void)offset;
 
     resource_acquire(RESOURCE_SUBGHZ);
 

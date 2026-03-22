@@ -27,14 +27,14 @@
 #include <inttypes.h>
 #include <string.h>
 
-void configure_handler(uint32_t id, const char* json) {
+void configure_handler(uint32_t id, const char* json, size_t offset) {
     /* Read optional heartbeat arguments — absent fields keep current value. */
     uint32_t hb_ms = heartbeat_tx_idle_ms;
     uint32_t to_ms = heartbeat_rx_timeout_ms;
 
-    const char* cursor = json;
-    json_extract_uint32_at(json, &cursor, "hb", &hb_ms);
-    json_extract_uint32_at(json, &cursor, "to", &to_ms);
+    JsonValue val;
+    if(json_find(json, "hb", offset, &val)) { json_value_uint32(&val, &hb_ms); offset = val.offset; }
+    if(json_find(json, "to", offset, &val)) { json_value_uint32(&val, &to_ms); offset = val.offset; }
 
     if(!heartbeat_apply_config(hb_ms, to_ms)) {
         char log_entry[CMD_LOG_LINE_LEN];
@@ -44,12 +44,16 @@ void configure_handler(uint32_t id, const char* json) {
     }
 
     /* Parse optional "led" object — {"r":<u8>,"g":<u8>,"b":<u8>}.
-     * "r", "g", "b" are unique in this command's payload; searching the full
-     * json string is unambiguous and requires no new JSON helpers. */
+     * "r", "g", "b" are unique in this command's payload; search from
+     * running offset. */
     uint32_t r = led_indicator_r, g = led_indicator_g, b = led_indicator_b;
-    bool has_r = json_extract_uint32(json, "r", &r);
-    bool has_g = json_extract_uint32(json, "g", &g);
-    bool has_b = json_extract_uint32(json, "b", &b);
+    bool has_r = json_find(json, "r", offset, &val);
+    if(has_r) { json_value_uint32(&val, &r); offset = val.offset; }
+    bool has_g = json_find(json, "g", offset, &val);
+    if(has_g) { json_value_uint32(&val, &g); offset = val.offset; }
+    bool has_b = json_find(json, "b", offset, &val);
+    if(has_b) { json_value_uint32(&val, &b); offset = val.offset; }
+    (void)offset;
 
     if(has_r || has_g || has_b) {
         if(r > 255) r = 255;

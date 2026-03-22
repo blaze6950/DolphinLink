@@ -91,7 +91,7 @@ static void input_teardown(size_t slot_idx) {
  * Handler
  * ========================================================= */
 
-void input_listen_start_handler(uint32_t id, const char* json) {
+void input_listen_start_handler(uint32_t id, const char* json, size_t offset) {
     /* No exclusive resource — broadcast to all listeners */
     uint32_t stream_id = 0;
     int slot = stream_open(id, "input_listen_start", 0, &stream_id);
@@ -104,20 +104,22 @@ void input_listen_start_handler(uint32_t id, const char* json) {
 
     active_streams[slot].hw.input.subscription = sub;
     active_streams[slot].hw.input.has_exit_combo = false;
-    /* Mark this slot as an input stream so on_input_queue() knows it is safe
-     * to read hw.input.has_exit_combo.  Without this flag, on_input_queue()
-     * would read the field on ALL active streams, and for non-input streams
-     * the hw union aliases has_exit_combo onto hardware-pointer bytes,
-     * incorrectly suppressing the default Back+Short daemon-exit combo. */
     active_streams[slot].is_input_stream = true;
 
     /* Parse optional exit key/type combo — integer wire keys "ek" and "et" */
     uint32_t ek = 0, et = 0;
-    if(json_extract_uint32(json, "ek", &ek) && json_extract_uint32(json, "et", &et)) {
-        active_streams[slot].hw.input.exit_key = (InputKey)ek;
-        active_streams[slot].hw.input.exit_type = (InputType)et;
-        active_streams[slot].hw.input.has_exit_combo = true;
+    JsonValue val;
+    if(json_find(json, "ek", offset, &val)) {
+        json_value_uint32(&val, &ek);
+        offset = val.offset;
+        if(json_find(json, "et", offset, &val)) {
+            json_value_uint32(&val, &et);
+            active_streams[slot].hw.input.exit_key = (InputKey)ek;
+            active_streams[slot].hw.input.exit_type = (InputType)et;
+            active_streams[slot].hw.input.has_exit_combo = true;
+        }
     }
+    (void)offset;
 
     active_streams[slot].teardown = input_teardown;
 

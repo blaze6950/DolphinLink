@@ -43,11 +43,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "configure" request.
  *
- * @param id   Request ID from the JSON envelope.
- * @param json Full JSON line; may contain heartbeat_ms, timeout_ms, and/or led.
+ * @param id     Request ID from the JSON envelope.
+ * @param json   Full JSON line; may contain heartbeat_ms, timeout_ms, and/or led.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void configure_handler(uint32_t id, const char* json);
+void configure_handler(uint32_t id, const char* json, size_t offset);

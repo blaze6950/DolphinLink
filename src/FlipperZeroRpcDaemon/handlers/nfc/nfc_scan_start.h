@@ -26,15 +26,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle an "nfc_scan_start" request.
  *
- * Allocates an NFC scanner, starts it, allocates a stream slot, and sends
- * the stream-opened response.  Protocol-detected events are posted to
- * stream_event_queue by the scanner callback.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line (unused).
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line (unused).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void nfc_scan_start_handler(uint32_t id, const char* json);
+void nfc_scan_start_handler(uint32_t id, const char* json, size_t offset);

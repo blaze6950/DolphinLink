@@ -37,12 +37,15 @@
 #define STORAGE_READ_MAX 4096
 #define PATH_MAX_LEN     256
 
-void storage_read_handler(uint32_t id, const char* json) {
+void storage_read_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "p", path, sizeof(path))) {
+    if(!json_find(json, "p", offset, &val)) {
         rpc_send_error(id, "missing_path", "storage_read");
         return;
     }
+    json_value_string(&val, path, sizeof(path));
+    (void)offset;
 
     File* f = storage_file_alloc(g_storage);
     if(!storage_file_open(f, path, FSAM_READ, FSOM_OPEN_EXISTING)) {

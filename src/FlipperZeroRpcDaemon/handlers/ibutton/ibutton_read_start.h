@@ -23,11 +23,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle the "ibutton_read_start" RPC command.
  *
- * @param id   Request ID from the JSON message.
- * @param json Full JSON line (null-terminated) received from the host.
+ * @param id     Request ID from the JSON message.
+ * @param json   Full JSON line (null-terminated) received from the host.
+ * @param offset Byte offset past the already-parsed "c" and "i" fields.
  */
-void ibutton_read_start_handler(uint32_t id, const char* json);
+void ibutton_read_start_handler(uint32_t id, const char* json, size_t offset);

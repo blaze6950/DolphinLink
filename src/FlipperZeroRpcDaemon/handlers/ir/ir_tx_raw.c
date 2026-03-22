@@ -47,14 +47,16 @@ static void ir_raw_tx_sent_callback(void* ctx) {
     if(ir_raw_tx_done_sem) furi_semaphore_release(ir_raw_tx_done_sem);
 }
 
-void ir_tx_raw_handler(uint32_t id, const char* json) {
+void ir_tx_raw_handler(uint32_t id, const char* json, size_t offset) {
     ir_raw_count = 0;
     ir_raw_pos = 0;
 
-    if(!json_extract_uint32_array(json, "tm", ir_raw_timings, &ir_raw_count, IR_RAW_MAX)) {
+    JsonValue val;
+    if(!json_find(json, "tm", offset, &val)) {
         rpc_send_error(id, "missing_timings", "ir_tx_raw");
         return;
     }
+    json_value_uint32_array(&val, ir_raw_timings, &ir_raw_count, IR_RAW_MAX);
 
     ir_raw_tx_done_sem = furi_semaphore_alloc(1, 0);
 

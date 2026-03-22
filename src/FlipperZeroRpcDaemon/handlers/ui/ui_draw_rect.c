@@ -23,19 +23,35 @@
 #include "../../core/rpc_response.h"
 #include "../../core/rpc_json.h"
 
-void ui_draw_rect_handler(uint32_t id, const char* json) {
+void ui_draw_rect_handler(uint32_t id, const char* json, size_t offset) {
     if(!resource_is_held(RESOURCE_GUI)) {
         rpc_send_error(id, "resource_busy", "ui_draw_rect");
         return;
     }
 
+    JsonValue val;
     uint32_t x = 0, y = 0, w = 0, h = 0;
     bool filled = false;
-    json_extract_uint32(json, "x", &x);
-    json_extract_uint32(json, "y", &y);
-    json_extract_uint32(json, "w", &w);
-    json_extract_uint32(json, "h", &h);
-    json_extract_bool(json, "fi", &filled);
+    if(json_find(json, "x", offset, &val)) {
+        json_value_uint32(&val, &x);
+        offset = val.offset;
+    }
+    if(json_find(json, "y", offset, &val)) {
+        json_value_uint32(&val, &y);
+        offset = val.offset;
+    }
+    if(json_find(json, "w", offset, &val)) {
+        json_value_uint32(&val, &w);
+        offset = val.offset;
+    }
+    if(json_find(json, "h", offset, &val)) {
+        json_value_uint32(&val, &h);
+        offset = val.offset;
+    }
+    if(json_find(json, "fi", offset, &val)) {
+        json_value_bool(&val, &filled);
+    }
+    (void)offset;
 
     UiDrawOp op = {.type = UI_OP_DRAW_RECT};
     op.draw_rect.x = (uint8_t)x;

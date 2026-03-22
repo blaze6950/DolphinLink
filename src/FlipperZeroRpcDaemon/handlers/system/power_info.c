@@ -23,8 +23,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void power_info_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void power_info_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     uint8_t pct = furi_hal_power_get_pct();
     bool charging = furi_hal_power_is_charging();

@@ -22,11 +22,21 @@
 #include <furi_hal_light.h>
 #include <inttypes.h>
 
-void led_set_rgb_handler(uint32_t id, const char* json) {
+void led_set_rgb_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     uint32_t r = 0, g = 0, b = 0;
-    json_extract_uint32(json, "r", &r);
-    json_extract_uint32(json, "g", &g);
-    json_extract_uint32(json, "b", &b);
+    if(json_find(json, "r", offset, &val)) {
+        json_value_uint32(&val, &r);
+        offset = val.offset;
+    }
+    if(json_find(json, "g", offset, &val)) {
+        json_value_uint32(&val, &g);
+        offset = val.offset;
+    }
+    if(json_find(json, "b", offset, &val)) {
+        json_value_uint32(&val, &b);
+    }
+    (void)offset;
     if(r > 255) r = 255;
     if(g > 255) g = 255;
     if(b > 255) b = 255;

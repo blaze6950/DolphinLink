@@ -44,7 +44,7 @@ static LevelDuration subghz_tx_yield_callback(void* ctx) {
     return level_duration_make(level, duration);
 }
 
-void subghz_tx_handler(uint32_t id, const char* json) {
+void subghz_tx_handler(uint32_t id, const char* json, size_t offset) {
     if(!resource_can_acquire(RESOURCE_SUBGHZ)) {
         rpc_send_error(id, "resource_busy", "subghz_tx");
         return;
@@ -53,13 +53,17 @@ void subghz_tx_handler(uint32_t id, const char* json) {
     tx_count = 0;
     tx_pos = 0;
 
-    if(!json_extract_uint32_array(json, "tm", tx_timings, &tx_count, SUBGHZ_TX_MAX)) {
+    JsonValue val;
+    if(!json_find(json, "tm", offset, &val)) {
         rpc_send_error(id, "missing_timings", "subghz_tx");
         return;
     }
+    json_value_uint32_array(&val, tx_timings, &tx_count, SUBGHZ_TX_MAX);
+    offset = val.offset;
 
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "fr", &freq);
+    if(json_find(json, "fr", offset, &val)) { json_value_uint32(&val, &freq); }
+    (void)offset;
 
     resource_acquire(RESOURCE_SUBGHZ);
 

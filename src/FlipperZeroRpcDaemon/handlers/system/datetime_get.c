@@ -22,8 +22,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void datetime_get_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void datetime_get_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     DateTime dt;
     furi_hal_rtc_get_datetime(&dt);

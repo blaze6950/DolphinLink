@@ -23,8 +23,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void region_info_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void region_info_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     const FuriHalRegion* region = furi_hal_region_get();
     const char* region_name = furi_hal_region_get_name();

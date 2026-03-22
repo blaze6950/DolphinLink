@@ -14,9 +14,18 @@
 #include "rpc_resource.h"
 
 #include <stdint.h>
+#include <stddef.h>
 
-/** Handler function signature — all command handlers must match this. */
-typedef void (*RpcHandler)(uint32_t request_id, const char* json);
+/**
+ * Handler function signature -- all command handlers must match this.
+ *
+ * @param request_id  The request id extracted from the "i" field.
+ * @param json        The full NDJSON line (NUL-terminated).
+ * @param offset      Byte offset into json where command-specific args begin
+ *                    (past the already-parsed "c" and "i" fields).  Pass as
+ *                    the initial hint to json_find().
+ */
+typedef void (*RpcHandler)(uint32_t request_id, const char* json, size_t offset);
 
 /** One entry in the command registry. Index in commands[] == command ID. */
 typedef struct {

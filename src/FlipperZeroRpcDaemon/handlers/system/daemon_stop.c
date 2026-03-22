@@ -14,8 +14,9 @@
 #include <furi.h>
 #include <inttypes.h>
 
-void daemon_stop_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void daemon_stop_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     /* Acknowledge before stopping so the host receives the response. */
     rpc_send_ok(id, "daemon_stop");

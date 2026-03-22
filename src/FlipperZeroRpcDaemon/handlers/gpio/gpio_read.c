@@ -24,9 +24,15 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void gpio_read_handler(uint32_t id, const char* json) {
+void gpio_read_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t pin_num = 0;
-    if(!json_extract_uint32(json, "p", &pin_num) || pin_num < 1 || pin_num > 8) {
+    JsonValue val;
+    if(!json_find(json, "p", offset, &val)) {
+        rpc_send_error(id, "missing_pin", "gpio_read");
+        return;
+    }
+    json_value_uint32(&val, &pin_num);
+    if(pin_num < 1 || pin_num > 8) {
         rpc_send_error(id, "missing_pin", "gpio_read");
         return;
     }

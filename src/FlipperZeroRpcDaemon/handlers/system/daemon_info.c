@@ -19,8 +19,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void daemon_info_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void daemon_info_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     /*
      * Build the response in a single buffer.  Capacity breakdown:

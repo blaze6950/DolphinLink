@@ -24,13 +24,19 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void gpio_write_handler(uint32_t id, const char* json) {
+void gpio_write_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t pin_num = 0;
-    const char* cursor = json;
-    if(!json_extract_uint32_at(json, &cursor, "p", &pin_num) || pin_num < 1 || pin_num > 8) {
+    JsonValue val;
+    if(!json_find(json, "p", offset, &val)) {
         rpc_send_error(id, "missing_pin", "gpio_write");
         return;
     }
+    json_value_uint32(&val, &pin_num);
+    if(pin_num < 1 || pin_num > 8) {
+        rpc_send_error(id, "missing_pin", "gpio_write");
+        return;
+    }
+    offset = val.offset;
 
     /* Map integer wire value to label string ("1"–"8") */
     char label[4];
@@ -43,10 +49,11 @@ void gpio_write_handler(uint32_t id, const char* json) {
     }
 
     bool level = false;
-    if(!json_extract_bool_at(json, &cursor, "lv", &level)) {
+    if(!json_find(json, "lv", offset, &val)) {
         rpc_send_error(id, "missing_level", "gpio_write");
         return;
     }
+    json_value_bool(&val, &level);
 
     furi_hal_gpio_init(entry->pin, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
     furi_hal_gpio_write(entry->pin, level);

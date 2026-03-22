@@ -144,7 +144,7 @@ sb.AppendLine();
 sb.AppendLine("/* Forward declarations — implemented in handlers/<subsystem>/<cmd>.c */");
 foreach (var cmdName in registry)
 {
-    sb.AppendLine($"void {cmdName}_handler(uint32_t id, const char* json);");
+    sb.AppendLine($"void {cmdName}_handler(uint32_t id, const char* json, size_t offset);");
 }
 sb.AppendLine();
 

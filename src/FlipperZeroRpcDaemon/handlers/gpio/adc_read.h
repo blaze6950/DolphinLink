@@ -22,14 +22,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle an "adc_read" request.
  *
- * Acquires the ADC, takes a single sample, converts it to millivolts, then
- * releases the ADC.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void adc_read_handler(uint32_t id, const char* json);
+void adc_read_handler(uint32_t id, const char* json, size_t offset);

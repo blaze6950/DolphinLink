@@ -36,13 +36,15 @@
 
 #define PATH_MAX_LEN 256
 
-void storage_write_handler(uint32_t id, const char* json) {
+void storage_write_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     char path[PATH_MAX_LEN] = {0};
-    const char* cursor = json;
-    if(!json_extract_string_at(json, &cursor, "p", path, sizeof(path))) {
+    if(!json_find(json, "p", offset, &val)) {
         rpc_send_error(id, "missing_path", "storage_write");
         return;
     }
+    json_value_string(&val, path, sizeof(path));
+    offset = val.offset;
 
     /* Extract the base64 data field — it can be large; use a heap buffer */
     /* The raw JSON line is at most RX_LINE_MAX (1024) bytes so base64 is ≤1024 */
@@ -52,11 +54,13 @@ void storage_write_handler(uint32_t id, const char* json) {
         return;
     }
 
-    if(!json_extract_string_at(json, &cursor, "d", b64, 1024)) {
+    if(!json_find(json, "d", offset, &val)) {
         free(b64);
         rpc_send_error(id, "missing_data", "storage_write");
         return;
     }
+    json_value_string(&val, b64, 1024);
+    (void)offset;
 
     size_t decode_size = BASE64_DECODED_SIZE(strlen(b64));
     uint8_t* raw = malloc(decode_size);

@@ -31,17 +31,21 @@ static void ir_tx_sent_callback(void* ctx) {
     if(ir_tx_done_sem) furi_semaphore_release(ir_tx_done_sem);
 }
 
-void ir_tx_handler(uint32_t id, const char* json) {
+void ir_tx_handler(uint32_t id, const char* json, size_t offset) {
     char protocol_name[32] = {0};
     uint32_t address = 0, command = 0;
 
-    const char* cursor = json;
-    if(!json_extract_string_at(json, &cursor, "pr", protocol_name, sizeof(protocol_name))) {
+    JsonValue val;
+    if(!json_find(json, "pr", offset, &val)) {
         rpc_send_error(id, "missing_protocol", "ir_tx");
         return;
     }
-    json_extract_uint32_at(json, &cursor, "a", &address);
-    json_extract_uint32_at(json, &cursor, "cm", &command);
+    json_value_string(&val, protocol_name, sizeof(protocol_name));
+    offset = val.offset;
+
+    if(json_find(json, "a", offset, &val)) { json_value_uint32(&val, &address); offset = val.offset; }
+    if(json_find(json, "cm", offset, &val)) { json_value_uint32(&val, &command); offset = val.offset; }
+    (void)offset;
 
     InfraredProtocol protocol = infrared_get_protocol_by_name(protocol_name);
     if(protocol == InfraredProtocolUnknown) {

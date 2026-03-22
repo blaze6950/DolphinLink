@@ -15,11 +15,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "power_info" request.
  *
- * @param id   Request ID from the JSON envelope.
- * @param json Full JSON line (unused — no arguments).
+ * @param id     Request ID from the JSON envelope.
+ * @param json   Full JSON line (unused — no arguments).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void power_info_handler(uint32_t id, const char* json);
+void power_info_handler(uint32_t id, const char* json, size_t offset);

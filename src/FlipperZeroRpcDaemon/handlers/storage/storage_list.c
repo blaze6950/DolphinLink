@@ -36,12 +36,15 @@
 #define PATH_MAX_LEN     256
 #define STORAGE_LIST_MAX 64
 
-void storage_list_handler(uint32_t id, const char* json) {
+void storage_list_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "p", path, sizeof(path))) {
+    if(!json_find(json, "p", offset, &val)) {
         rpc_send_error(id, "missing_path", "storage_list");
         return;
     }
+    json_value_string(&val, path, sizeof(path));
+    (void)offset;
 
     File* dir = storage_file_alloc(g_storage);
     if(!storage_dir_open(dir, path)) {
@@ -64,20 +67,20 @@ void storage_list_handler(uint32_t id, const char* json) {
 
     FileInfo fi;
     char name[256];
-    size_t offset = 0;
+    size_t pos = 0;
     size_t count = 0;
 
     /* Payload header */
-    offset += snprintf(buf + offset, buf_size - offset, "{\"en\":[");
+    pos += snprintf(buf + pos, buf_size - pos, "{\"en\":[");
 
     while(count < STORAGE_LIST_MAX && storage_dir_read(dir, &fi, name, sizeof(name))) {
-        if(count > 0 && offset < buf_size - 1) {
-            buf[offset++] = ',';
+        if(count > 0 && pos < buf_size - 1) {
+            buf[pos++] = ',';
         }
         bool is_dir = (fi.flags & FSF_DIRECTORY) != 0;
-        offset += snprintf(
-            buf + offset,
-            buf_size - offset,
+        pos += snprintf(
+            buf + pos,
+            buf_size - pos,
             "{\"nm\":\"%s\",\"d\":%u,\"sz\":%" PRIu32 "}",
             name,
             is_dir ? 1u : 0u,
@@ -88,10 +91,10 @@ void storage_list_handler(uint32_t id, const char* json) {
     storage_dir_close(dir);
     storage_file_free(dir);
 
-    if(offset < buf_size - 2) {
-        buf[offset++] = ']';
-        buf[offset++] = '}';
-        buf[offset] = '\0';
+    if(pos < buf_size - 2) {
+        buf[pos++] = ']';
+        buf[pos++] = '}';
+        buf[pos] = '\0';
     }
 
     char log_entry[CMD_LOG_LINE_LEN];

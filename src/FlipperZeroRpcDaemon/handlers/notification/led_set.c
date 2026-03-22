@@ -28,15 +28,21 @@
 #include <furi_hal_light.h>
 #include <inttypes.h>
 
-void led_set_handler(uint32_t id, const char* json) {
+void led_set_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     uint32_t channel = 0;
-    if(!json_extract_uint32(json, "cl", &channel)) {
+    if(!json_find(json, "cl", offset, &val)) {
         rpc_send_error(id, "missing_color", "led_set");
         return;
     }
+    json_value_uint32(&val, &channel);
+    offset = val.offset;
 
     uint32_t value = 0;
-    json_extract_uint32(json, "vl", &value);
+    if(json_find(json, "vl", offset, &val)) {
+        json_value_uint32(&val, &value);
+    }
+    (void)offset;
     if(value > 255) value = 255;
 
     /* LedChannel: 0=Red, 1=Green, 2=Blue */

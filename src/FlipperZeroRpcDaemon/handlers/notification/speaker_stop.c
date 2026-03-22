@@ -21,8 +21,9 @@
 #include <furi.h>
 #include <furi_hal_speaker.h>
 
-void speaker_stop_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void speaker_stop_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     furi_hal_speaker_stop();
     furi_hal_speaker_release();

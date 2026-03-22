@@ -22,14 +22,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "gpio_set_5v" request.
  *
- * Enables or disables the 5 V supply on the external connector OTG rail via
- * furi_hal_power_enable_otg() / furi_hal_power_disable_otg().
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void gpio_set_5v_handler(uint32_t id, const char* json);
+void gpio_set_5v_handler(uint32_t id, const char* json, size_t offset);

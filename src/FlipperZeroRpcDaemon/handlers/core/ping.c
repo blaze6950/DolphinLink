@@ -17,8 +17,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void ping_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void ping_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " ping -> ok", id);

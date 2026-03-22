@@ -28,15 +28,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle an "ir_receive_start" request.
  *
- * Starts the InfraredWorker in receive mode, allocates a stream slot, and
- * sends the stream-opened response.  Decoded frames are posted to
- * stream_event_queue by the worker callback.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line (unused).
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line (unused).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void ir_receive_start_handler(uint32_t id, const char* json);
+void ir_receive_start_handler(uint32_t id, const char* json, size_t offset);

@@ -23,12 +23,14 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-void frequency_is_allowed_handler(uint32_t id, const char* json) {
+void frequency_is_allowed_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t freq = 0;
-    if(!json_extract_uint32(json, "fr", &freq)) {
+    JsonValue val;
+    if(!json_find(json, "fr", offset, &val)) {
         rpc_send_error(id, "missing_freq", "frequency_is_allowed");
         return;
     }
+    json_value_uint32(&val, &freq);
 
     bool allowed = furi_hal_region_is_frequency_allowed(freq);
 

@@ -18,12 +18,14 @@
 #include <furi.h>
 #include <inttypes.h>
 
-void stream_close_handler(uint32_t id, const char* json) {
+void stream_close_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t stream_id = 0;
-    if(!json_extract_uint32(json, "s", &stream_id)) {
+    JsonValue val;
+    if(!json_find(json, "s", offset, &val)) {
         rpc_send_error(id, "missing_stream_id", "stream_close");
         return;
     }
+    json_value_uint32(&val, &stream_id);
 
     int slot = stream_find_by_id(stream_id);
     if(slot < 0) {

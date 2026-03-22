@@ -22,5 +22,6 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
-void ui_draw_rect_handler(uint32_t id, const char* json);
+void ui_draw_rect_handler(uint32_t id, const char* json, size_t offset);

@@ -21,17 +21,30 @@
 #include "../../core/rpc_response.h"
 #include "../../core/rpc_json.h"
 
-void ui_draw_line_handler(uint32_t id, const char* json) {
+void ui_draw_line_handler(uint32_t id, const char* json, size_t offset) {
     if(!resource_is_held(RESOURCE_GUI)) {
         rpc_send_error(id, "resource_busy", "ui_draw_line");
         return;
     }
 
+    JsonValue val;
     uint32_t x1 = 0, y1 = 0, x2 = 0, y2 = 0;
-    json_extract_uint32(json, "x1", &x1);
-    json_extract_uint32(json, "y1", &y1);
-    json_extract_uint32(json, "x2", &x2);
-    json_extract_uint32(json, "y2", &y2);
+    if(json_find(json, "x1", offset, &val)) {
+        json_value_uint32(&val, &x1);
+        offset = val.offset;
+    }
+    if(json_find(json, "y1", offset, &val)) {
+        json_value_uint32(&val, &y1);
+        offset = val.offset;
+    }
+    if(json_find(json, "x2", offset, &val)) {
+        json_value_uint32(&val, &x2);
+        offset = val.offset;
+    }
+    if(json_find(json, "y2", offset, &val)) {
+        json_value_uint32(&val, &y2);
+    }
+    (void)offset;
 
     UiDrawOp op = {.type = UI_OP_DRAW_LINE};
     op.draw_line.x1 = (uint8_t)x1;

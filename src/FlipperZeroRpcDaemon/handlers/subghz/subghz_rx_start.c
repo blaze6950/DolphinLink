@@ -47,9 +47,11 @@ static void subghz_teardown(size_t slot_idx) {
     furi_hal_subghz_sleep();
 }
 
-void subghz_rx_start_handler(uint32_t id, const char* json) {
+void subghz_rx_start_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "fr", &freq);
+    JsonValue val;
+    if(json_find(json, "fr", offset, &val)) { json_value_uint32(&val, &freq); }
+    (void)offset;
 
     uint32_t stream_id = 0;
     int slot = stream_open(id, "subghz_rx_start", RESOURCE_SUBGHZ, &stream_id);

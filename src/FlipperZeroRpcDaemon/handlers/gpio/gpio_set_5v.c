@@ -22,12 +22,14 @@
 
 #include <furi_hal_power.h>
 
-void gpio_set_5v_handler(uint32_t id, const char* json) {
+void gpio_set_5v_handler(uint32_t id, const char* json, size_t offset) {
     bool enable = false;
-    if(!json_extract_bool(json, "en", &enable)) {
+    JsonValue val;
+    if(!json_find(json, "en", offset, &val)) {
         rpc_send_error(id, "missing_enable", "gpio_set_5v");
         return;
     }
+    json_value_bool(&val, &enable);
 
     if(enable) {
         furi_hal_power_enable_otg();

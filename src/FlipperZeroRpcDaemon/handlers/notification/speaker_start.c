@@ -30,12 +30,19 @@
 #include <furi_hal_speaker.h>
 #include <inttypes.h>
 
-void speaker_start_handler(uint32_t id, const char* json) {
+void speaker_start_handler(uint32_t id, const char* json, size_t offset) {
+    JsonValue val;
     uint32_t freq = 440;
     uint32_t volume_raw = 128; /* 0–255 */
 
-    json_extract_uint32(json, "fr", &freq);
-    json_extract_uint32(json, "vo", &volume_raw);
+    if(json_find(json, "fr", offset, &val)) {
+        json_value_uint32(&val, &freq);
+        offset = val.offset;
+    }
+    if(json_find(json, "vo", offset, &val)) {
+        json_value_uint32(&val, &volume_raw);
+    }
+    (void)offset;
     if(volume_raw > 255) volume_raw = 255;
 
     float volume = (float)volume_raw / 255.0f;

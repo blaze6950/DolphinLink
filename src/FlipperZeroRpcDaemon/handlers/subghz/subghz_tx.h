@@ -25,13 +25,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "subghz_tx" request.
  *
- * Transmits a raw OOK timing array on the CC1101 synchronously.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void subghz_tx_handler(uint32_t id, const char* json);
+void subghz_tx_handler(uint32_t id, const char* json, size_t offset);

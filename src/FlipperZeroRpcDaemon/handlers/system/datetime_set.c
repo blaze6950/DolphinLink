@@ -22,15 +22,17 @@
 #include <furi.h>
 #include <furi_hal_rtc.h>
 
-void datetime_set_handler(uint32_t id, const char* json) {
+void datetime_set_handler(uint32_t id, const char* json, size_t offset) {
     uint32_t year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    JsonValue val;
 
-    json_extract_uint32(json, "yr", &year);
-    json_extract_uint32(json, "mo", &month);
-    json_extract_uint32(json, "dy", &day);
-    json_extract_uint32(json, "hr", &hour);
-    json_extract_uint32(json, "mn", &minute);
-    json_extract_uint32(json, "sc", &second);
+    if(json_find(json, "yr", offset, &val)) { json_value_uint32(&val, &year);   offset = val.offset; }
+    if(json_find(json, "mo", offset, &val)) { json_value_uint32(&val, &month);  offset = val.offset; }
+    if(json_find(json, "dy", offset, &val)) { json_value_uint32(&val, &day);    offset = val.offset; }
+    if(json_find(json, "hr", offset, &val)) { json_value_uint32(&val, &hour);   offset = val.offset; }
+    if(json_find(json, "mn", offset, &val)) { json_value_uint32(&val, &minute); offset = val.offset; }
+    if(json_find(json, "sc", offset, &val)) { json_value_uint32(&val, &second); offset = val.offset; }
+    (void)offset;
 
     if(year == 0 || month == 0 || day == 0) {
         rpc_send_error(id, "missing_datetime_fields", "datetime_set");

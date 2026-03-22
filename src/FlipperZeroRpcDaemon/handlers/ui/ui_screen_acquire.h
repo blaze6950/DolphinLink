@@ -20,5 +20,6 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
-void ui_screen_acquire_handler(uint32_t id, const char* json);
+void ui_screen_acquire_handler(uint32_t id, const char* json, size_t offset);

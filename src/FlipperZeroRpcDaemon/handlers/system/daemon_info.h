@@ -28,6 +28,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /** Current daemon protocol version.  Bump on any breaking wire-format change. */
 #define DAEMON_PROTOCOL_VERSION 1
@@ -35,7 +36,8 @@
 /**
  * Handle a "daemon_info" request.
  *
- * @param id   Request ID from the JSON envelope.
- * @param json Full JSON line (unused — no arguments).
+ * @param id     Request ID from the JSON envelope.
+ * @param json   Full JSON line (unused — no arguments).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void daemon_info_handler(uint32_t id, const char* json);
+void daemon_info_handler(uint32_t id, const char* json, size_t offset);

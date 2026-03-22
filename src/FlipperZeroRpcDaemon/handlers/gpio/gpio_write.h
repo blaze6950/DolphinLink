@@ -17,14 +17,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "gpio_write" request.
  *
- * Initialises the named pin as a push-pull output and drives it to the
- * requested level.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void gpio_write_handler(uint32_t id, const char* json);
+void gpio_write_handler(uint32_t id, const char* json, size_t offset);

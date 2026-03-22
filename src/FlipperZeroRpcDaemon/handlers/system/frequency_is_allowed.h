@@ -12,11 +12,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "frequency_is_allowed" request.
  *
- * @param id   Request ID from the JSON envelope.
- * @param json Full JSON line; must contain "freq" (Hz, uint32).
+ * @param id     Request ID from the JSON envelope.
+ * @param json   Full JSON line; must contain "fr" (Hz, uint32).
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void frequency_is_allowed_handler(uint32_t id, const char* json);
+void frequency_is_allowed_handler(uint32_t id, const char* json, size_t offset);

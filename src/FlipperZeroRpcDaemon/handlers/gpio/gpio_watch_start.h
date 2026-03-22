@@ -31,16 +31,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * Handle a "gpio_watch_start" request.
  *
- * Allocates a stream slot, registers a GPIO EXTI interrupt on both edges of
- * the named pin, and sends the stream-opened response.  Edge events are
- * subsequently posted to stream_event_queue by gpio_exti_callback and
- * serialised to the host by the main event loop.
- *
- * @param id   Request ID echoed in the response.
- * @param json Full JSON request line.
+ * @param id     Request ID echoed in the response.
+ * @param json   Full JSON request line.
+ * @param offset Byte offset past the already-parsed envelope fields.
  */
-void gpio_watch_start_handler(uint32_t id, const char* json);
+void gpio_watch_start_handler(uint32_t id, const char* json, size_t offset);

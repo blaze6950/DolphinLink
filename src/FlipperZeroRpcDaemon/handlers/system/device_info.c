@@ -23,8 +23,9 @@
 #include <string.h>
 #include <inttypes.h>
 
-void device_info_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void device_info_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     /* --- Identity -------------------------------------------------------- */
     const char* name = furi_hal_version_get_name_ptr();

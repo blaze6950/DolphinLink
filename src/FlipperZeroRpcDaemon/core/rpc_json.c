@@ -1,90 +1,186 @@
 /**
- * rpc_json.c — Minimal JSON value extraction helpers
+ * rpc_json.c -- Minimal zero-copy JSON value extraction
  *
- * Both extraction functions share a common internal helper (json_find_value)
- * that locates the start of a value for a given key.
+ * Implements the api declared in rpc_json.h.  All parsing is done with a
+ * single forward character walk from the caller-supplied offset hint; there
+ * are no temporary buffers, no snprintf calls, no strstr calls, and no
+ * fallback re-scans.  The input is assumed to be compact JSON (no whitespace)
+ * as produced by the C# Utf8JsonWriter.
  */
 
 #include "rpc_json.h"
-
-#include <string.h>
-#include <stdio.h>
 
 /* -------------------------------------------------------------------------
  * Internal helpers
  * ------------------------------------------------------------------------- */
 
 /**
- * Finds the value portion for a given key in a flat JSON object.
+ * Skip a single JSON value starting at pos.
  *
- * Builds the search token  "key":  then returns a pointer to the first
- * non-whitespace character of the value, or NULL if the key is absent.
+ * Handles strings (with \" escapes), numbers, booleans (true/false),
+ * null, arrays (with nested values), and objects (with nested pairs).
+ * Returns a pointer to the first character after the value, or pos if
+ * the value is unrecognised (should not happen with well-formed JSON).
  */
-static const char* json_find_value(const char* json, const char* key) {
-    char token[72];
-    snprintf(token, sizeof(token), "\"%s\":", key);
+static const char* json_skip_value(const char* pos) {
+    if(!pos || *pos == '\0') return pos;
 
-    const char* pos = strstr(json, token);
-    if(!pos) return NULL;
-
-    pos += strlen(token);
-
-    /* Skip optional whitespace between ':' and value */
-    while(*pos == ' ' || *pos == '\t')
-        pos++;
-
-    return pos;
-}
-
-/**
- * Like json_find_value but starts searching from *hint first.
- * Falls back to a full scan from json if not found at the hint position.
- * On success *hint is updated to point just past the value start.
- */
-static const char* json_find_value_at(const char* json, const char** hint, const char* key) {
-    char token[72];
-    snprintf(token, sizeof(token), "\"%s\":", key);
-    size_t token_len = strlen(token);
-
-    /* Try from hint position first */
-    const char* pos = strstr(*hint, token);
-
-    /* Fall back to full scan if not found from hint */
-    if(!pos && *hint != json) {
-        pos = strstr(json, token);
+    if(*pos == '"') {
+        /* String: scan to the closing un-escaped quote */
+        pos++; /* skip opening '"' */
+        while(*pos && *pos != '"') {
+            if(*pos == '\\') pos++; /* skip escape character */
+            if(*pos) pos++;
+        }
+        if(*pos == '"') pos++; /* skip closing '"' */
+        return pos;
     }
 
-    if(!pos) return NULL;
-
-    pos += token_len;
-
-    /* Skip optional whitespace between ':' and value */
-    while(*pos == ' ' || *pos == '\t')
+    if(*pos == '[' || *pos == '{') {
+        /* Array or object: track nesting depth */
+        char open = *pos;
+        char close = (open == '[') ? ']' : '}';
+        int depth = 1;
         pos++;
+        while(*pos && depth > 0) {
+            if(*pos == '"') {
+                /* Skip string so brackets inside strings don't count */
+                pos++;
+                while(*pos && *pos != '"') {
+                    if(*pos == '\\') pos++;
+                    if(*pos) pos++;
+                }
+                if(*pos == '"') pos++;
+            } else {
+                if(*pos == open) depth++;
+                else if(*pos == close) depth--;
+                pos++;
+            }
+        }
+        return pos;
+    }
 
-    /* Advance hint past the value start so next call continues forward */
-    *hint = pos;
-
+    /* Number, boolean (true/false), null: scan until delimiter */
+    while(*pos && *pos != ',' && *pos != '}' && *pos != ']') {
+        pos++;
+    }
     return pos;
 }
 
 /* -------------------------------------------------------------------------
- * Public API — plain (full-scan) variants
+ * Public API -- json_find
  * ------------------------------------------------------------------------- */
 
-bool json_extract_string(const char* json, const char* key, char* out, size_t out_size) {
-    const char* pos = json_find_value(json, key);
-    if(!pos) return false;
+bool json_find(const char* json, const char* key, size_t hint, JsonValue* val) {
+    const char* pos = json + hint;
 
-    if(*pos != '"') return false;
-    pos++; /* skip opening quote */
+    /* Skip the opening '{' or ',' separating fields when entering */
+    if(*pos == '{' || *pos == ',') pos++;
 
-    size_t i = 0;
-    while(*pos && *pos != '"' && i < out_size - 1) {
-        /* Handle simple escape sequences */
-        if(*pos == '\\' && *(pos + 1)) {
+    while(*pos) {
+        /* Expect the opening '"' of a key */
+        if(*pos != '"') {
+            /* We hit '}' or something unexpected -- key not found */
+            return false;
+        }
+        pos++; /* skip opening '"' of key */
+
+        /* Compare key characters inline -- no snprintf, no strstr */
+        const char* k = key;
+        while(*pos && *pos != '"' && *k && *pos == *k) {
             pos++;
-            switch(*pos) {
+            k++;
+        }
+        bool key_matched = (*pos == '"' && *k == '\0');
+
+        /* Advance pos to end of key string */
+        if(!key_matched) {
+            while(*pos && *pos != '"') {
+                if(*pos == '\\') pos++; /* handle escaped chars in key */
+                if(*pos) pos++;
+            }
+        }
+        if(*pos == '"') pos++; /* skip closing '"' of key */
+
+        /* Skip ':' separator */
+        if(*pos != ':') return false;
+        pos++;
+
+        if(key_matched) {
+            /* Found the key -- populate the JsonValue */
+            val->start = pos;
+            /* Measure value length by skipping it */
+            const char* after = json_skip_value(pos);
+            val->len = (size_t)(after - pos);
+            val->offset = (size_t)(after - json);
+            return true;
+        }
+
+        /* Key did not match -- skip over the value and continue */
+        pos = json_skip_value(pos);
+
+        /* Skip the ',' between fields (if present) */
+        if(*pos == ',') pos++;
+    }
+
+    return false;
+}
+
+/* -------------------------------------------------------------------------
+ * Public API -- value interpreters
+ * ------------------------------------------------------------------------- */
+
+bool json_value_uint32(const JsonValue* val, uint32_t* out) {
+    const char* p = val->start;
+    const char* end = p + val->len;
+
+    if(p >= end || *p < '0' || *p > '9') return false;
+
+    uint32_t result = 0;
+    while(p < end && *p >= '0' && *p <= '9') {
+        result = result * 10 + (uint32_t)(*p - '0');
+        p++;
+    }
+    *out = result;
+    return true;
+}
+
+bool json_value_bool(const JsonValue* val, bool* out) {
+    const char* p = val->start;
+    size_t len = val->len;
+
+    if(len == 4 && p[0] == 't' && p[1] == 'r' && p[2] == 'u' && p[3] == 'e') {
+        *out = true;
+        return true;
+    }
+    if(len == 5 && p[0] == 'f' && p[1] == 'a' && p[2] == 'l' && p[3] == 's' && p[4] == 'e') {
+        *out = false;
+        return true;
+    }
+    /* V1 wire format: numeric 1/0 */
+    if(len == 1 && *p == '1') {
+        *out = true;
+        return true;
+    }
+    if(len == 1 && *p == '0') {
+        *out = false;
+        return true;
+    }
+    return false;
+}
+
+bool json_value_string(const JsonValue* val, char* out, size_t out_size) {
+    if(out_size == 0) return false;
+
+    /* val->start already points past the opening '"'; val->len is content length */
+    const char* p = val->start;
+    const char* end = p + val->len;
+    size_t i = 0;
+
+    while(p < end && i < out_size - 1) {
+        if(*p == '\\' && p + 1 < end) {
+            p++; /* skip backslash */
+            switch(*p) {
             case '"':
                 out[i++] = '"';
                 break;
@@ -101,225 +197,45 @@ bool json_extract_string(const char* json, const char* key, char* out, size_t ou
                 out[i++] = '\t';
                 break;
             default:
-                out[i++] = *pos;
+                out[i++] = *p;
                 break;
             }
         } else {
-            out[i++] = *pos;
+            out[i++] = *p;
         }
-        pos++;
+        p++;
     }
     out[i] = '\0';
-    return (i > 0 || *pos == '"'); /* empty string "" is valid */
+    return (i > 0 || val->len == 0); /* empty string "" is valid */
 }
 
-bool json_extract_uint32(const char* json, const char* key, uint32_t* out) {
-    const char* pos = json_find_value(json, key);
-    if(!pos) return false;
-
-    /* Must start with a digit */
-    if(*pos < '0' || *pos > '9') return false;
-
-    uint32_t val = 0;
-    while(*pos >= '0' && *pos <= '9') {
-        val = val * 10 + (uint32_t)(*pos - '0');
-        pos++;
-    }
-    *out = val;
-    return true;
-}
-
-bool json_extract_bool(const char* json, const char* key, bool* out) {
-    const char* pos = json_find_value(json, key);
-    if(!pos) return false;
-
-    if(strncmp(pos, "true", 4) == 0) {
-        *out = true;
-        return true;
-    }
-    if(strncmp(pos, "false", 5) == 0) {
-        *out = false;
-        return true;
-    }
-    /* V1 wire format: numeric 1/0 */
-    if(*pos == '1') {
-        *out = true;
-        return true;
-    }
-    if(*pos == '0') {
-        *out = false;
-        return true;
-    }
-    return false;
-}
-
-bool json_extract_uint32_array(
-    const char* json,
-    const char* key,
+bool json_value_uint32_array(
+    const JsonValue* val,
     uint32_t* out,
     size_t* out_count,
     size_t max_count) {
     *out_count = 0;
-    const char* pos = json_find_value(json, key);
-    if(!pos) return false;
-    if(*pos != '[') return false;
-    pos++; /* skip '[' */
 
-    while(*pos && *pos != ']' && *out_count < max_count) {
-        /* Skip whitespace and commas */
-        while(*pos == ' ' || *pos == '\t' || *pos == ',')
-            pos++;
-        if(*pos == ']' || *pos == '\0') break;
+    const char* p = val->start;
+    if(*p != '[') return false;
+    p++; /* skip '[' */
 
-        if(*pos < '0' || *pos > '9') return false; /* unexpected token */
+    const char* array_end = val->start + val->len; /* points at ']' */
 
-        uint32_t val = 0;
-        while(*pos >= '0' && *pos <= '9') {
-            val = val * 10 + (uint32_t)(*pos - '0');
-            pos++;
+    while(p < array_end && *p != ']' && *out_count < max_count) {
+        if(*p == ',') {
+            p++;
+            continue;
         }
-        out[(*out_count)++] = val;
-    }
-    return (*out_count > 0);
-}
+        if(*p < '0' || *p > '9') return false; /* unexpected token */
 
-/* -------------------------------------------------------------------------
- * Public API — cursor (_at) variants
- * ------------------------------------------------------------------------- */
-
-bool json_extract_string_at(
-    const char* json,
-    const char** cursor,
-    const char* key,
-    char* out,
-    size_t out_size) {
-    const char* pos = json_find_value_at(json, cursor, key);
-    if(!pos) return false;
-
-    if(*pos != '"') return false;
-    pos++; /* skip opening quote */
-
-    size_t i = 0;
-    while(*pos && *pos != '"' && i < out_size - 1) {
-        if(*pos == '\\' && *(pos + 1)) {
-            pos++;
-            switch(*pos) {
-            case '"':
-                out[i++] = '"';
-                break;
-            case '\\':
-                out[i++] = '\\';
-                break;
-            case 'n':
-                out[i++] = '\n';
-                break;
-            case 'r':
-                out[i++] = '\r';
-                break;
-            case 't':
-                out[i++] = '\t';
-                break;
-            default:
-                out[i++] = *pos;
-                break;
-            }
-        } else {
-            out[i++] = *pos;
+        uint32_t v = 0;
+        while(p < array_end && *p >= '0' && *p <= '9') {
+            v = v * 10 + (uint32_t)(*p - '0');
+            p++;
         }
-        pos++;
+        out[(*out_count)++] = v;
     }
-    out[i] = '\0';
-
-    /* Advance cursor past the closing quote */
-    if(*pos == '"') pos++;
-    *cursor = pos;
-
-    return (i > 0 || *(pos - 1) == '"');
-}
-
-bool json_extract_uint32_at(
-    const char* json,
-    const char** cursor,
-    const char* key,
-    uint32_t* out) {
-    const char* pos = json_find_value_at(json, cursor, key);
-    if(!pos) return false;
-
-    if(*pos < '0' || *pos > '9') return false;
-
-    uint32_t val = 0;
-    while(*pos >= '0' && *pos <= '9') {
-        val = val * 10 + (uint32_t)(*pos - '0');
-        pos++;
-    }
-    *out = val;
-    *cursor = pos;
-    return true;
-}
-
-bool json_extract_bool_at(
-    const char* json,
-    const char** cursor,
-    const char* key,
-    bool* out) {
-    const char* pos = json_find_value_at(json, cursor, key);
-    if(!pos) return false;
-
-    if(strncmp(pos, "true", 4) == 0) {
-        *out = true;
-        *cursor = pos + 4;
-        return true;
-    }
-    if(strncmp(pos, "false", 5) == 0) {
-        *out = false;
-        *cursor = pos + 5;
-        return true;
-    }
-    /* V1 wire format: numeric 1/0 */
-    if(*pos == '1') {
-        *out = true;
-        *cursor = pos + 1;
-        return true;
-    }
-    if(*pos == '0') {
-        *out = false;
-        *cursor = pos + 1;
-        return true;
-    }
-    return false;
-}
-
-bool json_extract_uint32_array_at(
-    const char* json,
-    const char** cursor,
-    const char* key,
-    uint32_t* out,
-    size_t* out_count,
-    size_t max_count) {
-    *out_count = 0;
-    const char* pos = json_find_value_at(json, cursor, key);
-    if(!pos) return false;
-    if(*pos != '[') return false;
-    pos++; /* skip '[' */
-
-    while(*pos && *pos != ']' && *out_count < max_count) {
-        while(*pos == ' ' || *pos == '\t' || *pos == ',')
-            pos++;
-        if(*pos == ']' || *pos == '\0') break;
-
-        if(*pos < '0' || *pos > '9') return false;
-
-        uint32_t val = 0;
-        while(*pos >= '0' && *pos <= '9') {
-            val = val * 10 + (uint32_t)(*pos - '0');
-            pos++;
-        }
-        out[(*out_count)++] = val;
-    }
-
-    /* Advance cursor past the closing ']' if present */
-    if(*pos == ']') pos++;
-    *cursor = pos;
 
     return (*out_count > 0);
 }

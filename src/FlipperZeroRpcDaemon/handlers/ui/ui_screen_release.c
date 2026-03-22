@@ -22,8 +22,9 @@
 #include "../../core/rpc_response.h"
 #include "../../core/rpc_cmd_log.h"
 
-void ui_screen_release_handler(uint32_t id, const char* json) {
-    UNUSED(json);
+void ui_screen_release_handler(uint32_t id, const char* json, size_t offset) {
+    (void)json;
+    (void)offset;
 
     if(!resource_is_held(RESOURCE_GUI)) {
         rpc_send_error(id, "resource_busy", "ui_screen_release");
