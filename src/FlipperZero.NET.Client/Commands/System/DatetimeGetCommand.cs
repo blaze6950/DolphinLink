@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Commands.System;
@@ -7,22 +7,19 @@ namespace FlipperZero.NET.Commands.System;
 /// Returns the current RTC date and time from the Flipper.
 ///
 /// Wire format (request):
-/// <code>{"id":N,"cmd":"datetime_get"}</code>
+/// <code>{"i":N,"c":7}</code>
 ///
 /// Wire format (response):
-/// <code>{"t":0,"i":N,"p":{"year":2025,"month":6,"day":1,"hour":12,"minute":0,"second":0,"weekday":7}}</code>
+/// <code>{"t":0,"i":N,"p":{"yr":2025,"mo":6,"dy":1,"hr":12,"mn":0,"sc":0,"wd":7}}</code>
 ///
-/// <c>weekday</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
-/// The <c>weekday</c> field is derived from the <see cref="DateTime.DayOfWeek"/>
+/// <c>wd</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
+/// The <c>wd</c> field is derived from the <see cref="DateTime.DayOfWeek"/>
 /// property and does not need to be decoded separately.
 /// </summary>
-public readonly struct DatetimeGetCommand : IRpcCommand<DatetimeGetResponse>
+public readonly partial struct DatetimeGetCommand : IRpcCommand<DatetimeGetResponse>
 {
-    /// <inheritdoc />
-    public string CommandName => "datetime_get";
-
-    /// <summary>No arguments.</summary>
-    public void WriteArgs(Utf8JsonWriter writer) { }
+    // CommandName and CommandId come from Generated/Commands/System/DatetimeGetCommand.g.cs
+    // WriteArgs: no arguments needed
 }
 
 /// <summary>Response to <see cref="DatetimeGetCommand"/>.</summary>
@@ -38,10 +35,10 @@ public readonly struct DatetimeGetResponse : IRpcCommandResponse
 }
 
 /// <summary>
-/// Deserialises the seven individual JSON fields (<c>year</c>, <c>month</c>, <c>day</c>,
-/// <c>hour</c>, <c>minute</c>, <c>second</c>, <c>weekday</c>) emitted by the daemon
+/// Deserialises the seven individual JSON fields (<c>yr</c>, <c>mo</c>, <c>dy</c>,
+/// <c>hr</c>, <c>mn</c>, <c>sc</c>, <c>wd</c>) emitted by the daemon
 /// into a single <see cref="DateTime"/>.
-/// The <c>weekday</c> field is ignored on read — it is fully redundant with
+/// The <c>wd</c> field is ignored on read — it is fully redundant with
 /// <see cref="DateTime.DayOfWeek"/>.
 /// </summary>
 internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeGetResponse>
@@ -58,13 +55,13 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
 
             switch (propName)
             {
-                case "year": year = reader.GetInt32(); break;
-                case "month": month = reader.GetInt32(); break;
-                case "day": day = reader.GetInt32(); break;
-                case "hour": hour = reader.GetInt32(); break;
-                case "minute": minute = reader.GetInt32(); break;
-                case "second": second = reader.GetInt32(); break;
-                    // "weekday" and any other fields are intentionally skipped
+                case "yr": year   = reader.GetInt32(); break;
+                case "mo": month  = reader.GetInt32(); break;
+                case "dy": day    = reader.GetInt32(); break;
+                case "hr": hour   = reader.GetInt32(); break;
+                case "mn": minute = reader.GetInt32(); break;
+                case "sc": second = reader.GetInt32(); break;
+                // "wd" and any other fields are intentionally skipped
             }
             reader.Read(); // next property name or EndObject
         }
@@ -79,15 +76,15 @@ internal sealed class DatetimeGetResponseJsonConverter : JsonConverter<DatetimeG
     {
         var dt = value.DateTime;
         writer.WriteStartObject();
-        writer.WriteNumber("year", dt.Year);
-        writer.WriteNumber("month", dt.Month);
-        writer.WriteNumber("day", dt.Day);
-        writer.WriteNumber("hour", dt.Hour);
-        writer.WriteNumber("minute", dt.Minute);
-        writer.WriteNumber("second", dt.Second);
+        writer.WriteNumber("yr", dt.Year);
+        writer.WriteNumber("mo", dt.Month);
+        writer.WriteNumber("dy", dt.Day);
+        writer.WriteNumber("hr", dt.Hour);
+        writer.WriteNumber("mn", dt.Minute);
+        writer.WriteNumber("sc", dt.Second);
         // weekday: Flipper uses ISO 8601 (1=Mon…7=Sun); .NET DayOfWeek is 0=Sun…6=Sat
         int weekday = dt.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)dt.DayOfWeek;
-        writer.WriteNumber("weekday", weekday);
+        writer.WriteNumber("wd", weekday);
         writer.WriteEndObject();
     }
 }

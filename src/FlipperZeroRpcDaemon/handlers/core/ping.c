@@ -2,8 +2,8 @@
  * ping.c — ping command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"ping"}
- *   Response: {"t":0,"i":N,"p":{"pong":true}}
+ *   Request:  {"c":0,"i":N}
+ *   Response: {"t":0,"i":N,"p":{"pg":1}}
  *
  * Resources required: none.
  * Threading: main thread (FuriEventLoop).
@@ -23,5 +23,5 @@ void ping_handler(uint32_t id, const char* json) {
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " ping -> ok", id);
 
-    rpc_send_data_response(id, "{\"pong\":true}", log_entry);
+    rpc_send_data_response(id, "{\"pg\":1}", log_entry);
 }

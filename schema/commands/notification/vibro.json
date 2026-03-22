@@ -1,0 +1,12 @@
+{
+  "command": "vibro",
+  "subsystem": "Notification",
+  "description": "Enable or disable the vibration motor",
+  "resource": null,
+  "request": {
+    "enable": { "wire": "en", "type": "bool", "description": "True to enable vibro" }
+  },
+  "response": {},
+  "errors": ["missing_enable"],
+  "extensionReturn": { "type": "void" }
+}

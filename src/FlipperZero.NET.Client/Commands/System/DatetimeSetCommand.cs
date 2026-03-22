@@ -1,4 +1,4 @@
-﻿using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Commands.System;
 
@@ -6,15 +6,15 @@ namespace FlipperZero.NET.Commands.System;
 /// Sets the RTC date and time on the Flipper.
 ///
 /// Wire format (request):
-/// <code>{"id":N,"cmd":"datetime_set","year":2025,"month":6,"day":1,"hour":12,"minute":0,"second":0,"weekday":7}</code>
+/// <code>{"i":N,"c":8,"yr":2025,"mo":6,"dy":1,"hr":12,"mn":0,"sc":0,"wd":7}</code>
 ///
 /// Wire format (response):
 /// <code>{"t":0,"i":N}</code>
 ///
-/// <c>weekday</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
+/// <c>wd</c> follows the Flipper convention: 1 = Monday … 7 = Sunday.
 /// It is derived automatically from <see cref="DateTime.DayOfWeek"/>.
 /// </summary>
-public readonly struct DatetimeSetCommand : IRpcCommand<DatetimeSetResponse>
+public readonly partial struct DatetimeSetCommand : IRpcCommand<DatetimeSetResponse>
 {
     /// <param name="dateTime">
     /// The date and time to set on the Flipper RTC.
@@ -29,21 +29,21 @@ public readonly struct DatetimeSetCommand : IRpcCommand<DatetimeSetResponse>
     public string CommandName => "datetime_set";
 
     /// <inheritdoc />
+    public int CommandId => 8;
+
+    /// <inheritdoc />
     public void WriteArgs(Utf8JsonWriter writer)
     {
         var dt = DateTime;
-        writer.WriteNumber("year", dt.Year);
-        writer.WriteNumber("month", dt.Month);
-        writer.WriteNumber("day", dt.Day);
-        writer.WriteNumber("hour", dt.Hour);
-        writer.WriteNumber("minute", dt.Minute);
-        writer.WriteNumber("second", dt.Second);
+        writer.WriteNumber("yr", dt.Year);
+        writer.WriteNumber("mo", dt.Month);
+        writer.WriteNumber("dy", dt.Day);
+        writer.WriteNumber("hr", dt.Hour);
+        writer.WriteNumber("mn", dt.Minute);
+        writer.WriteNumber("sc", dt.Second);
         // Flipper uses ISO 8601 weekday: 1 = Monday … 7 = Sunday.
         // .NET DayOfWeek: 0 = Sunday … 6 = Saturday.
         int weekday = dt.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)dt.DayOfWeek;
-        writer.WriteNumber("weekday", weekday);
+        writer.WriteNumber("wd", weekday);
     }
 }
-
-/// <summary>Response to <see cref="DatetimeSetCommand"/>.</summary>
-public readonly struct DatetimeSetResponse : IRpcCommandResponse { }

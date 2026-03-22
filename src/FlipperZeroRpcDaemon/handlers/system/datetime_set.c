@@ -2,9 +2,9 @@
  * datetime_set.c — datetime_set command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"datetime_set",
- *               "year":<u32>,"month":<u32>,"day":<u32>,
- *               "hour":<u32>,"minute":<u32>,"second":<u32>}
+ *   Request:  {"c":N,"i":M,
+ *               "yr":<u32>,"mo":<u32>,"dy":<u32>,
+ *               "hr":<u32>,"mn":<u32>,"sc":<u32>}
  *   Response: {"id":N,"status":"ok"}
  *   Errors:   missing_datetime_fields (year, month, or day == 0)
  *
@@ -25,12 +25,12 @@
 void datetime_set_handler(uint32_t id, const char* json) {
     uint32_t year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
 
-    json_extract_uint32(json, "year", &year);
-    json_extract_uint32(json, "month", &month);
-    json_extract_uint32(json, "day", &day);
-    json_extract_uint32(json, "hour", &hour);
-    json_extract_uint32(json, "minute", &minute);
-    json_extract_uint32(json, "second", &second);
+    json_extract_uint32(json, "yr", &year);
+    json_extract_uint32(json, "mo", &month);
+    json_extract_uint32(json, "dy", &day);
+    json_extract_uint32(json, "hr", &hour);
+    json_extract_uint32(json, "mn", &minute);
+    json_extract_uint32(json, "sc", &second);
 
     if(year == 0 || month == 0 || day == 0) {
         rpc_send_error(id, "missing_datetime_fields", "datetime_set");

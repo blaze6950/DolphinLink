@@ -1,0 +1,14 @@
+{
+  "command": "storage_read",
+  "subsystem": "Storage",
+  "description": "Read file contents",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "File path" }
+  },
+  "response": {
+    "data": { "wire": "d", "type": "bytes", "description": "File contents (base64-encoded)" }
+  },
+  "errors": ["missing_path", "open_failed", "storage_error"],
+  "extensionReturn": { "type": "byte[]", "field": "data" }
+}

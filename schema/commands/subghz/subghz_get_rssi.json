@@ -1,0 +1,14 @@
+{
+  "command": "subghz_get_rssi",
+  "subsystem": "SubGhz",
+  "description": "Measure RSSI at a given frequency",
+  "resource": "RESOURCE_SUBGHZ",
+  "request": {
+    "freq": { "wire": "fr", "type": "uint", "description": "Frequency in Hz" }
+  },
+  "response": {
+    "rssi_dbm10": { "wire": "rs", "type": "int", "description": "RSSI in dBm * 10" }
+  },
+  "errors": ["resource_busy", "missing_freq"],
+  "extensionReturn": { "type": "int", "field": "rssi_dbm10" }
+}

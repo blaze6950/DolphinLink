@@ -1,0 +1,15 @@
+{
+  "command": "ui_draw_str",
+  "subsystem": "Ui",
+  "description": "Draw a text string at a position on the screen",
+  "resource": "RESOURCE_GUI",
+  "request": {
+    "x": { "wire": "x", "type": "int", "description": "X coordinate" },
+    "y": { "wire": "y", "type": "int", "description": "Y coordinate" },
+    "text": { "wire": "tx", "type": "string", "description": "Text to draw" },
+    "font": { "wire": "fn", "type": "int", "enum": "$UiFont", "optional": true, "description": "Font index" }
+  },
+  "response": {},
+  "errors": ["resource_busy", "missing_text"],
+  "extensionReturn": { "type": "void" }
+}

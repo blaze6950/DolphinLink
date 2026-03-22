@@ -38,7 +38,7 @@
 
 void storage_list_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_list");
         return;
     }
@@ -68,7 +68,7 @@ void storage_list_handler(uint32_t id, const char* json) {
     size_t count = 0;
 
     /* Payload header */
-    offset += snprintf(buf + offset, buf_size - offset, "{\"entries\":[");
+    offset += snprintf(buf + offset, buf_size - offset, "{\"en\":[");
 
     while(count < STORAGE_LIST_MAX && storage_dir_read(dir, &fi, name, sizeof(name))) {
         if(count > 0 && offset < buf_size - 1) {
@@ -78,9 +78,9 @@ void storage_list_handler(uint32_t id, const char* json) {
         offset += snprintf(
             buf + offset,
             buf_size - offset,
-            "{\"name\":\"%s\",\"is_dir\":%s,\"size\":%" PRIu32 "}",
+            "{\"nm\":\"%s\",\"d\":%u,\"sz\":%" PRIu32 "}",
             name,
-            is_dir ? "true" : "false",
+            is_dir ? 1u : 0u,
             (uint32_t)fi.size);
         count++;
     }

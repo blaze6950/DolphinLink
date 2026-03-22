@@ -18,9 +18,9 @@ public sealed class LfRfidReadManualTests(FlipperFixture fixture)
 
     /// <summary>
     /// After opening an LF RFID read stream we must be able to receive at
-    /// least one <see cref="LfRfidReadEvent"/> when a compatible RFID tag is
+    /// least one <see cref="LfrfidReadEvent"/> when a compatible RFID tag is
     /// presented to the Flipper's RFID coil.
-    /// Validates: stream event routing and <see cref="LfRfidReadEvent"/>
+    /// Validates: stream event routing and <see cref="LfrfidReadEvent"/>
     /// deserialisation.
     ///
     /// Requires manual interaction: present a compatible RFID tag to the
@@ -31,9 +31,9 @@ public sealed class LfRfidReadManualTests(FlipperFixture fixture)
     public async Task LfRfidReadStart_ReceivesAtLeastOneEvent()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-        await using var stream = await Client.LfRfidReadStartAsync(timeout.Token);
+        await using var stream = await Client.LfrfidReadStartAsync(timeout.Token);
 
-        LfRfidReadEvent? firstEvent = null;
+        LfrfidReadEvent? firstEvent = null;
 
         await foreach (var evt in stream.WithCancellation(timeout.Token))
         {

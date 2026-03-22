@@ -5,7 +5,7 @@
  * the radio.  RSSI is returned as integer tenths-of-dBm.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"subghz_get_rssi","freq":433920000}
+ *   {"c":N,"i":M,"fr":433920000}
  *
  * Wire format (response):
  *   {"t":0,"i":N,"p":{"rssi_dbm10":-750}}
@@ -32,7 +32,7 @@ void subghz_get_rssi_handler(uint32_t id, const char* json) {
     }
 
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "freq", &freq);
+    json_extract_uint32(json, "fr", &freq);
 
     resource_acquire(RESOURCE_SUBGHZ);
 
@@ -50,7 +50,7 @@ void subghz_get_rssi_handler(uint32_t id, const char* json) {
     int32_t rssi_10 = (int32_t)(rssi * 10.0f);
 
     char resp[40];
-    snprintf(resp, sizeof(resp), "{\"rssi_dbm10\":%" PRIi32 "}", rssi_10);
+    snprintf(resp, sizeof(resp), "{\"rs\":%" PRIi32 "}", rssi_10);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " subghz_rssi -> %" PRIi32, id, rssi_10);

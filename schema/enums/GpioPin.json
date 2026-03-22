@@ -1,0 +1,15 @@
+{
+  "name": "GpioPin",
+  "wireType": "int",
+  "baseType": "byte",
+  "values": [
+    { "name": "Pin1", "wire": 1 },
+    { "name": "Pin2", "wire": 2 },
+    { "name": "Pin3", "wire": 3 },
+    { "name": "Pin4", "wire": 4 },
+    { "name": "Pin5", "wire": 5 },
+    { "name": "Pin6", "wire": 6 },
+    { "name": "Pin7", "wire": 7 },
+    { "name": "Pin8", "wire": 8 }
+  ]
+}

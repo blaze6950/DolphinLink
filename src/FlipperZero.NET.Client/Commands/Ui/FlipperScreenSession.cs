@@ -43,7 +43,7 @@ public sealed class FlipperScreenSession : IAsyncDisposable
         UiFont font = UiFont.Secondary,
         CancellationToken ct = default)
         => _client.SendAsync<UiDrawStrCommand, UiDrawStrResponse>(
-            new UiDrawStrCommand(x, y, text, font), ct);
+            new UiDrawStrCommand { X = x, Y = y, Text = text, Font = font }, ct);
 
     /// <summary>
     /// Queues a draw-rectangle operation on the canvas.
@@ -64,7 +64,7 @@ public sealed class FlipperScreenSession : IAsyncDisposable
         bool filled = false,
         CancellationToken ct = default)
         => _client.SendAsync<UiDrawRectCommand, UiDrawRectResponse>(
-            new UiDrawRectCommand(x, y, width, height, filled), ct);
+            new UiDrawRectCommand { X = x, Y = y, W = width, H = height, Filled = filled }, ct);
 
     /// <summary>
     /// Queues a draw-line operation on the canvas.
@@ -83,7 +83,7 @@ public sealed class FlipperScreenSession : IAsyncDisposable
         byte y2,
         CancellationToken ct = default)
         => _client.SendAsync<UiDrawLineCommand, UiDrawLineResponse>(
-            new UiDrawLineCommand(x1, y1, x2, y2), ct);
+            new UiDrawLineCommand { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2 }, ct);
 
     /// <summary>
     /// Flushes all queued draw operations to the Flipper screen.

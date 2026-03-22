@@ -14,7 +14,7 @@ namespace FlipperZero.NET.Client.UnitTests;
 public sealed class NegotiateTests
 {
     private const string ValidDaemonInfoJson =
-        """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""";
+        """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":1,"cmds":["ping","daemon_info"]}}""";
 
     // -------------------------------------------------------------------------
     // ConnectAsync negotiation behaviour
@@ -56,7 +56,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"some_other_app","version":1,"commands":[]}}""");
+            """{"t":0,"i":1,"p":{"n":"some_other_app","v":1,"cmds":[]}}""");
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(() => client.ConnectAsync());
 
@@ -71,7 +71,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":0,"commands":[]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":0,"cmds":[]}}""");
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
             () => client.ConnectAsync(minProtocolVersion: 1));
@@ -87,7 +87,7 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":5,"commands":["ping"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":5,"cmds":["ping"]}}""");
 
         var info = await client.ConnectAsync(minProtocolVersion: 1);
 
@@ -110,7 +110,7 @@ public sealed class NegotiateTests
 
         // DaemonInfoAsync call
         transport.EnqueueResponse(
-            """{"t":0,"i":2,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
+            """{"t":0,"i":2,"p":{"n":"flipper_zero_rpc_daemon","v":1,"cmds":["ping"]}}""");
 
         var info = await client.DaemonInfoAsync();
 
@@ -143,7 +143,7 @@ public sealed class NegotiateTests
 
         // Only "ping" in the list — no UI commands
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":1,"cmds":["ping"]}}""");
         await client.ConnectAsync();
 
         Assert.False(client.DaemonInfo!.Value.Supports<DaemonInfoCommand>());
@@ -177,10 +177,10 @@ public sealed class NegotiateTests
 
         // daemon_info response includes "configure" in the commands list
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":4,"commands":["ping","daemon_info","configure"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":4,"cmds":["ping","daemon_info","configure"]}}""");
         // configure response
         transport.EnqueueResponse(
-            """{"t":0,"i":2,"p":{"heartbeat_ms":3600000,"timeout_ms":7200000}}""");
+            """{"t":0,"i":2,"p":{"hb":3600000,"to":7200000}}""");
 
         await client.ConnectAsync();
 
@@ -189,13 +189,13 @@ public sealed class NegotiateTests
         Assert.Equal(2, sent.Count);
 
         using var firstDoc = JsonDocument.Parse(sent[0]);
-        Assert.Equal("daemon_info", firstDoc.RootElement.GetProperty("cmd").GetString());
+        Assert.Equal(3, firstDoc.RootElement.GetProperty("c").GetInt32()); // daemon_info CommandId
 
         using var secondDoc = JsonDocument.Parse(sent[1]);
-        Assert.Equal("configure", secondDoc.RootElement.GetProperty("cmd").GetString());
-        // heartbeat_ms and timeout_ms should match the FakeTransport client options (1h / 2h)
-        Assert.Equal(3_600_000u, secondDoc.RootElement.GetProperty("heartbeat_ms").GetUInt32());
-        Assert.Equal(7_200_000u, secondDoc.RootElement.GetProperty("timeout_ms").GetUInt32());
+        Assert.Equal(2, secondDoc.RootElement.GetProperty("c").GetInt32()); // configure CommandId
+        // hb and to should match the FakeTransport client options (1h / 2h)
+        Assert.Equal(3_600_000u, secondDoc.RootElement.GetProperty("hb").GetUInt32());
+        Assert.Equal(7_200_000u, secondDoc.RootElement.GetProperty("to").GetUInt32());
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public sealed class NegotiateTests
         var line = Assert.Single(sent);
 
         using var doc = JsonDocument.Parse(line);
-        Assert.Equal("daemon_info", doc.RootElement.GetProperty("cmd").GetString());
+        Assert.Equal(3, doc.RootElement.GetProperty("c").GetInt32()); // daemon_info CommandId
     }
 
     [Fact]
@@ -224,9 +224,9 @@ public sealed class NegotiateTests
         await using var client = transport.CreateClient();
 
         transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":4,"commands":["ping","daemon_info","configure"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":4,"cmds":["ping","daemon_info","configure"]}}""");
         transport.EnqueueResponse(
-            """{"t":0,"i":2,"p":{"heartbeat_ms":3600000,"timeout_ms":7200000}}""");
+            """{"t":0,"i":2,"p":{"hb":3600000,"to":7200000}}""");
 
         var info = await client.ConnectAsync();
 

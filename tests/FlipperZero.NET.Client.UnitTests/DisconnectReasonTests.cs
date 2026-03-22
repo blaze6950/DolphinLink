@@ -36,7 +36,7 @@ public sealed class DisconnectReasonTests
             commands += "," + extraCommands;
         }
         transport.EnqueueResponse(
-            $$$"""{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":[{{{commands}}}]}}""");
+            $$$"""{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":5,"cmds":[{{{commands}}}]}}""");
         await client.ConnectAsync();
         return (transport, client);
     }
@@ -99,7 +99,7 @@ public sealed class DisconnectReasonTests
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
         var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
-            () => client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+            () => client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
                 new InputListenStartCommand()));
         Assert.Equal(DisconnectReason.ConnectionLost, ex.Reason);
     }
@@ -233,8 +233,8 @@ public sealed class DisconnectReasonTests
         var (transport, client) = await CreateConnectedClientAsync();
         await using var _ = client;
 
-        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":1}}""");
-        var stream = await client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":1}}""");
+        var stream = await client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         var iterTask = Task.Run(async () =>
@@ -259,8 +259,8 @@ public sealed class DisconnectReasonTests
         var (transport, client) = await CreateConnectedClientAsync();
         await using var _ = client;
 
-        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":2}}""");
-        var stream = await client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":2}}""");
+        var stream = await client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         var iterTask = Task.Run(async () =>
@@ -288,8 +288,8 @@ public sealed class DisconnectReasonTests
         var (transport, client) = await CreateConnectedClientAsync();
         await using var _ = client;
 
-        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":3}}""");
-        var stream = await client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":3}}""");
+        var stream = await client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         using var cts = new CancellationTokenSource();

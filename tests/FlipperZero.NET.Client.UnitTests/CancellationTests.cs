@@ -20,7 +20,7 @@ public sealed class CancellationTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":5,"cmds":["ping","daemon_info"]}}""");
         await _client.ConnectAsync();
     }
 
@@ -52,7 +52,7 @@ public sealed class CancellationTests : IAsyncLifetime, IAsyncDisposable
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+            () => _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
                 new InputListenStartCommand(), cts.Token));
     }
 

@@ -132,9 +132,9 @@ int stream_open(uint32_t id, const char* cmd_name, ResourceMask res, uint32_t* s
 }
 
 void stream_send_opened(uint32_t request_id, uint32_t stream_id, const char* cmd_name) {
-    /* V3 payload: {"stream":M} — rpc_send_data_response wraps in the t/i envelope */
+    /* V5 payload: {"s":M} — rpc_send_data_response wraps in the t/i envelope */
     char payload[32];
-    snprintf(payload, sizeof(payload), "{\"stream\":%" PRIu32 "}", stream_id);
+    snprintf(payload, sizeof(payload), "{\"s\":%" PRIu32 "}", stream_id);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(

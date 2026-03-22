@@ -80,7 +80,7 @@ public sealed class GpioCommandTests(FlipperFixture fixture)
     {
         var response = await Client.AdcReadAsync(GpioPin.Pin1);
 
-        Assert.InRange(response.Raw, 0, 4095);
+        Assert.InRange(response.Raw, 0u, 4095u);
         Assert.True(response.Mv >= 0, "ADC millivolt reading must be non-negative");
     }
 

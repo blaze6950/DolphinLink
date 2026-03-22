@@ -18,8 +18,8 @@ public sealed class InputListenManualTests(FlipperFixture fixture)
 
     /// <summary>
     /// After opening an input listen stream we must receive at least one
-    /// <see cref="FlipperInputEvent"/> when a hardware button is pressed.
-    /// Validates: stream event routing and <see cref="FlipperInputEvent"/>
+    /// <see cref="InputListenEvent"/> when a hardware button is pressed.
+    /// Validates: stream event routing and <see cref="InputListenEvent"/>
     /// deserialisation of the <c>key</c> and <c>type</c> fields.
     ///
     /// Requires manual interaction: press any button on the Flipper within
@@ -32,7 +32,7 @@ public sealed class InputListenManualTests(FlipperFixture fixture)
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
         await using var stream = await Client.InputListenStartAsync(ct: timeout.Token);
 
-        FlipperInputEvent? firstEvent = null;
+        InputListenEvent? firstEvent = null;
 
         await foreach (var evt in stream.WithCancellation(timeout.Token))
         {
@@ -69,7 +69,7 @@ public sealed class InputListenManualTests(FlipperFixture fixture)
             exitType: FlipperInputType.Short,
             ct: timeout.Token);
 
-        var backEvents = new List<FlipperInputEvent>();
+        var backEvents = new List<InputListenEvent>();
 
         await foreach (var evt in stream.WithCancellation(timeout.Token))
         {

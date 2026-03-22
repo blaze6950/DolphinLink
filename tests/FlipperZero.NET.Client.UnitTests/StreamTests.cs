@@ -23,7 +23,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info","input_listen_start","stream_close","ui_screen_acquire","ui_screen_release","ui_draw_str","ui_draw_rect","ui_draw_line","ui_flush"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":5,"cmds":["ping","daemon_info","input_listen_start","stream_close","ui_screen_acquire","ui_screen_release","ui_draw_str","ui_draw_rect","ui_draw_line","ui_flush"]}}""");
         await _client.ConnectAsync();
     }
 
@@ -38,9 +38,9 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_ReturnsStream_WithCorrectStreamId()
     {
         // Arrange: daemon acknowledges stream open with stream id 42
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":42}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":42}}""");
 
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Assert
@@ -55,16 +55,16 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_SendsCorrectCommandLine()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":1}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":1}}""");
 
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Assert: second line (after daemon_info) has the right command name
         var sent = _transport.SentLines;
         Assert.Equal(2, sent.Count);
-        Assert.Contains("\"cmd\":\"input_listen_start\"", sent[1]);
-        Assert.Contains("\"id\":2", sent[1]);
+        Assert.Contains("\"c\":39", sent[1]);
+        Assert.Contains("\"i\":2", sent[1]);
 
         // Clean up
         _transport.EnqueueResponse("""{"t":0,"i":3}""");
@@ -75,16 +75,16 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendStreamAsync_DeliversEvents_ToAsyncEnumerable()
     {
         // Arrange: open the stream
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":7}}""");
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":7}}""");
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
-        // Inject two unsolicited stream events using enum wire strings
-        _transport.InjectEvent("""{"t":1,"i":7,"p":{"key":"ok","type":"short"}}""");
-        _transport.InjectEvent("""{"t":1,"i":7,"p":{"key":"back","type":"long"}}""");
+        // Inject two unsolicited stream events using enum wire integers
+        _transport.InjectEvent("""{"t":1,"i":7,"p":{"k":4,"ty":2}}""");
+        _transport.InjectEvent("""{"t":1,"i":7,"p":{"k":5,"ty":3}}""");
 
         // Act: collect both events with a timeout
-        var events = new List<FlipperInputEvent>();
+        var events = new List<InputListenEvent>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         await foreach (var evt in stream.WithCancellation(cts.Token))
@@ -110,8 +110,8 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
     public async Task DisposeAsync_SendsStreamClose_WithCorrectStreamId()
     {
         // Arrange: open stream with id 99
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":99}}""");
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":99}}""");
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Enqueue the response for stream_close (id 3)
@@ -124,16 +124,16 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         var sent = _transport.SentLines;
         Assert.Equal(3, sent.Count);
         var closeJson = sent[2];
-        Assert.Contains("\"cmd\":\"stream_close\"", closeJson);
-        Assert.Contains("\"stream\":99", closeJson);
+        Assert.Contains("\"c\":1", closeJson);
+        Assert.Contains("\"s\":99", closeJson);
     }
 
     [Fact]
     public async Task DisposeAsync_IsIdempotent()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":5}}""");
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":5}}""");
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         _transport.EnqueueResponse("""{"t":0,"i":3}""");
@@ -154,7 +154,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+            () => _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
                 new InputListenStartCommand()));
 
         Assert.Equal("resource_busy", ex.ErrorCode);
@@ -199,7 +199,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         var sent = _transport.SentLines;
         // daemon_info, ui_screen_acquire, ui_draw_str — release sent on dispose
         Assert.True(sent.Count >= 3);
-        Assert.Contains("\"cmd\":\"ui_draw_str\"", sent[2]);
+        Assert.Contains("\"c\":42", sent[2]);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public sealed class StreamTests : IAsyncLifetime, IAsyncDisposable
         // Assert: daemon_info + acquire + release = 3 lines
         var sent = _transport.SentLines;
         Assert.Equal(3, sent.Count);
-        Assert.Contains("\"cmd\":\"ui_screen_release\"", sent[2]);
+        Assert.Contains("\"c\":41", sent[2]);
     }
 
     [Fact]

@@ -6,10 +6,10 @@
  * Threading : CDC ISR → FuriMessageQueue → FuriEventLoop (main thread)
  * GUI       : ViewPort rendered through Gui record (compatible with FuriEventLoop)
  *
- * Protocol (request):
- *   {"id":<uint>,"cmd":"<name>"[,"stream":<uint>][,...args...]}
+ * Protocol (request — V1 wire format, integer command IDs):
+ *   {"c":<cmd_id>,"i":<request_id>[,...args...]}
  *
- * Protocol (response – V3 envelope):
+ * Protocol (response — V3 envelope):
  *   {"t":0,"i":<uint>}                        <- void ok
  *   {"t":0,"i":<uint>,"p":{...}}              <- ok with data
  *   {"t":0,"i":<uint>,"p":{"stream":<uint>}}  <- stream opened

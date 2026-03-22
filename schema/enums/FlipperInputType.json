@@ -1,0 +1,12 @@
+{
+  "name": "FlipperInputType",
+  "wireType": "int",
+  "baseType": "byte",
+  "values": [
+    { "name": "Press", "wire": 0 },
+    { "name": "Release", "wire": 1 },
+    { "name": "Short", "wire": 2 },
+    { "name": "Long", "wire": 3 },
+    { "name": "Repeat", "wire": 4 }
+  ]
+}

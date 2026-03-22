@@ -1,0 +1,12 @@
+{
+  "command": "daemon_stop",
+  "subsystem": "System",
+  "description": "Stop the daemon gracefully",
+  "resource": null,
+  "request": {},
+  "response": {
+    "status": { "wire": "st", "type": "string", "description": "Stop status" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "void" }
+}

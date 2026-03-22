@@ -1,0 +1,15 @@
+{
+  "command": "ui_draw_line",
+  "subsystem": "Ui",
+  "description": "Draw a line on the screen",
+  "resource": "RESOURCE_GUI",
+  "request": {
+    "x1": { "wire": "x1", "type": "int", "description": "Start X coordinate" },
+    "y1": { "wire": "y1", "type": "int", "description": "Start Y coordinate" },
+    "x2": { "wire": "x2", "type": "int", "description": "End X coordinate" },
+    "y2": { "wire": "y2", "type": "int", "description": "End Y coordinate" }
+  },
+  "response": {},
+  "errors": ["resource_busy"],
+  "extensionReturn": { "type": "void" }
+}

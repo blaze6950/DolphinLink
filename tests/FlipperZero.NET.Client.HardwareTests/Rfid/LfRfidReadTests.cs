@@ -5,7 +5,7 @@ namespace FlipperZero.NET.Client.HardwareTests.Rfid;
 
 /// <summary>
 /// Hardware tests for LF RFID streaming via
-/// <see cref="FlipperRpcClient.LfRfidReadStartAsync"/>.
+/// <see cref="FlipperRpcClient.LfrfidReadStartAsync"/>.
 /// Excludes the manual test <c>LfRfidReadStart_ReceivesAtLeastOneEvent</c> which requires
 /// a human to present an RFID tag to the Flipper.
 ///
@@ -19,7 +19,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     private FlipperRpcClient Client => fixture.Client;
 
     /// <summary>
-    /// <see cref="FlipperRpcClient.LfRfidReadStartAsync"/> must return an
+    /// <see cref="FlipperRpcClient.LfrfidReadStartAsync"/> must return an
     /// <see cref="RpcStream{TEvent}"/> with a non-zero stream id.
     /// Validates: the stream-open handshake for LFRFID read.
     /// </summary>
@@ -27,7 +27,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_ReturnsStreamWithNonZeroId()
     {
-        await using var stream = await Client.LfRfidReadStartAsync();
+        await using var stream = await Client.LfrfidReadStartAsync();
 
         Assert.NotEqual(0u, stream.StreamId);
     }
@@ -41,7 +41,7 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_Dispose_ClosesStreamCleanly()
     {
-        var stream = await Client.LfRfidReadStartAsync();
+        var stream = await Client.LfrfidReadStartAsync();
 
         await stream.DisposeAsync();
     }
@@ -55,12 +55,12 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_AfterDispose_CanStartAgain()
     {
-        var first = await Client.LfRfidReadStartAsync();
+        var first = await Client.LfrfidReadStartAsync();
         await first.DisposeAsync();
 
         await Task.Delay(200);
 
-        await using var second = await Client.LfRfidReadStartAsync();
+        await using var second = await Client.LfrfidReadStartAsync();
 
         Assert.NotEqual(0u, second.StreamId);
     }
@@ -75,10 +75,10 @@ public sealed class LfRfidReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LfRfidReadStart_WhenAlreadyActive_ThrowsResourceBusy()
     {
-        await using var first = await Client.LfRfidReadStartAsync();
+        await using var first = await Client.LfrfidReadStartAsync();
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.LfRfidReadStartAsync());
+            () => Client.LfrfidReadStartAsync());
 
         Assert.Equal("resource_busy", ex.ErrorCode);
     }

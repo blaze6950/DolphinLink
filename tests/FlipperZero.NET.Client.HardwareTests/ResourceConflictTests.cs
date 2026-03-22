@@ -46,7 +46,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     public async Task IrAndSubGhz_BothOpenConcurrently_BothSucceed()
     {
         await using var ir = await Client.IrReceiveStartAsync();
-        await using var subghz = await Client.SubGhzRxStartAsync();
+        await using var subghz = await Client.SubghzRxStartAsync();
 
         Assert.NotEqual(0u, ir.StreamId);
         Assert.NotEqual(0u, subghz.StreamId);
@@ -120,7 +120,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzAndNfc_BothOpenConcurrently_BothSucceed()
     {
-        await using var subghz = await Client.SubGhzRxStartAsync();
+        await using var subghz = await Client.SubghzRxStartAsync();
         await using var nfc = await Client.NfcScanStartAsync();
 
         Assert.NotEqual(0u, subghz.StreamId);
@@ -137,8 +137,8 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task LfRfidAndIButton_BothOpenConcurrently_BothSucceed()
     {
-        await using var rfid = await Client.LfRfidReadStartAsync();
-        await using var ibutton = await Client.IButtonReadStartAsync();
+        await using var rfid = await Client.LfrfidReadStartAsync();
+        await using var ibutton = await Client.IbuttonReadStartAsync();
 
         Assert.NotEqual(0u, rfid.StreamId);
         Assert.NotEqual(0u, ibutton.StreamId);
@@ -155,7 +155,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     public async Task IrAndLfRfid_BothOpenConcurrently_BothSucceed()
     {
         await using var ir = await Client.IrReceiveStartAsync();
-        await using var rfid = await Client.LfRfidReadStartAsync();
+        await using var rfid = await Client.LfrfidReadStartAsync();
 
         Assert.NotEqual(0u, ir.StreamId);
         Assert.NotEqual(0u, rfid.StreamId);
@@ -172,8 +172,8 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzAndIButton_BothOpenConcurrently_BothSucceed()
     {
-        await using var subghz = await Client.SubGhzRxStartAsync();
-        await using var ibutton = await Client.IButtonReadStartAsync();
+        await using var subghz = await Client.SubghzRxStartAsync();
+        await using var ibutton = await Client.IbuttonReadStartAsync();
 
         Assert.NotEqual(0u, subghz.StreamId);
         Assert.NotEqual(0u, ibutton.StreamId);
@@ -190,7 +190,7 @@ public sealed class ResourceConflictTests(FlipperFixture fixture)
     public async Task NfcAndLfRfid_BothOpenConcurrently_BothSucceed()
     {
         await using var nfc = await Client.NfcScanStartAsync();
-        await using var rfid = await Client.LfRfidReadStartAsync();
+        await using var rfid = await Client.LfrfidReadStartAsync();
 
         Assert.NotEqual(0u, nfc.StreamId);
         Assert.NotEqual(0u, rfid.StreamId);

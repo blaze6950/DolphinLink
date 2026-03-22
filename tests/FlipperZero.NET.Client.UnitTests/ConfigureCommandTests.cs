@@ -15,14 +15,14 @@ public sealed class ConfigureCommandTests
     public void ConfigureCommand_WriteArgs_EmitsHeartbeatMsAndTimeoutMs()
     {
         var cmd = new ConfigureCommand(heartbeatMs: 3000, timeoutMs: 10000);
-        var json = RpcMessageSerializer.Serialize(1, cmd.CommandName, cmd.WriteArgs);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandId, cmd.WriteArgs);
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        Assert.Equal("configure", root.GetProperty("cmd").GetString());
-        Assert.Equal(3000u, root.GetProperty("heartbeat_ms").GetUInt32());
-        Assert.Equal(10000u, root.GetProperty("timeout_ms").GetUInt32());
+        Assert.Equal(2, root.GetProperty("c").GetInt32());
+        Assert.Equal(3000u, root.GetProperty("hb").GetUInt32());
+        Assert.Equal(10000u, root.GetProperty("to").GetUInt32());
     }
 
     [Fact]
@@ -36,28 +36,28 @@ public sealed class ConfigureCommandTests
     public void ConfigureCommand_WriteArgs_WithoutLed_ProducesExactlyTwoArgFields()
     {
         var cmd = new ConfigureCommand(1000, 5000, led: null);
-        var json = RpcMessageSerializer.Serialize(99, cmd.CommandName, cmd.WriteArgs);
+        var json = RpcMessageSerializer.Serialize(99, cmd.CommandId, cmd.WriteArgs);
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        // Expect exactly: id, cmd, heartbeat_ms, timeout_ms (no led)
+        // Expect exactly: i, c, hb, to (no led)
         var properties = root.EnumerateObject().Select(p => p.Name).ToList();
-        Assert.Equal(new[] { "id", "cmd", "heartbeat_ms", "timeout_ms" }, properties);
+        Assert.Equal(new[] { "c", "i", "hb", "to" }, properties);
     }
 
     [Fact]
     public void ConfigureCommand_WriteArgs_WithLed_EmitsLedObject()
     {
         var cmd = new ConfigureCommand(3000, 10000, led: RgbColor.DotNetPurple);
-        var json = RpcMessageSerializer.Serialize(1, cmd.CommandName, cmd.WriteArgs);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandId, cmd.WriteArgs);
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        // Expect: id, cmd, heartbeat_ms, timeout_ms, led
+        // Expect: i, c, hb, to, led
         var properties = root.EnumerateObject().Select(p => p.Name).ToList();
-        Assert.Equal(new[] { "id", "cmd", "heartbeat_ms", "timeout_ms", "led" }, properties);
+        Assert.Equal(new[] { "c", "i", "hb", "to", "led" }, properties);
 
         var led = root.GetProperty("led");
         Assert.Equal(0x51, led.GetProperty("r").GetByte());
@@ -77,8 +77,8 @@ public sealed class ConfigureCommandTests
     [Fact]
     public void ConfigureResponse_DeserializesFromJson()
     {
-        // Simulate a daemon response payload: {"heartbeat_ms":3000,"timeout_ms":10000}
-        var payloadJson = """{"heartbeat_ms":3000,"timeout_ms":10000}""";
+        // Simulate a daemon response payload: {"hb":3000,"to":10000}
+        var payloadJson = """{"hb":3000,"to":10000}""";
         var response = System.Text.Json.JsonSerializer.Deserialize<ConfigureResponse>(payloadJson);
 
         Assert.Equal(3000u, response.HeartbeatMs);

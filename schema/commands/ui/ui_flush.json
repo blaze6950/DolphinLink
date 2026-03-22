@@ -1,0 +1,10 @@
+{
+  "command": "ui_flush",
+  "subsystem": "Ui",
+  "description": "Flush the draw buffer to the screen",
+  "resource": "RESOURCE_GUI",
+  "request": {},
+  "response": {},
+  "errors": ["resource_busy"],
+  "extensionReturn": { "type": "void" }
+}

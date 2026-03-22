@@ -18,7 +18,7 @@
 /** Handler function signature — all command handlers must match this. */
 typedef void (*RpcHandler)(uint32_t request_id, const char* json);
 
-/** One entry in the command registry. */
+/** One entry in the command registry. Index in commands[] == command ID. */
 typedef struct {
     const char* name; /* Command name as it appears in the "cmd" JSON field */
     ResourceMask resources; /* Bitmask of resources required; 0 means none        */
@@ -26,7 +26,8 @@ typedef struct {
 } RpcCommand;
 
 /**
- * Parse @p json, look up the command, check resources, and invoke the handler.
+ * Parse @p json (V5 format: {"i":<id>,"c":<cmd_id>,...}), look up the command
+ * by integer ID, check resources, and invoke the handler.
  * Sends the appropriate error response if parsing fails or a resource is busy.
  * Must be called from the main thread only.
  */

@@ -1,0 +1,12 @@
+{
+  "command": "reboot",
+  "subsystem": "System",
+  "description": "Reboot the device",
+  "resource": null,
+  "request": {},
+  "response": {
+    "status": { "wire": "st", "type": "string", "description": "Reboot status" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "void" }
+}

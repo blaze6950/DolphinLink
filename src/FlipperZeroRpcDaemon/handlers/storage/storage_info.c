@@ -6,10 +6,10 @@
  * both values expressed in kibibytes (KiB) to avoid 64-bit JSON formatting.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_info","path":"/int"}
+ *   {"c":N,"i":N,"p":"/int"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"path":"/int","total_kb":NNN,"free_kb":NNN}}
+ *   {"t":0,"i":N,"p":{"p":"/int","tk":NNN,"fk":NNN}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent
@@ -34,7 +34,7 @@
 
 void storage_info_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_info");
         return;
     }
@@ -55,7 +55,7 @@ void storage_info_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"path\":\"%s\",\"total_kb\":%" PRIu32 ",\"free_kb\":%" PRIu32 "}",
+        "{\"p\":\"%s\",\"tk\":%" PRIu32 ",\"fk\":%" PRIu32 "}",
         path,
         total_kb,
         free_kb);

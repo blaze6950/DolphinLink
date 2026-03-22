@@ -1,0 +1,13 @@
+{
+  "stream": "ir_receive",
+  "subsystem": "Ir",
+  "description": "Receive IR signals",
+  "resource": "RESOURCE_IR",
+  "request": {},
+  "event": {
+    "protocol": { "wire": "pr", "type": "string", "enum": "$IrProtocol", "description": "IR protocol" },
+    "address": { "wire": "a", "type": "uint", "description": "Device address" },
+    "command": { "wire": "cm", "type": "uint", "description": "IR command code" },
+    "repeat": { "wire": "rp", "type": "bool", "description": "True if repeat signal" }
+  }
+}

@@ -35,7 +35,33 @@
 #nullable enable
 
 using System.Diagnostics;
+using FlipperZero.NET;
+using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Bootstrapper;
+
+// ---------------------------------------------------------------------------
+// Diagnostics sink — prints every sent/received JSON line to stderr
+// ---------------------------------------------------------------------------
+
+sealed class ConsoleDiagnostics : IRpcDiagnostics
+{
+    public void Log(RpcLogEntry entry)
+    {
+        // Print sent lines in cyan, received in green, errors in red.
+        var color = entry.Kind switch
+        {
+            RpcLogKind.CommandSent       => ConsoleColor.Cyan,
+            RpcLogKind.ResponseReceived  => ConsoleColor.Green,
+            RpcLogKind.StreamEventReceived => ConsoleColor.Yellow,
+            _                            => ConsoleColor.Red,
+        };
+        Console.ForegroundColor = color;
+        Console.Error.WriteLine($"    [RPC] {entry}");
+        if (entry.RawJson is not null)
+            Console.Error.WriteLine($"          {entry.RawJson}");
+        Console.ResetColor();
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -106,6 +132,7 @@ Console.WriteLine($"    Daemon port : {daemon}");
 Console.WriteLine();
 
 var options = new FlipperBootstrapOptions { AutoInstall = true };
+var diagnostics = new ConsoleDiagnostics();
 
 int lastPct = -1;
 var progress = new Progress<(int Written, int Total)>(r =>
@@ -126,6 +153,7 @@ try
     result = await FlipperBootstrapper.BootstrapAsync(
         system, daemon,
         options:     options,
+        diagnostics: diagnostics,
         progress:    progress,
         fapOverride: fapBytes);
 }

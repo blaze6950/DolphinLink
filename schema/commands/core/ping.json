@@ -1,0 +1,12 @@
+{
+  "command": "ping",
+  "subsystem": "Core",
+  "description": "Ping the daemon to verify connectivity",
+  "resource": null,
+  "request": {},
+  "response": {
+    "pong": { "wire": "pg", "type": "bool", "description": "Always true" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "bool", "field": "pong" }
+}

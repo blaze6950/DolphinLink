@@ -1,4 +1,4 @@
-﻿/**
+/**
  * input_listen_start.c — input_listen_start RPC handler implementation
  *
  * Subscribes to the Flipper input FuriPubSub and streams every button event
@@ -6,16 +6,17 @@
  * supported (broadcast — no exclusive resource lock).
  *
  * Wire format (request):
- *   {"id":N,"cmd":"input_listen_start"}
+ *   {"c":N,"i":M}                          — no exit combo
+ *   {"c":N,"i":M,"ek":4,"et":2}            — exit on Ok+Short
  *
  * Wire format (stream opened):
- *   {"t":0,"i":N,"p":{"stream":M}}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream events):
- *   {"t":1,"i":M,"p":{"key":"ok","type":"short"}}
+ *   {"t":1,"i":M,"p":{"k":4,"ty":2}}
  *
- *   key  : "up" | "down" | "left" | "right" | "ok" | "back"
- *   type : "press" | "release" | "short" | "long" | "repeat"
+ *   k  : 0=Up 1=Down 2=Left 3=Right 4=Ok 5=Back  ($FlipperInputKey integer)
+ *   ty : 0=Press 1=Release 2=Short 3=Long 4=Repeat ($FlipperInputType integer)
  *
  * Threading note
  * --------------
@@ -32,48 +33,7 @@
 
 #include <furi.h>
 #include <input/input.h>
-#include <string.h>
 #include <inttypes.h>
-
-/* =========================================================
- * Key / type name tables
- * ========================================================= */
-
-static const char* input_key_name(InputKey key) {
-    switch(key) {
-    case InputKeyUp:
-        return "up";
-    case InputKeyDown:
-        return "down";
-    case InputKeyLeft:
-        return "left";
-    case InputKeyRight:
-        return "right";
-    case InputKeyOk:
-        return "ok";
-    case InputKeyBack:
-        return "back";
-    default:
-        return "unknown";
-    }
-}
-
-static const char* input_type_name(InputType type) {
-    switch(type) {
-    case InputTypePress:
-        return "press";
-    case InputTypeRelease:
-        return "release";
-    case InputTypeShort:
-        return "short";
-    case InputTypeLong:
-        return "long";
-    case InputTypeRepeat:
-        return "repeat";
-    default:
-        return "unknown";
-    }
-}
 
 /* =========================================================
  * PubSub callback — called on the input service thread
@@ -106,46 +66,11 @@ static void input_pubsub_callback(const void* message, void* ctx) {
     snprintf(
         ev.json_fragment,
         STREAM_FRAG_MAX,
-        "\"key\":\"%s\",\"type\":\"%s\"",
-        input_key_name(event->key),
-        input_type_name(event->type));
+        "\"k\":%" PRIu32 ",\"ty\":%" PRIu32,
+        (uint32_t)event->key,
+        (uint32_t)event->type);
 
     furi_message_queue_put(stream_event_queue, &ev, 0);
-}
-
-/* =========================================================
- * Exit-key / exit-type parsing helpers
- * ========================================================= */
-
-/**
- * Parse an optional "exit_key" JSON string arg.
- * Returns true and sets *out if a recognised key name is present.
- */
-static bool parse_exit_key(const char* json, InputKey* out) {
-    char buf[16];
-    if(!json_extract_string(json, "exit_key", buf, sizeof(buf))) return false;
-    if(strcmp(buf, "up") == 0)    { *out = InputKeyUp;    return true; }
-    if(strcmp(buf, "down") == 0)  { *out = InputKeyDown;  return true; }
-    if(strcmp(buf, "left") == 0)  { *out = InputKeyLeft;  return true; }
-    if(strcmp(buf, "right") == 0) { *out = InputKeyRight; return true; }
-    if(strcmp(buf, "ok") == 0)    { *out = InputKeyOk;    return true; }
-    if(strcmp(buf, "back") == 0)  { *out = InputKeyBack;  return true; }
-    return false;
-}
-
-/**
- * Parse an optional "exit_type" JSON string arg.
- * Returns true and sets *out if a recognised type name is present.
- */
-static bool parse_exit_type(const char* json, InputType* out) {
-    char buf[16];
-    if(!json_extract_string(json, "exit_type", buf, sizeof(buf))) return false;
-    if(strcmp(buf, "press") == 0)   { *out = InputTypePress;   return true; }
-    if(strcmp(buf, "release") == 0) { *out = InputTypeRelease; return true; }
-    if(strcmp(buf, "short") == 0)   { *out = InputTypeShort;   return true; }
-    if(strcmp(buf, "long") == 0)    { *out = InputTypeLong;    return true; }
-    if(strcmp(buf, "repeat") == 0)  { *out = InputTypeRepeat;  return true; }
-    return false;
 }
 
 /* =========================================================
@@ -186,12 +111,11 @@ void input_listen_start_handler(uint32_t id, const char* json) {
      * incorrectly suppressing the default Back+Short daemon-exit combo. */
     active_streams[slot].is_input_stream = true;
 
-    /* Parse optional exit key/type combo */
-    InputKey exit_key;
-    InputType exit_type;
-    if(parse_exit_key(json, &exit_key) && parse_exit_type(json, &exit_type)) {
-        active_streams[slot].hw.input.exit_key = exit_key;
-        active_streams[slot].hw.input.exit_type = exit_type;
+    /* Parse optional exit key/type combo — integer wire keys "ek" and "et" */
+    uint32_t ek = 0, et = 0;
+    if(json_extract_uint32(json, "ek", &ek) && json_extract_uint32(json, "et", &et)) {
+        active_streams[slot].hw.input.exit_key = (InputKey)ek;
+        active_streams[slot].hw.input.exit_type = (InputType)et;
         active_streams[slot].hw.input.has_exit_combo = true;
     }
 

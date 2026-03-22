@@ -22,7 +22,7 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
     {
         // Enqueue daemon_info response for ConnectAsync negotiation (id:1)
         _transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":1,"cmds":["ping","daemon_info"]}}""");
         await _client.ConnectAsync();
     }
 
@@ -37,7 +37,7 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
     public async Task PingAsync_ReturnsPong_WhenDaemonRespondsOk()
     {
         // Arrange: enqueue the daemon response before (or shortly after) the send
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pong":true}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pg":1}}""");
 
         // Act
         var result = await _client.PingAsync();
@@ -50,7 +50,7 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendAsync_Serialises_CorrectJsonLine()
     {
         // Arrange
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pong":true}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pg":1}}""");
 
         // Act
         await _client.SendAsync<PingCommand, PingResponse>(new PingCommand());
@@ -58,8 +58,8 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
         // Assert: the client sent two lines total (daemon_info + ping)
         var sent = _transport.SentLines;
         Assert.Equal(2, sent.Count);
-        Assert.Contains("\"cmd\":\"ping\"", sent[1]);
-        Assert.Contains("\"id\":2", sent[1]);
+        Assert.Contains("\"c\":0", sent[1]);
+        Assert.Contains("\"i\":2", sent[1]);
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public sealed class PingTests : IAsyncLifetime, IAsyncDisposable
     public async Task SendAsync_MultipleCommands_MatchCorrectResponses()
     {
         // Arrange: two commands in flight, responses arrive in order
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pong":true}}""");
-        _transport.EnqueueResponse("""{"t":0,"i":3,"p":{"pong":true}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pg":1}}""");
+        _transport.EnqueueResponse("""{"t":0,"i":3,"p":{"pg":1}}""");
 
         // Act: send both
         var t1 = _client.SendAsync<PingCommand, PingResponse>(new PingCommand());

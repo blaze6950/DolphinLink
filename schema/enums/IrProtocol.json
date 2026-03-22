@@ -1,0 +1,20 @@
+{
+  "name": "IrProtocol",
+  "wireType": "string",
+  "values": [
+    { "name": "Unknown", "wire": "Unknown" },
+    { "name": "NEC", "wire": "NEC" },
+    { "name": "NECext", "wire": "NECext" },
+    { "name": "NEC42", "wire": "NEC42" },
+    { "name": "NEC42ext", "wire": "NEC42ext" },
+    { "name": "Samsung32", "wire": "Samsung32" },
+    { "name": "RC6", "wire": "RC6" },
+    { "name": "RC5", "wire": "RC5" },
+    { "name": "RC5X", "wire": "RC5X" },
+    { "name": "SIRC", "wire": "SIRC" },
+    { "name": "SIRC15", "wire": "SIRC15" },
+    { "name": "SIRC20", "wire": "SIRC20" },
+    { "name": "Kaseikyo", "wire": "Kaseikyo" },
+    { "name": "RCA", "wire": "RCA" }
+  ]
+}

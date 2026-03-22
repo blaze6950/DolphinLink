@@ -1,0 +1,13 @@
+{
+  "command": "subghz_tx",
+  "subsystem": "SubGhz",
+  "description": "Transmit a raw Sub-GHz signal",
+  "resource": "RESOURCE_SUBGHZ",
+  "request": {
+    "freq": { "wire": "fr", "type": "uint", "description": "Frequency in Hz" },
+    "timings": { "wire": "tm", "type": "uint[]", "description": "Alternating mark/space timings in microseconds" }
+  },
+  "response": {},
+  "errors": ["resource_busy", "missing_freq", "missing_timings"],
+  "extensionReturn": { "type": "void" }
+}

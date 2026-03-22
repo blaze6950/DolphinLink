@@ -1,0 +1,13 @@
+{
+  "name": "IButtonProtocol",
+  "wireType": "string",
+  "values": [
+    { "name": "Unknown", "wire": "Unknown" },
+    { "name": "DS1990", "wire": "DS1990" },
+    { "name": "DS1992", "wire": "DS1992" },
+    { "name": "DS1996", "wire": "DS1996" },
+    { "name": "DS2004", "wire": "DS2004" },
+    { "name": "Cyfral", "wire": "Cyfral" },
+    { "name": "Metakom", "wire": "Metakom" }
+  ]
+}

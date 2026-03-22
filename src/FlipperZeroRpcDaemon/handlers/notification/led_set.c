@@ -5,14 +5,16 @@
  * in the range 0–255 using furi_hal_light_set().
  *
  * Wire format (request):
- *   {"id":N,"cmd":"led_set","color":"red"|"green"|"blue","value":0-255}
+ *   {"c":24,"i":N,"cl":0|1|2,"vl":0-255}
+ *   cl: LedChannel integer — 0=Red, 1=Green, 2=Blue
+ *   vl: brightness 0–255
  *
  * Wire format (response — success):
- *   {"id":N,"status":"ok"}
+ *   {"t":0,"i":N}
  *
  * Wire format (response — error):
- *   {"id":N,"error":"missing_color"}  — "color" field absent
- *   {"id":N,"error":"invalid_color"}  — color string not recognised
+ *   "missing_color" — "cl" field absent
+ *   "invalid_color" — value not 0, 1, or 2
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).
@@ -24,26 +26,26 @@
 
 #include <furi.h>
 #include <furi_hal_light.h>
-#include <string.h>
 #include <inttypes.h>
 
 void led_set_handler(uint32_t id, const char* json) {
-    char color[16] = {0};
-    if(!json_extract_string(json, "color", color, sizeof(color))) {
+    uint32_t channel = 0;
+    if(!json_extract_uint32(json, "cl", &channel)) {
         rpc_send_error(id, "missing_color", "led_set");
         return;
     }
 
     uint32_t value = 0;
-    json_extract_uint32(json, "value", &value);
+    json_extract_uint32(json, "vl", &value);
     if(value > 255) value = 255;
 
+    /* LedChannel: 0=Red, 1=Green, 2=Blue */
     Light light;
-    if(strcmp(color, "red") == 0) {
+    if(channel == 0) {
         light = LightRed;
-    } else if(strcmp(color, "green") == 0) {
+    } else if(channel == 1) {
         light = LightGreen;
-    } else if(strcmp(color, "blue") == 0) {
+    } else if(channel == 2) {
         light = LightBlue;
     } else {
         rpc_send_error(id, "invalid_color", "led_set");
@@ -52,5 +54,5 @@ void led_set_handler(uint32_t id, const char* json) {
 
     furi_hal_light_set(light, (uint8_t)value);
     rpc_send_ok(id, "led_set");
-    FURI_LOG_I("RPC", "led_set color=%s value=%" PRIu32, color, value);
+    FURI_LOG_I("RPC", "led_set channel=%" PRIu32 " value=%" PRIu32, channel, value);
 }

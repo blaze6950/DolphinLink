@@ -1,0 +1,15 @@
+{
+  "command": "power_info",
+  "subsystem": "System",
+  "description": "Query battery and power state",
+  "resource": null,
+  "request": {},
+  "response": {
+    "charge": { "wire": "ch", "type": "uint", "description": "Charge percent" },
+    "voltage_mv": { "wire": "mv", "type": "uint", "description": "Voltage in millivolts" },
+    "charging": { "wire": "cg", "type": "bool", "description": "Whether currently charging" },
+    "current_ma": { "wire": "ma", "type": "int", "description": "Current in milliamps" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "PowerInfoResponse", "field": null }
+}

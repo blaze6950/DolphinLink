@@ -1,0 +1,11 @@
+{
+  "stream": "lfrfid_read",
+  "subsystem": "Rfid",
+  "description": "Read LF RFID cards",
+  "resource": "RESOURCE_RFID",
+  "request": {},
+  "event": {
+    "type": { "wire": "ty", "type": "string", "enum": "$LfRfidProtocol", "description": "RFID card type" },
+    "data": { "wire": "d", "type": "hex", "description": "Card data as hex string" }
+  }
+}

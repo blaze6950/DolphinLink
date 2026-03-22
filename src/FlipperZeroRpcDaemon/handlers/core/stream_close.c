@@ -2,8 +2,8 @@
  * stream_close.c — stream_close command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"stream_close","stream":M}
- *   Response: {"id":N,"status":"ok"}
+ *   Request:  {"i":N,"c":1,"s":M}
+ *   Response: {"t":0,"i":N}
  *   Errors:   missing_stream_id, stream_not_found
  *
  * Resources required: none (releases resources held by the target stream).
@@ -20,7 +20,7 @@
 
 void stream_close_handler(uint32_t id, const char* json) {
     uint32_t stream_id = 0;
-    if(!json_extract_uint32(json, "stream", &stream_id)) {
+    if(!json_extract_uint32(json, "s", &stream_id)) {
         rpc_send_error(id, "missing_stream_id", "stream_close");
         return;
     }

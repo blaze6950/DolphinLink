@@ -1,0 +1,12 @@
+{
+  "command": "backlight",
+  "subsystem": "Notification",
+  "description": "Set display backlight brightness",
+  "resource": null,
+  "request": {
+    "value": { "wire": "vl", "type": "byte", "description": "Brightness (0-255)" }
+  },
+  "response": {},
+  "errors": [],
+  "extensionReturn": { "type": "void" }
+}

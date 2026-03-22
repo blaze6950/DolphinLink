@@ -30,7 +30,7 @@
 
 void storage_mkdir_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_mkdir");
         return;
     }

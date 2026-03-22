@@ -1,65 +1,31 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
 
 namespace FlipperZero.NET.Commands.System;
 
-/// <summary>
-/// Queries the daemon's identity and full capability list.
-///
-/// Use this command for capability negotiation: verify you are talking to the
-/// correct FAP (<see cref="DaemonInfoResponse.Name"/> ==
-/// <c>"flipper_zero_rpc_daemon"</c>), check the protocol version, and inspect
-/// <see cref="DaemonInfoResponse.Commands"/> to determine which commands the
-/// running daemon supports before calling them.
-///
-/// Wire format (request):
-/// <code>{"id":N,"cmd":"daemon_info"}</code>
-///
-/// Wire format (response):
-/// <code>
-/// {"t":0,"i":N,"p":{
-///   "name":"flipper_zero_rpc_daemon",
-///   "version":4,
-///   "commands":["ping","stream_close",...]}}
-/// </code>
-///
-/// Resources required: none.
-/// </summary>
-public readonly struct DaemonInfoCommand : IRpcCommand<DaemonInfoResponse>
-{
-    /// <inheritdoc />
-    public string CommandName => "daemon_info";
-
-    /// <inheritdoc />
-    public void WriteArgs(Utf8JsonWriter writer)
-    {
-        // No arguments required.
-    }
-}
-
 /// <summary>Response to <see cref="DaemonInfoCommand"/>.</summary>
-public readonly struct DaemonInfoResponse : IRpcCommandResponse
+public readonly partial struct DaemonInfoResponse : IRpcCommandResponse
 {
     /// <summary>
     /// Stable daemon identifier string.
     /// Expected value: <c>"flipper_zero_rpc_daemon"</c>.
     /// </summary>
-    [JsonPropertyName("name")]
+    [JsonPropertyName("n")]
     public string? Name { get; init; }
 
     /// <summary>
     /// Monotonically increasing integer protocol version.
-    /// The current version is <c>4</c>.
+    /// The current version is <c>5</c>.
     /// Increment this in the C daemon whenever a breaking wire-format change is made.
     /// </summary>
-    [JsonPropertyName("version")]
+    [JsonPropertyName("v")]
     public int Version { get; init; }
 
     /// <summary>
     /// All command names registered in the running daemon's dispatch table.
-    /// Use <see cref="Supports"/> to test for individual commands.
+    /// Use <see cref="Supports(string)"/> to test for individual commands.
     /// </summary>
-    [JsonPropertyName("commands")]
+    [JsonPropertyName("cmds")]
     public string[]? Commands { get; init; }
 
     /// <summary>

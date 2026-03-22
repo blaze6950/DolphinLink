@@ -1,0 +1,13 @@
+{
+  "command": "led_set",
+  "subsystem": "Notification",
+  "description": "Set a single LED channel to a brightness value",
+  "resource": null,
+  "request": {
+    "color": { "wire": "cl", "type": "int", "enum": "$LedChannel", "description": "LED channel" },
+    "value": { "wire": "vl", "type": "byte", "description": "Brightness (0-255)" }
+  },
+  "response": {},
+  "errors": ["missing_color", "invalid_color"],
+  "extensionReturn": { "type": "void" }
+}

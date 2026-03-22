@@ -1,0 +1,14 @@
+{
+  "command": "frequency_is_allowed",
+  "subsystem": "System",
+  "description": "Check if a frequency is allowed in the current region",
+  "resource": null,
+  "request": {
+    "freq": { "wire": "fr", "type": "uint", "description": "Frequency in Hz" }
+  },
+  "response": {
+    "allowed": { "wire": "al", "type": "bool", "description": "Whether the frequency is allowed" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "bool", "field": "allowed" }
+}

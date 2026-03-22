@@ -1,0 +1,16 @@
+{
+  "command": "ui_draw_rect",
+  "subsystem": "Ui",
+  "description": "Draw a rectangle on the screen",
+  "resource": "RESOURCE_GUI",
+  "request": {
+    "x": { "wire": "x", "type": "int", "description": "X coordinate of top-left corner" },
+    "y": { "wire": "y", "type": "int", "description": "Y coordinate of top-left corner" },
+    "w": { "wire": "w", "type": "int", "description": "Width" },
+    "h": { "wire": "h", "type": "int", "description": "Height" },
+    "filled": { "wire": "fi", "type": "bool", "optional": true, "description": "Fill the rectangle" }
+  },
+  "response": {},
+  "errors": ["resource_busy"],
+  "extensionReturn": { "type": "void" }
+}

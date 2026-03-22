@@ -5,7 +5,7 @@
  * detected by the NfcScanner, its name is posted to stream_event_queue.
  *
  * Wire format (stream event):
- *   {"event":{"protocol":"ISO15693-3"},"stream":M}
+ *   {"t":1,"i":M,"p":{"pr":"ISO15693-3"}}
  *
  * Resources: RESOURCE_NFC (pre-acquired by the dispatcher)
  *
@@ -36,7 +36,7 @@ static void nfc_scanner_callback(NfcScannerEvent event, void* ctx) {
     snprintf(
         ev.json_fragment,
         STREAM_FRAG_MAX,
-        "\"protocol\":\"%s\"",
+        "\"pr\":\"%s\"",
         nfc_device_get_protocol_name(event.data.protocols[0]));
     furi_message_queue_put(stream_event_queue, &ev, 0);
 }

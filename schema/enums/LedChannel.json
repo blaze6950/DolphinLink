@@ -1,0 +1,10 @@
+{
+  "name": "LedChannel",
+  "wireType": "int",
+  "baseType": "byte",
+  "values": [
+    { "name": "Red", "wire": 0 },
+    { "name": "Green", "wire": 1 },
+    { "name": "Blue", "wire": 2 }
+  ]
+}

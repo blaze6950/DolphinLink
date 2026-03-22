@@ -5,7 +5,7 @@
  * to stream_event_queue by the SubGhzWorker pair callback.
  *
  * Wire format (stream event):
- *   {"event":{"level":true,"duration_us":9000},"stream":M}
+ *   {"t":1,"i":M,"p":{"lv":1,"du":9000}}
  *
  * Resources: RESOURCE_SUBGHZ (pre-acquired by the dispatcher)
  */
@@ -31,8 +31,8 @@ static void subghz_rx_callback(void* ctx, bool level, uint32_t duration_us) {
     snprintf(
         ev.json_fragment,
         STREAM_FRAG_MAX,
-        "\"level\":%s,\"duration_us\":%" PRIu32,
-        level ? "true" : "false",
+        "\"lv\":%u,\"du\":%" PRIu32,
+        level ? 1u : 0u,
         duration_us);
     furi_message_queue_put(stream_event_queue, &ev, 0);
 }
@@ -49,7 +49,7 @@ static void subghz_teardown(size_t slot_idx) {
 
 void subghz_rx_start_handler(uint32_t id, const char* json) {
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "freq", &freq);
+    json_extract_uint32(json, "fr", &freq);
 
     uint32_t stream_id = 0;
     int slot = stream_open(id, "subghz_rx_start", RESOURCE_SUBGHZ, &stream_id);

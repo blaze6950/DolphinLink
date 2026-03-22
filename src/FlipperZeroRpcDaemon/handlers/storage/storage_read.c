@@ -6,10 +6,10 @@
  * overflow on the 8 KB stack.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_read","path":"/int/foo.txt"}
+ *   {"c":N,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"data":"<base64>"}}
+ *   {"t":0,"i":N,"p":{"d":"<base64>"}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}   — "path" field absent
@@ -39,7 +39,7 @@
 
 void storage_read_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_read");
         return;
     }
@@ -74,8 +74,8 @@ void storage_read_handler(uint32_t id, const char* json) {
     base64_encode(raw, bytes_read, b64, b64_size);
     free(raw);
 
-    /* Payload: {"data":"<base64>"} */
-    size_t resp_size = b64_size + 12; /* {"data":""} + b64 content */
+    /* Payload: {"d":"<base64>"} */
+    size_t resp_size = b64_size + 8; /* {"d":""} + b64 content */
     char* resp = malloc(resp_size);
     if(!resp) {
         free(b64);
@@ -83,7 +83,7 @@ void storage_read_handler(uint32_t id, const char* json) {
         return;
     }
 
-    snprintf(resp, resp_size, "{\"data\":\"%s\"}", b64);
+    snprintf(resp, resp_size, "{\"d\":\"%s\"}", b64);
     free(b64);
 
     char log_entry[CMD_LOG_LINE_LEN];

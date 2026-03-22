@@ -2,8 +2,8 @@
  * frequency_is_allowed.c — frequency_is_allowed command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"frequency_is_allowed","freq":<u32>}
- *   Response: {"t":0,"i":N,"p":{"allowed":<bool>}}
+ *   Request:  {"c":N,"i":M,"fr":<u32>}
+ *   Response: {"t":0,"i":N,"p":{"al":1|0}}
  *   Errors:   missing_freq
  *
  * Checks whether the given frequency (in Hz) is permitted under the active
@@ -25,7 +25,7 @@
 
 void frequency_is_allowed_handler(uint32_t id, const char* json) {
     uint32_t freq = 0;
-    if(!json_extract_uint32(json, "freq", &freq)) {
+    if(!json_extract_uint32(json, "fr", &freq)) {
         rpc_send_error(id, "missing_freq", "frequency_is_allowed");
         return;
     }
@@ -33,7 +33,7 @@ void frequency_is_allowed_handler(uint32_t id, const char* json) {
     bool allowed = furi_hal_region_is_frequency_allowed(freq);
 
     char resp[32];
-    snprintf(resp, sizeof(resp), "{\"allowed\":%s}", allowed ? "true" : "false");
+    snprintf(resp, sizeof(resp), "{\"al\":%u}", allowed ? 1u : 0u);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(

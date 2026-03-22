@@ -1,0 +1,12 @@
+{
+  "command": "ir_tx_raw",
+  "subsystem": "Ir",
+  "description": "Transmit a raw IR signal using timing data",
+  "resource": "RESOURCE_IR",
+  "request": {
+    "timings": { "wire": "tm", "type": "uint[]", "description": "Alternating mark/space timings in microseconds" }
+  },
+  "response": {},
+  "errors": ["resource_busy", "missing_timings"],
+  "extensionReturn": { "type": "void" }
+}

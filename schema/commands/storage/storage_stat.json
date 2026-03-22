@@ -1,0 +1,15 @@
+{
+  "command": "storage_stat",
+  "subsystem": "Storage",
+  "description": "Stat a file or directory",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "Path to stat" }
+  },
+  "response": {
+    "size": { "wire": "sz", "type": "uint", "description": "File size in bytes (0 for directories)" },
+    "is_dir": { "wire": "d", "type": "bool", "description": "True if path is a directory" }
+  },
+  "errors": ["missing_path", "stat_failed"],
+  "extensionReturn": { "type": "StorageStatResponse", "field": null }
+}

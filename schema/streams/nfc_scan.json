@@ -1,0 +1,10 @@
+{
+  "stream": "nfc_scan",
+  "subsystem": "Nfc",
+  "description": "Scan for NFC cards",
+  "resource": "RESOURCE_NFC",
+  "request": {},
+  "event": {
+    "protocol": { "wire": "pr", "type": "string", "enum": "$NfcProtocol", "description": "NFC protocol" }
+  }
+}

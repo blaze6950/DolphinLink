@@ -292,7 +292,7 @@ public sealed class HeartbeatManualTests
             exitType: FlipperInputType.Long,
             ct: timeout.Token);
 
-        var backShortEvents = new List<FlipperInputEvent>();
+        var backShortEvents = new List<InputListenEvent>();
         Exception? caughtException = null;
 
         try

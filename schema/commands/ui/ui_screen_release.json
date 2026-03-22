@@ -1,0 +1,11 @@
+{
+  "command": "ui_screen_release",
+  "subsystem": "Ui",
+  "description": "Release exclusive GUI screen access",
+  "resource": "RESOURCE_GUI",
+  "request": {},
+  "response": {},
+  "errors": [],
+  "extensionReturn": { "type": "void" },
+  "csharp": { "skip": ["extension"] }
+}

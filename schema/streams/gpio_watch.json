@@ -1,0 +1,13 @@
+{
+  "stream": "gpio_watch",
+  "subsystem": "Gpio",
+  "description": "Watch a GPIO pin for level changes",
+  "resource": null,
+  "request": {
+    "pin": { "wire": "p", "type": "int", "enum": "$GpioPin", "description": "GPIO pin to watch" }
+  },
+  "event": {
+    "pin": { "wire": "p", "type": "int", "enum": "$GpioPin", "description": "Pin that changed" },
+    "level": { "wire": "lv", "type": "bool", "description": "New pin level" }
+  }
+}

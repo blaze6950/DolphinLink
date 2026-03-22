@@ -5,7 +5,7 @@
  * The text is rendered on the next ui_flush call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_draw_str","x":10,"y":20,"text":"Hello","font":1}
+ *   {"c":N,"i":M,"x":10,"y":20,"tx":"Hello","fn":1}
  *
  *   font: 0 = FontPrimary, 1 = FontSecondary (default), 2 = FontBigNumbers
  *
@@ -33,7 +33,7 @@ void ui_draw_str_handler(uint32_t id, const char* json) {
     }
 
     char text[UI_STR_MAX] = {0};
-    if(!json_extract_string(json, "text", text, sizeof(text)) || text[0] == '\0') {
+    if(!json_extract_string(json, "tx", text, sizeof(text)) || text[0] == '\0') {
         rpc_send_error(id, "missing_text", "ui_draw_str");
         return;
     }
@@ -41,7 +41,7 @@ void ui_draw_str_handler(uint32_t id, const char* json) {
     uint32_t x = 0, y = 0, font = 1;
     json_extract_uint32(json, "x", &x);
     json_extract_uint32(json, "y", &y);
-    json_extract_uint32(json, "font", &font);
+    json_extract_uint32(json, "fn", &font);
 
     UiDrawOp op = {.type = UI_OP_DRAW_STR};
     op.draw_str.x = (uint8_t)x;

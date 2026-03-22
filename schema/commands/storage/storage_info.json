@@ -1,0 +1,16 @@
+{
+  "command": "storage_info",
+  "subsystem": "Storage",
+  "description": "Get filesystem info for a storage path",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "Storage path (e.g. /int or /ext)" }
+  },
+  "response": {
+    "path": { "wire": "p", "type": "string", "description": "Storage path" },
+    "total_kb": { "wire": "tk", "type": "uint", "description": "Total space in KB" },
+    "free_kb": { "wire": "fk", "type": "uint", "description": "Free space in KB" }
+  },
+  "errors": ["missing_path", "stat_failed"],
+  "extensionReturn": { "type": "StorageInfoResponse", "field": null }
+}

@@ -15,7 +15,7 @@
  *   {"id":N,"stream":M}
  *
  * Wire format (stream events):
- *   {"event":{"type":"<protocol_name>","data":"<hex>"},"stream":M}
+ *   {"t":1,"i":M,"p":{"ty":"<protocol_name>","d":"<hex>"}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"stream_table_full"}  — no free stream slot
@@ -80,12 +80,12 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
         snprintf(
             ev.json_fragment,
             STREAM_FRAG_MAX,
-            "\"type\":\"%s\",\"data\":\"%s\"",
+            "\"ty\":\"%s\",\"d\":\"%s\"",
             proto_name ? proto_name : "unknown",
             hex);
     } else {
         snprintf(
-            ev.json_fragment, STREAM_FRAG_MAX, "\"type\":\"%" PRIu32 "\"", (uint32_t)protocol);
+            ev.json_fragment, STREAM_FRAG_MAX, "\"ty\":\"%" PRIu32 "\"", (uint32_t)protocol);
     }
 
     furi_message_queue_put(stream_event_queue, &ev, 0);

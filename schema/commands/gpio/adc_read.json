@@ -1,0 +1,15 @@
+{
+  "command": "adc_read",
+  "subsystem": "Gpio",
+  "description": "Read analog value from ADC-capable GPIO pin",
+  "resource": null,
+  "request": {
+    "pin": { "wire": "p", "type": "int", "enum": "$GpioPin", "description": "GPIO pin" }
+  },
+  "response": {
+    "raw": { "wire": "rw", "type": "uint", "description": "Raw ADC value" },
+    "mv": { "wire": "mv", "type": "uint", "description": "Voltage in millivolts" }
+  },
+  "errors": ["missing_pin", "invalid_pin"],
+  "extensionReturn": { "type": "AdcReadResponse", "field": null }
+}

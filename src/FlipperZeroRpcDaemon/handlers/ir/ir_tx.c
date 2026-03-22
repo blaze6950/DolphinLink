@@ -5,7 +5,7 @@
  * Blocks until the worker fires the "message sent" callback.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ir_tx","protocol":"NEC","address":0,"command":0}
+ *   {"c":N,"i":M,"pr":"NEC","a":0,"cm":0}
  *
  * Wire format (response):
  *   {"id":N,"status":"ok"}
@@ -36,12 +36,12 @@ void ir_tx_handler(uint32_t id, const char* json) {
     uint32_t address = 0, command = 0;
 
     const char* cursor = json;
-    if(!json_extract_string_at(json, &cursor, "protocol", protocol_name, sizeof(protocol_name))) {
+    if(!json_extract_string_at(json, &cursor, "pr", protocol_name, sizeof(protocol_name))) {
         rpc_send_error(id, "missing_protocol", "ir_tx");
         return;
     }
-    json_extract_uint32_at(json, &cursor, "address", &address);
-    json_extract_uint32_at(json, &cursor, "command", &command);
+    json_extract_uint32_at(json, &cursor, "a", &address);
+    json_extract_uint32_at(json, &cursor, "cm", &command);
 
     InfraredProtocol protocol = infrared_get_protocol_by_name(protocol_name);
     if(protocol == InfraredProtocolUnknown) {

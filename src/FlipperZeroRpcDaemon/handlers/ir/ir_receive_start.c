@@ -5,7 +5,7 @@
  * stream_event_queue by the InfraredWorker receive callback.
  *
  * Wire format (stream event):
- *   {"event":{"protocol":"NEC","address":0,"command":0,"repeat":false},"stream":M}
+ *   {"t":1,"i":M,"p":{"pr":"NEC","a":0,"cm":0,"rp":0}}
  *
  * Resources: RESOURCE_IR (pre-acquired by the dispatcher)
  */
@@ -40,11 +40,11 @@ static void ir_rx_callback(void* ctx, InfraredWorkerSignal* signal) {
     snprintf(
         ev.json_fragment,
         STREAM_FRAG_MAX,
-        "\"protocol\":\"%s\",\"address\":%" PRIu32 ",\"command\":%" PRIu32 ",\"repeat\":%s",
+        "\"pr\":\"%s\",\"a\":%" PRIu32 ",\"cm\":%" PRIu32 ",\"rp\":%u",
         infrared_get_protocol_name(msg->protocol),
         (uint32_t)msg->address,
         (uint32_t)msg->command,
-        msg->repeat ? "true" : "false");
+        msg->repeat ? 1u : 0u);
     furi_message_queue_put(stream_event_queue, &ev, 0);
 }
 

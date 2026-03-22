@@ -4,7 +4,7 @@
  * Removes a file or empty directory using storage_common_remove().
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_remove","path":"/int/foo.txt"}
+ *   {"c":N,"i":N,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
  *   {"id":N,"status":"ok"}
@@ -30,7 +30,7 @@
 
 void storage_remove_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_remove");
         return;
     }

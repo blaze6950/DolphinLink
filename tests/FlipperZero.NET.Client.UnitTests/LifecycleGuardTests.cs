@@ -51,7 +51,7 @@ public sealed class LifecycleGuardTests
         await client.DisposeAsync();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+            () => client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
                 new InputListenStartCommand()));
     }
 

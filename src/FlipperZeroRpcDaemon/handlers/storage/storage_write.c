@@ -6,7 +6,7 @@
  * (1 024) bytes so the Base64 value is at most 1 024 characters.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_write","path":"/int/foo.txt","data":"<base64>"}
+ *   {"c":N,"i":M,"p":"/int/foo.txt","d":"<base64>"}
  *
  * Wire format (response — success):
  *   {"id":N,"status":"ok"}
@@ -39,7 +39,7 @@
 void storage_write_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
     const char* cursor = json;
-    if(!json_extract_string_at(json, &cursor, "path", path, sizeof(path))) {
+    if(!json_extract_string_at(json, &cursor, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_write");
         return;
     }
@@ -52,7 +52,7 @@ void storage_write_handler(uint32_t id, const char* json) {
         return;
     }
 
-    if(!json_extract_string_at(json, &cursor, "data", b64, 1024)) {
+    if(!json_extract_string_at(json, &cursor, "d", b64, 1024)) {
         free(b64);
         rpc_send_error(id, "missing_data", "storage_write");
         return;

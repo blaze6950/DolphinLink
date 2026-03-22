@@ -5,7 +5,7 @@
  * async TX API.  The handler polls until TX completes, then sleeps the radio.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"subghz_tx","timings":[9000,4500,...],"freq":433920000}
+ *   {"c":N,"i":M,"tm":[9000,4500,...],"fr":433920000}
  *
  * Wire format (response):
  *   {"id":N,"status":"ok"}
@@ -53,13 +53,13 @@ void subghz_tx_handler(uint32_t id, const char* json) {
     tx_count = 0;
     tx_pos = 0;
 
-    if(!json_extract_uint32_array(json, "timings", tx_timings, &tx_count, SUBGHZ_TX_MAX)) {
+    if(!json_extract_uint32_array(json, "tm", tx_timings, &tx_count, SUBGHZ_TX_MAX)) {
         rpc_send_error(id, "missing_timings", "subghz_tx");
         return;
     }
 
     uint32_t freq = 433920000;
-    json_extract_uint32(json, "freq", &freq);
+    json_extract_uint32(json, "fr", &freq);
 
     resource_acquire(RESOURCE_SUBGHZ);
 

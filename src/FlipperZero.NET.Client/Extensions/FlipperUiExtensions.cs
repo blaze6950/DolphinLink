@@ -1,10 +1,10 @@
-﻿using FlipperZero.NET.Commands.Ui;
+using FlipperZero.NET.Commands.Ui;
 using FlipperZero.NET.Exceptions;
 
 namespace FlipperZero.NET.Extensions;
 
 /// <summary>
-/// Extension methods on <see cref="FlipperRpcClient"/> for host-driven UI canvas control.
+/// Hand-written partial of <see cref="FlipperUiExtensions"/> adding the screen session helper.
 /// </summary>
 /// <remarks>
 /// Typical usage pattern:
@@ -15,7 +15,7 @@ namespace FlipperZero.NET.Extensions;
 /// // screen is automatically released when the using block exits
 /// </code>
 /// </remarks>
-public static class FlipperUiExtensions
+public static partial class FlipperUiExtensions
 {
     /// <summary>
     /// Claims exclusive control of the Flipper screen and returns a

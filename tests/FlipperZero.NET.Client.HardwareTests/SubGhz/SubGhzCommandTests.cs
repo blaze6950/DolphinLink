@@ -4,8 +4,8 @@ namespace FlipperZero.NET.Client.HardwareTests.SubGhz;
 
 /// <summary>
 /// Hardware tests for Sub-GHz commands:
-/// <see cref="FlipperRpcClient.SubGhzGetRssiAsync"/> and
-/// <see cref="FlipperRpcClient.SubGhzTxAsync"/>.
+/// <see cref="FlipperRpcClient.SubghzGetRssiAsync"/> and
+/// <see cref="FlipperRpcClient.SubghzTxAsync"/>.
 ///
 /// Run with a Flipper Zero connected:
 ///   set FLIPPER_PORT=COM3
@@ -32,7 +32,7 @@ public sealed class SubGhzCommandTests(FlipperFixture fixture)
     {
         // Just verify no exception is thrown; value assertion omitted due to
         // known "rssi_dbm10" vs "rssi" JSON key mismatch in the C# struct.
-        await Client.SubGhzGetRssiAsync(Freq433);
+        await Client.SubghzGetRssiAsync(Freq433);
     }
 
     /// <summary>
@@ -47,6 +47,6 @@ public sealed class SubGhzCommandTests(FlipperFixture fixture)
         // A minimal 4-element OOK timing burst (mark 500 µs, space 500 µs, ...)
         var timings = new uint[] { 500, 500, 500, 500 };
 
-        await Client.SubGhzTxAsync(Freq433, timings);
+        await Client.SubghzTxAsync(Freq433, timings);
     }
 }

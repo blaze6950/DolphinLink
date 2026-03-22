@@ -1,0 +1,19 @@
+{
+  "command": "datetime_set",
+  "subsystem": "System",
+  "description": "Set the device date and time",
+  "resource": null,
+  "request": {
+    "year": { "wire": "yr", "type": "uint", "description": "Year" },
+    "month": { "wire": "mo", "type": "uint", "description": "Month (1-12)" },
+    "day": { "wire": "dy", "type": "uint", "description": "Day (1-31)" },
+    "hour": { "wire": "hr", "type": "uint", "description": "Hour (0-23)" },
+    "minute": { "wire": "mn", "type": "uint", "description": "Minute (0-59)" },
+    "second": { "wire": "sc", "type": "uint", "description": "Second (0-59)" },
+    "weekday": { "wire": "wd", "type": "uint", "description": "Weekday (1=Mon, 7=Sun)" }
+  },
+  "response": {},
+  "errors": ["missing_datetime_fields"],
+  "extensionReturn": { "type": "void" },
+  "csharp": { "skip": ["command", "extension"] }
+}

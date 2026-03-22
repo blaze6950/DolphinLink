@@ -1,0 +1,12 @@
+{
+  "command": "gpio_set_5v",
+  "subsystem": "Gpio",
+  "description": "Enable or disable the 5V GPIO rail",
+  "resource": null,
+  "request": {
+    "enable": { "wire": "en", "type": "bool", "description": "True to enable 5V rail" }
+  },
+  "response": {},
+  "errors": ["missing_enable"],
+  "extensionReturn": { "type": "void" }
+}

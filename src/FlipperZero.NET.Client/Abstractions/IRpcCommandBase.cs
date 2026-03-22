@@ -13,15 +13,23 @@
 public interface IRpcCommandBase
 {
     /// <summary>
-    /// Name of the command as it appears in the JSON <c>"cmd"</c> field,
+    /// Name of the command as it appears in the wire protocol and daemon dispatch table,
     /// e.g. <c>"ping"</c>.
+    /// Used for logging and capability negotiation (<see cref="DaemonInfoResponse.Supports"/>).
     /// </summary>
     string CommandName { get; }
 
     /// <summary>
+    /// Numeric command id used in the V5 wire protocol <c>"c"</c> field.
+    /// Matches the zero-based index of the command in the <c>command-registry.json</c>
+    /// array, which is also its position in the daemon's COMMAND_NAMES dispatch table.
+    /// </summary>
+    int CommandId { get; }
+
+    /// <summary>
     /// Serialise any command-specific arguments into the JSON object body.
     /// Called by the client to build the outgoing message.
-    /// Write only the argument fields (no <c>id</c> or <c>cmd</c>) —
+    /// Write only the argument fields (no <c>"i"</c>, <c>"c"</c>) —
     /// those are added by the client.
     /// </summary>
     /// <param name="writer">

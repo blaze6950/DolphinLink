@@ -5,7 +5,7 @@
  * furi_hal_light_set(LightBacklight, value).
  *
  * Wire format (request):
- *   {"id":N,"cmd":"backlight","value":0-255}
+ *   {"c":N,"i":M,"vl":0-255}
  *
  * Wire format (response — success):
  *   {"id":N,"status":"ok"}
@@ -24,7 +24,7 @@
 
 void backlight_handler(uint32_t id, const char* json) {
     uint32_t value = 255;
-    json_extract_uint32(json, "value", &value);
+    json_extract_uint32(json, "vl", &value);
     if(value > 255) value = 255;
 
     furi_hal_light_set(LightBacklight, (uint8_t)value);

@@ -18,9 +18,9 @@ public sealed class IButtonReadManualTests(FlipperFixture fixture)
 
     /// <summary>
     /// After opening an iButton read stream we must be able to receive at
-    /// least one <see cref="IButtonReadEvent"/> when a compatible iButton key
+    /// least one <see cref="IbuttonReadEvent"/> when a compatible iButton key
     /// is touched to the Flipper's 1-Wire port.
-    /// Validates: stream event routing and <see cref="IButtonReadEvent"/>
+    /// Validates: stream event routing and <see cref="IbuttonReadEvent"/>
     /// deserialisation.
     ///
     /// Requires manual interaction: touch a compatible iButton key to the
@@ -31,9 +31,9 @@ public sealed class IButtonReadManualTests(FlipperFixture fixture)
     public async Task IButtonReadStart_ReceivesAtLeastOneEvent()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-        await using var stream = await Client.IButtonReadStartAsync(timeout.Token);
+        await using var stream = await Client.IbuttonReadStartAsync(timeout.Token);
 
-        IButtonReadEvent? firstEvent = null;
+        IbuttonReadEvent? firstEvent = null;
 
         await foreach (var evt in stream.WithCancellation(timeout.Token))
         {

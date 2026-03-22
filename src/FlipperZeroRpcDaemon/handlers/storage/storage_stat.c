@@ -5,10 +5,10 @@
  * in bytes and an is_dir flag.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"storage_stat","path":"/int/foo.txt"}
+ *   {"c":N,"i":M,"p":"/int/foo.txt"}
  *
  * Wire format (response — success):
- *   {"t":0,"i":N,"p":{"size":1234,"is_dir":false}}
+ *   {"t":0,"i":N,"p":{"sz":1234,"d":0}}
  *
  * Wire format (response — error):
  *   {"id":N,"error":"missing_path"}  — "path" field absent
@@ -34,7 +34,7 @@
 
 void storage_stat_handler(uint32_t id, const char* json) {
     char path[PATH_MAX_LEN] = {0};
-    if(!json_extract_string(json, "path", path, sizeof(path))) {
+    if(!json_extract_string(json, "p", path, sizeof(path))) {
         rpc_send_error(id, "missing_path", "storage_stat");
         return;
     }
@@ -52,9 +52,9 @@ void storage_stat_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"size\":%" PRIu32 ",\"is_dir\":%s}",
+        "{\"sz\":%" PRIu32 ",\"d\":%u}",
         (uint32_t)fi.size,
-        is_dir ? "true" : "false");
+        is_dir ? 1u : 0u);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " storage_stat %.12s", id, path);

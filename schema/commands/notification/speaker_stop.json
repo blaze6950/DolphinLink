@@ -1,0 +1,10 @@
+{
+  "command": "speaker_stop",
+  "subsystem": "Notification",
+  "description": "Stop playing tone on the speaker",
+  "resource": null,
+  "request": {},
+  "response": {},
+  "errors": [],
+  "extensionReturn": { "type": "void" }
+}

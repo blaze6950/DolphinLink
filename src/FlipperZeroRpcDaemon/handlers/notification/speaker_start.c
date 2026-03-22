@@ -7,9 +7,9 @@
  * and returns a "resource_busy" error.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"speaker_start","freq":440,"volume":128}
- *     freq   — frequency in Hz (uint32; cast to float for the HAL)
- *     volume — 0–255 mapped linearly to 0.0–1.0 HAL volume
+ *   {"c":N,"i":M,"fr":440,"vo":128}
+ *     fr   — frequency in Hz (uint32; cast to float for the HAL)
+ *     vo   — 0–255 mapped linearly to 0.0–1.0 HAL volume
  *
  * Wire format (response — success):
  *   {"id":N,"status":"ok"}
@@ -34,8 +34,8 @@ void speaker_start_handler(uint32_t id, const char* json) {
     uint32_t freq = 440;
     uint32_t volume_raw = 128; /* 0–255 */
 
-    json_extract_uint32(json, "freq", &freq);
-    json_extract_uint32(json, "volume", &volume_raw);
+    json_extract_uint32(json, "fr", &freq);
+    json_extract_uint32(json, "vo", &volume_raw);
     if(volume_raw > 255) volume_raw = 255;
 
     float volume = (float)volume_raw / 255.0f;

@@ -1,0 +1,15 @@
+{
+  "command": "storage_list",
+  "subsystem": "Storage",
+  "description": "List directory entries at a path",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "Directory path" }
+  },
+  "response": {
+    "entries": { "wire": "en", "type": "object[]", "description": "Array of directory entries with name (nm), is_dir (d), size (sz)" }
+  },
+  "errors": ["missing_path", "open_failed"],
+  "extensionReturn": { "type": "StorageListResponse", "field": null },
+  "csharp": { "skip": ["response", "extension"] }
+}

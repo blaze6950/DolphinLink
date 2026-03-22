@@ -1,0 +1,12 @@
+{
+  "command": "stream_close",
+  "subsystem": "Core",
+  "description": "Close an open stream and release its resources",
+  "resource": null,
+  "request": {
+    "stream": { "wire": "s", "type": "uint", "description": "Stream ID to close" }
+  },
+  "response": {},
+  "errors": ["missing_stream_id", "stream_not_found"],
+  "extensionReturn": { "type": "void" }
+}

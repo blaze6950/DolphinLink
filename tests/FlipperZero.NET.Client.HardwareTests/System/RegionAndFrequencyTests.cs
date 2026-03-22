@@ -27,8 +27,8 @@ public sealed class RegionAndFrequencyTests(FlipperFixture fixture)
     {
         var response = await Client.RegionInfoAsync();
 
-        Assert.False(string.IsNullOrWhiteSpace(response.Region),
-            "RegionInfoResponse.Region must not be empty");
+        Assert.False(string.IsNullOrWhiteSpace(response),
+            "RegionInfoAsync must not return empty string");
     }
 
     /// <summary>

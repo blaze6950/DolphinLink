@@ -31,7 +31,7 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _transport.EnqueueResponse(
-            """{"t":0,"i":1,"p":{"name":"flipper_zero_rpc_daemon","version":1,"commands":["ping","daemon_info","input_listen_start","stream_close"]}}""");
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":5,"cmds":["ping","daemon_info","input_listen_start","stream_close"]}}""");
         await _client.ConnectAsync();
     }
 
@@ -71,7 +71,7 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
         var ex = await Assert.ThrowsAsync<FlipperDisconnectedException>(
-            () => _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+            () => _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
                 new InputListenStartCommand()));
         Assert.Equal(DisconnectReason.ConnectionLost, ex.Reason);
     }
@@ -98,8 +98,8 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
     public async Task StreamDispose_AfterTransportEof_CompletesPromptly()
     {
         // Open a stream.
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":1}}""");
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":1}}""");
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Simulate cable pull while the stream is open.
@@ -123,8 +123,8 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
     public async Task StreamDispose_AfterDaemonExitEnvelope_CompletesPromptly()
     {
         // Open a stream.
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":2}}""");
-        var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":2}}""");
+        var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Daemon exits gracefully (custom exit key pressed).
@@ -182,8 +182,8 @@ public sealed class DisconnectTests : IAsyncLifetime, IAsyncDisposable
     public async Task StreamEnumeration_Exits_AfterTransportEof()
     {
         // Open a stream.
-        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"stream":3}}""");
-        await using var stream = await _client.SendStreamAsync<InputListenStartCommand, FlipperInputEvent>(
+        _transport.EnqueueResponse("""{"t":0,"i":2,"p":{"s":3}}""");
+        await using var stream = await _client.SendStreamAsync<InputListenStartCommand, InputListenEvent>(
             new InputListenStartCommand());
 
         // Start iterating in the background.

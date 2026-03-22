@@ -1,0 +1,10 @@
+{
+  "name": "UiFont",
+  "wireType": "int",
+  "baseType": "byte",
+  "values": [
+    { "name": "Primary", "wire": 0 },
+    { "name": "Secondary", "wire": 1 },
+    { "name": "Keyboard", "wire": 2 }
+  ]
+}

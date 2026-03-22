@@ -4,7 +4,7 @@ using FlipperZero.NET.Extensions;
 namespace FlipperZero.NET.Client.HardwareTests.SubGhz;
 
 /// <summary>
-/// Hardware tests for Sub-GHz RX streaming via <see cref="FlipperRpcClient.SubGhzRxStartAsync"/>.
+/// Hardware tests for Sub-GHz RX streaming via <see cref="FlipperRpcClient.SubghzRxStartAsync"/>.
 /// Excludes the manual test <c>SubGhzRxStart_ReceivesAtLeastOneEvent</c> which requires
 /// a human to trigger a 433 MHz transmitter.
 ///
@@ -18,7 +18,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     private FlipperRpcClient Client => fixture.Client;
 
     /// <summary>
-    /// <see cref="FlipperRpcClient.SubGhzRxStartAsync"/> with no explicit
+    /// <see cref="FlipperRpcClient.SubghzRxStartAsync"/> with no explicit
     /// frequency must return an <see cref="RpcStream{TEvent}"/> with a
     /// non-zero stream id (daemon defaults to 433.92 MHz).
     /// Validates: the stream-open handshake.
@@ -27,7 +27,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_ReturnsStreamWithNonZeroId()
     {
-        await using var stream = await Client.SubGhzRxStartAsync();
+        await using var stream = await Client.SubghzRxStartAsync();
 
         Assert.NotEqual(0u, stream.StreamId);
     }
@@ -42,7 +42,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_WithExplicitFreq_ReturnsStream()
     {
-        await using var stream = await Client.SubGhzRxStartAsync(freq: 433_920_000);
+        await using var stream = await Client.SubghzRxStartAsync(freq: 433_920_000);
 
         Assert.NotEqual(0u, stream.StreamId);
     }
@@ -57,7 +57,7 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_Dispose_ClosesStreamCleanly()
     {
-        var stream = await Client.SubGhzRxStartAsync();
+        var stream = await Client.SubghzRxStartAsync();
 
         // Should not throw
         await stream.DisposeAsync();
@@ -72,13 +72,13 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_AfterDispose_CanStartAgain()
     {
-        var first = await Client.SubGhzRxStartAsync();
+        var first = await Client.SubghzRxStartAsync();
         await first.DisposeAsync();
 
         // Give the Flipper a moment to release the resource
         await Task.Delay(200);
 
-        await using var second = await Client.SubGhzRxStartAsync();
+        await using var second = await Client.SubghzRxStartAsync();
 
         Assert.NotEqual(0u, second.StreamId);
     }
@@ -94,10 +94,10 @@ public sealed class SubGhzRxTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task SubGhzRxStart_WhenAlreadyActive_ThrowsResourceBusy()
     {
-        await using var first = await Client.SubGhzRxStartAsync();
+        await using var first = await Client.SubghzRxStartAsync();
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.SubGhzRxStartAsync());
+            () => Client.SubghzRxStartAsync());
 
         Assert.Equal("resource_busy", ex.ErrorCode);
     }

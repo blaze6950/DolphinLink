@@ -1,0 +1,11 @@
+{
+  "command": "ui_screen_acquire",
+  "subsystem": "Ui",
+  "description": "Acquire exclusive GUI screen access",
+  "resource": "RESOURCE_GUI",
+  "request": {},
+  "response": {},
+  "errors": ["resource_busy"],
+  "extensionReturn": { "type": "void" },
+  "csharp": { "skip": ["extension"] }
+}

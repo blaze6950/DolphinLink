@@ -5,7 +5,7 @@ namespace FlipperZero.NET.Client.HardwareTests.IButton;
 
 /// <summary>
 /// Hardware tests for iButton streaming via
-/// <see cref="FlipperRpcClient.IButtonReadStartAsync"/>.
+/// <see cref="FlipperRpcClient.IbuttonReadStartAsync"/>.
 /// Excludes the manual test <c>IButtonReadStart_ReceivesAtLeastOneEvent</c> which requires
 /// a human to touch an iButton key to the Flipper's 1-Wire port.
 ///
@@ -19,7 +19,7 @@ public sealed class IButtonReadTests(FlipperFixture fixture)
     private FlipperRpcClient Client => fixture.Client;
 
     /// <summary>
-    /// <see cref="FlipperRpcClient.IButtonReadStartAsync"/> must return an
+    /// <see cref="FlipperRpcClient.IbuttonReadStartAsync"/> must return an
     /// <see cref="RpcStream{TEvent}"/> with a non-zero stream id.
     /// Validates: the stream-open handshake for iButton read.
     /// </summary>
@@ -27,7 +27,7 @@ public sealed class IButtonReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task IButtonReadStart_ReturnsStreamWithNonZeroId()
     {
-        await using var stream = await Client.IButtonReadStartAsync();
+        await using var stream = await Client.IbuttonReadStartAsync();
 
         Assert.NotEqual(0u, stream.StreamId);
     }
@@ -41,7 +41,7 @@ public sealed class IButtonReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task IButtonReadStart_Dispose_ClosesStreamCleanly()
     {
-        var stream = await Client.IButtonReadStartAsync();
+        var stream = await Client.IbuttonReadStartAsync();
 
         await stream.DisposeAsync();
     }
@@ -55,12 +55,12 @@ public sealed class IButtonReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task IButtonReadStart_AfterDispose_CanStartAgain()
     {
-        var first = await Client.IButtonReadStartAsync();
+        var first = await Client.IbuttonReadStartAsync();
         await first.DisposeAsync();
 
         await Task.Delay(200);
 
-        await using var second = await Client.IButtonReadStartAsync();
+        await using var second = await Client.IbuttonReadStartAsync();
 
         Assert.NotEqual(0u, second.StreamId);
     }
@@ -75,10 +75,10 @@ public sealed class IButtonReadTests(FlipperFixture fixture)
     [RequiresFlipperFact]
     public async Task IButtonReadStart_WhenAlreadyActive_ThrowsResourceBusy()
     {
-        await using var first = await Client.IButtonReadStartAsync();
+        await using var first = await Client.IbuttonReadStartAsync();
 
         var ex = await Assert.ThrowsAsync<FlipperRpcException>(
-            () => Client.IButtonReadStartAsync());
+            () => Client.IbuttonReadStartAsync());
 
         Assert.Equal("resource_busy", ex.ErrorCode);
     }

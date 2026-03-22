@@ -1,0 +1,15 @@
+{
+  "command": "configure",
+  "subsystem": "System",
+  "description": "Configure daemon heartbeat interval and timeout",
+  "resource": null,
+  "request": {
+    "heartbeat_ms": { "wire": "hb", "type": "uint", "optional": true, "description": "Heartbeat interval in ms" },
+    "timeout_ms": { "wire": "to", "type": "uint", "optional": true, "description": "Timeout in ms" },
+    "led": { "wire": "led", "type": "object", "optional": true, "description": "RGB LED color object" }
+  },
+  "response": {},
+  "errors": [],
+  "extensionReturn": { "type": "void" },
+  "csharp": { "skip": ["command", "response", "extension"] }
+}

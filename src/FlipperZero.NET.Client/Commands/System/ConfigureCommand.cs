@@ -15,16 +15,16 @@ namespace FlipperZero.NET.Commands.System;
 /// value (initially the compile-time default: 3 s interval, 10 s timeout, LED off).
 ///
 /// Wire format (request — all fields optional):
-/// <code>{"id":N,"cmd":"configure","heartbeat_ms":3000,"timeout_ms":10000,"led":{"r":81,"g":43,"b":212}}</code>
+/// <code>{"i":N,"c":2,"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}</code>
 ///
 /// Wire format (response — effective values; "led" omitted when not configured):
-/// <code>{"t":0,"i":N,"p":{"heartbeat_ms":3000,"timeout_ms":10000,"led":{"r":81,"g":43,"b":212}}}</code>
+/// <code>{"t":0,"i":N,"p":{"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}}</code>
 ///
 /// Daemon-side validation rules (heartbeat):
 /// <list type="bullet">
-///   <item><c>heartbeat_ms</c> &gt;= 500</item>
-///   <item><c>timeout_ms</c> &gt;= 2000</item>
-///   <item><c>timeout_ms</c> &gt; <c>heartbeat_ms</c></item>
+///   <item><c>hb</c> &gt;= 500</item>
+///   <item><c>to</c> &gt;= 2000</item>
+///   <item><c>to</c> &gt; <c>hb</c></item>
 /// </list>
 /// A violation returns error code <c>invalid_config</c>; no values are changed.
 ///
@@ -36,7 +36,7 @@ namespace FlipperZero.NET.Commands.System;
 ///
 /// Resources required: none.
 /// </summary>
-public readonly struct ConfigureCommand : IRpcCommand<ConfigureResponse>
+public readonly partial struct ConfigureCommand : IRpcCommand<ConfigureResponse>
 {
     /// <summary>
     /// Creates a configure command with the specified heartbeat timing and optional LED colour.
@@ -77,10 +77,13 @@ public readonly struct ConfigureCommand : IRpcCommand<ConfigureResponse>
     public string CommandName => "configure";
 
     /// <inheritdoc />
+    public int CommandId => 2;
+
+    /// <inheritdoc />
     public void WriteArgs(Utf8JsonWriter writer)
     {
-        writer.WriteNumber("heartbeat_ms", HeartbeatMs);
-        writer.WriteNumber("timeout_ms",   TimeoutMs);
+        writer.WriteNumber("hb", HeartbeatMs);
+        writer.WriteNumber("to", TimeoutMs);
 
         if (Led is { } led)
         {
@@ -100,14 +103,14 @@ public readonly struct ConfigureResponse : IRpcCommandResponse
     /// The TX idle interval (ms) the daemon is now using — the effective value
     /// after applying the requested configuration.
     /// </summary>
-    [JsonPropertyName("heartbeat_ms")]
+    [JsonPropertyName("hb")]
     public uint HeartbeatMs { get; init; }
 
     /// <summary>
     /// The RX silence timeout (ms) the daemon is now using — the effective value
     /// after applying the requested configuration.
     /// </summary>
-    [JsonPropertyName("timeout_ms")]
+    [JsonPropertyName("to")]
     public uint TimeoutMs { get; init; }
 
     /// <summary>

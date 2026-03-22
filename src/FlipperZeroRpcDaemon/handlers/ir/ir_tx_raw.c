@@ -6,7 +6,7 @@
  * Blocks until the "signal sent" callback fires.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ir_tx_raw","timings":[9000,4500,560,...]}
+ *   {"c":N,"i":M,"tm":[9000,4500,560,...]}
  *
  * Wire format (response):
  *   {"id":N,"status":"ok"}
@@ -51,7 +51,7 @@ void ir_tx_raw_handler(uint32_t id, const char* json) {
     ir_raw_count = 0;
     ir_raw_pos = 0;
 
-    if(!json_extract_uint32_array(json, "timings", ir_raw_timings, &ir_raw_count, IR_RAW_MAX)) {
+    if(!json_extract_uint32_array(json, "tm", ir_raw_timings, &ir_raw_count, IR_RAW_MAX)) {
         rpc_send_error(id, "missing_timings", "ir_tx_raw");
         return;
     }

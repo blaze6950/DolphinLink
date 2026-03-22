@@ -1,0 +1,15 @@
+{
+  "command": "daemon_info",
+  "subsystem": "System",
+  "description": "Query daemon name, protocol version, and supported commands",
+  "resource": null,
+  "request": {},
+  "response": {
+    "name": { "wire": "n", "type": "string", "description": "Daemon name" },
+    "version": { "wire": "v", "type": "uint", "description": "Protocol version" },
+    "commands": { "wire": "cmds", "type": "string[]", "description": "List of supported command names" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "void" },
+  "csharp": { "skip": ["response"] }
+}

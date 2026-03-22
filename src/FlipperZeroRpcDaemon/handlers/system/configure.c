@@ -8,8 +8,8 @@
  * settings.
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"configure"[,"heartbeat_ms":<u32>][,"timeout_ms":<u32>][,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}
- *   Response: {"t":0,"i":N,"p":{"heartbeat_ms":<u32>,"timeout_ms":<u32>[,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}}
+ *   Request:  {"c":N,"i":N[,"hb":<u32>][,"to":<u32>][,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}
+ *   Response: {"t":0,"i":N,"p":{"hb":<u32>,"to":<u32>[,"led":{"r":<u8>,"g":<u8>,"b":<u8>}]}}
  *   Errors:   invalid_config
  *
  * Threading: main thread (FuriEventLoop).
@@ -33,8 +33,8 @@ void configure_handler(uint32_t id, const char* json) {
     uint32_t to_ms = heartbeat_rx_timeout_ms;
 
     const char* cursor = json;
-    json_extract_uint32_at(json, &cursor, "heartbeat_ms", &hb_ms);
-    json_extract_uint32_at(json, &cursor, "timeout_ms", &to_ms);
+    json_extract_uint32_at(json, &cursor, "hb", &hb_ms);
+    json_extract_uint32_at(json, &cursor, "to", &to_ms);
 
     if(!heartbeat_apply_config(hb_ms, to_ms)) {
         char log_entry[CMD_LOG_LINE_LEN];
@@ -69,7 +69,7 @@ void configure_handler(uint32_t id, const char* json) {
         snprintf(
             payload,
             sizeof(payload),
-            "{\"heartbeat_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32
+            "{\"hb\":%" PRIu32 ",\"to\":%" PRIu32
             ",\"led\":{\"r\":%" PRIu8 ",\"g\":%" PRIu8 ",\"b\":%" PRIu8 "}}",
             heartbeat_tx_idle_ms,
             heartbeat_rx_timeout_ms,
@@ -80,7 +80,7 @@ void configure_handler(uint32_t id, const char* json) {
         snprintf(
             payload,
             sizeof(payload),
-            "{\"heartbeat_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
+            "{\"hb\":%" PRIu32 ",\"to\":%" PRIu32 "}",
             heartbeat_tx_idle_ms,
             heartbeat_rx_timeout_ms);
     }

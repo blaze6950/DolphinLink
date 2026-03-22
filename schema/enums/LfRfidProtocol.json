@@ -1,0 +1,17 @@
+{
+  "name": "LfRfidProtocol",
+  "wireType": "string",
+  "values": [
+    { "name": "Unknown", "wire": "Unknown" },
+    { "name": "EM4100", "wire": "EM4100" },
+    { "name": "HIDProx", "wire": "HIDProx" },
+    { "name": "Indala", "wire": "Indala" },
+    { "name": "IoProx", "wire": "IoProx" },
+    { "name": "Paradox", "wire": "Paradox" },
+    { "name": "Viking", "wire": "Viking" },
+    { "name": "Visa2000", "wire": "Visa2000" },
+    { "name": "Gallagher", "wire": "Gallagher" },
+    { "name": "PAC_Stanley", "wire": "PAC_Stanley" },
+    { "name": "Nexkaey", "wire": "Nexkaey" }
+  ]
+}

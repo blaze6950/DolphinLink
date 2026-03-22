@@ -5,7 +5,7 @@
  * and the converted millivolt value.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"adc_read","pin":"1"}
+ *   {"c":14,"i":N,"p":<GpioPin int 1-8>}
  *
  * Wire format (response):
  *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}
@@ -13,8 +13,8 @@
  *     mv  — voltage in millivolts (integer)
  *
  * Error codes:
- *   missing_pin — "pin" field absent
- *   invalid_pin — label not found or not ADC-capable
+ *   missing_pin — "p" field absent or out of range
+ *   invalid_pin — value not found or not ADC-capable
  *
  * The ADC handle is acquired, sampled, and released within this call.
  * Voltage is encoded as integer millivolts to avoid %f formatting.
@@ -31,11 +31,16 @@
 #include <inttypes.h>
 
 void adc_read_handler(uint32_t id, const char* json) {
-    char label[8] = {0};
-    if(!json_extract_string(json, "pin", label, sizeof(label))) {
+    uint32_t pin_num = 0;
+    if(!json_extract_uint32(json, "p", &pin_num) || pin_num < 1 || pin_num > 8) {
         rpc_send_error(id, "missing_pin", "adc_read");
         return;
     }
+
+    /* Map integer wire value to label string ("1"–"8") */
+    char label[4];
+    snprintf(label, sizeof(label), "%" PRIu32, pin_num);
+
     const GpioPinEntry* entry = gpio_pin_entry_from_label(label);
     if(!entry || entry->adc_channel == FuriHalAdcChannelNone) {
         rpc_send_error(id, "invalid_pin", "adc_read");
@@ -63,9 +68,9 @@ void adc_read_handler(uint32_t id, const char* json) {
     snprintf(
         log_entry,
         sizeof(log_entry),
-        "#%" PRIu32 " adc_read pin=%s -> %" PRIi32 "mv",
+        "#%" PRIu32 " adc_read pin=%" PRIu32 " -> %" PRIi32 "mv",
         id,
-        label,
+        pin_num,
         mv);
 
     rpc_send_data_response(id, resp, log_entry);

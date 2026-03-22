@@ -5,13 +5,13 @@
  * edge of the named GPIO pin.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_watch_start","pin":"1"}
+ *   {"c":16,"i":N,"p":<GpioPin int 1-8>}
  *
  * Wire format (stream opened):
- *   {"id":N,"stream":M}
+ *   {"t":0,"i":N,"p":{"s":M}}
  *
  * Wire format (stream event — emitted on each edge):
- *   {"event":{"pin":"1","level":true},"stream":M}
+ *   {"t":1,"i":M,"p":{"p":<int>,"lv":1}} or {"t":1,"i":M,"p":{"p":<int>,"lv":0}}
  *
  * Error codes:
  *   missing_pin       — "pin" field absent
@@ -74,11 +74,15 @@ static void gpio_teardown(size_t slot_idx) {
  * ========================================================= */
 
 void gpio_watch_start_handler(uint32_t id, const char* json) {
-    char label[8] = {0};
-    if(!json_extract_string(json, "pin", label, sizeof(label))) {
+    uint32_t pin_num = 0;
+    if(!json_extract_uint32(json, "p", &pin_num) || pin_num < 1 || pin_num > 8) {
         rpc_send_error(id, "missing_pin", "gpio_watch_start");
         return;
     }
+
+    /* Map integer wire value to label string ("1"–"8") */
+    char label[4];
+    snprintf(label, sizeof(label), "%" PRIu32, pin_num);
 
     const GpioPinEntry* entry = gpio_pin_entry_from_label(label);
     if(!entry) {
@@ -90,16 +94,17 @@ void gpio_watch_start_handler(uint32_t id, const char* json) {
     int slot = stream_open(id, "gpio_watch_start", 0, &stream_id);
     if(slot < 0) return;
 
+    /* V1: pin as integer, level as 1/0 */
     snprintf(
         active_streams[slot].hw.gpio.frag_high,
         GPIO_FRAG_MAX,
-        "\"pin\":\"%s\",\"level\":true",
-        label);
+        "\"p\":%" PRIu32 ",\"lv\":1",
+        pin_num);
     snprintf(
         active_streams[slot].hw.gpio.frag_low,
         GPIO_FRAG_MAX,
-        "\"pin\":\"%s\",\"level\":false",
-        label);
+        "\"p\":%" PRIu32 ",\"lv\":0",
+        pin_num);
     active_streams[slot].hw.gpio.pin = entry->pin;
     active_streams[slot].teardown = gpio_teardown;
 
@@ -107,5 +112,5 @@ void gpio_watch_start_handler(uint32_t id, const char* json) {
     furi_hal_gpio_add_int_callback(entry->pin, gpio_exti_callback, &active_streams[slot]);
 
     stream_send_opened(id, stream_id, "gpio_watch_start");
-    FURI_LOG_I("RPC", "GPIO watch stream opened pin=%s id=%" PRIu32, label, stream_id);
+    FURI_LOG_I("RPC", "GPIO watch stream opened pin=%" PRIu32 " id=%" PRIu32, pin_num, stream_id);
 }

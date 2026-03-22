@@ -1,0 +1,13 @@
+{
+  "command": "gpio_write",
+  "subsystem": "Gpio",
+  "description": "Write digital GPIO pin state",
+  "resource": null,
+  "request": {
+    "pin": { "wire": "p", "type": "int", "enum": "$GpioPin", "description": "GPIO pin" },
+    "level": { "wire": "lv", "type": "bool", "description": "Pin level (true=high)" }
+  },
+  "response": {},
+  "errors": ["missing_pin", "invalid_pin", "missing_level"],
+  "extensionReturn": { "type": "void" }
+}

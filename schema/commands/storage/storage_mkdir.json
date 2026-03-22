@@ -1,0 +1,12 @@
+{
+  "command": "storage_mkdir",
+  "subsystem": "Storage",
+  "description": "Create a directory",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "Directory path to create" }
+  },
+  "response": {},
+  "errors": ["missing_path", "mkdir_failed"],
+  "extensionReturn": { "type": "void" }
+}

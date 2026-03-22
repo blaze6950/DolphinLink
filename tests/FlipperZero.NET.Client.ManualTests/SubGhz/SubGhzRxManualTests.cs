@@ -18,9 +18,9 @@ public sealed class SubGhzRxManualTests(FlipperFixture fixture)
 
     /// <summary>
     /// After opening a Sub-GHz RX stream we must be able to receive at least
-    /// one <see cref="SubGhzRxEvent"/> when a 433 MHz transmitter fires
+    /// one <see cref="SubghzRxEvent"/> when a 433 MHz transmitter fires
     /// (e.g. a remote control or key fob).
-    /// Validates: stream event routing and <see cref="SubGhzRxEvent"/>
+    /// Validates: stream event routing and <see cref="SubghzRxEvent"/>
     /// deserialisation.
     ///
     /// Requires manual interaction: trigger a 433 MHz transmitter near the
@@ -31,9 +31,9 @@ public sealed class SubGhzRxManualTests(FlipperFixture fixture)
     public async Task SubGhzRxStart_ReceivesAtLeastOneEvent()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-        await using var stream = await Client.SubGhzRxStartAsync(ct: timeout.Token);
+        await using var stream = await Client.SubghzRxStartAsync(ct: timeout.Token);
 
-        SubGhzRxEvent? firstEvent = null;
+        SubghzRxEvent? firstEvent = null;
 
         await foreach (var evt in stream.WithCancellation(timeout.Token))
         {
@@ -43,6 +43,6 @@ public sealed class SubGhzRxManualTests(FlipperFixture fixture)
 
         Assert.NotNull(firstEvent);
         Assert.True(firstEvent.Value.DurationUs > 0,
-            "SubGhzRxEvent.DurationUs must be positive");
+            "SubghzRxEvent.DurationUs must be positive");
     }
 }

@@ -1,0 +1,13 @@
+{
+  "command": "region_info",
+  "subsystem": "System",
+  "description": "Query the device RF region",
+  "resource": null,
+  "request": {},
+  "response": {
+    "region": { "wire": "rg", "type": "string", "description": "Region code" }
+  },
+  "errors": [],
+  "extensionReturn": { "type": "string", "field": "region" },
+  "csharp": { "skip": ["response"] }
+}

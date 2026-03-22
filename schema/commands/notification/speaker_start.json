@@ -1,0 +1,13 @@
+{
+  "command": "speaker_start",
+  "subsystem": "Notification",
+  "description": "Start playing a tone on the speaker",
+  "resource": "RESOURCE_SPEAKER",
+  "request": {
+    "freq": { "wire": "fr", "type": "uint", "description": "Frequency in Hz" },
+    "volume": { "wire": "vo", "type": "uint", "description": "Volume (0-100)" }
+  },
+  "response": {},
+  "errors": ["missing_freq"],
+  "extensionReturn": { "type": "void" }
+}

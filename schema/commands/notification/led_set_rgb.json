@@ -1,0 +1,14 @@
+{
+  "command": "led_set_rgb",
+  "subsystem": "Notification",
+  "description": "Set all three LED channels simultaneously",
+  "resource": null,
+  "request": {
+    "red": { "wire": "r", "type": "byte", "description": "Red channel (0-255)" },
+    "green": { "wire": "g", "type": "byte", "description": "Green channel (0-255)" },
+    "blue": { "wire": "b", "type": "byte", "description": "Blue channel (0-255)" }
+  },
+  "response": {},
+  "errors": [],
+  "extensionReturn": { "type": "void" }
+}

@@ -314,7 +314,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         // Wire cancellation: if ct fires before the response arrives, fail the pending request.
         ct.Register(() => pending.Fail(new OperationCanceledException(ct)));
 
-        var json = RpcMessageSerializer.Serialize(id, command.CommandName, command.WriteArgs);
+        var json = RpcMessageSerializer.Serialize(id, command.CommandId, command.WriteArgs);
 
         try
         {
@@ -377,7 +377,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         _pending.Register(id, openPending);
         ct.Register(() => openPending.Fail(new OperationCanceledException(ct)));
 
-        var json = RpcMessageSerializer.Serialize(id, command.CommandName, command.WriteArgs);
+        var json = RpcMessageSerializer.Serialize(id, command.CommandId, command.WriteArgs);
 
         try
         {

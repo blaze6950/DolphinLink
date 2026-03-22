@@ -5,7 +5,7 @@
  * The rectangle is rendered on the next ui_flush call.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"ui_draw_rect","x":0,"y":0,"w":128,"h":64,"filled":false}
+ *   {"c":N,"i":M,"x":0,"y":0,"w":128,"h":64,"fi":0}
  *
  *   filled: true = canvas_draw_box (filled), false = canvas_draw_frame (outline, default)
  *
@@ -35,7 +35,7 @@ void ui_draw_rect_handler(uint32_t id, const char* json) {
     json_extract_uint32(json, "y", &y);
     json_extract_uint32(json, "w", &w);
     json_extract_uint32(json, "h", &h);
-    json_extract_bool(json, "filled", &filled);
+    json_extract_bool(json, "fi", &filled);
 
     UiDrawOp op = {.type = UI_OP_DRAW_RECT};
     op.draw_rect.x = (uint8_t)x;

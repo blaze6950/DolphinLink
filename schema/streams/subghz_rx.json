@@ -1,0 +1,13 @@
+{
+  "stream": "subghz_rx",
+  "subsystem": "SubGhz",
+  "description": "Receive raw Sub-GHz signal",
+  "resource": "RESOURCE_SUBGHZ",
+  "request": {
+    "freq": { "wire": "fr", "type": "uint", "optional": true, "description": "Frequency in Hz (optional, uses last set freq)" }
+  },
+  "event": {
+    "level": { "wire": "lv", "type": "bool", "description": "Signal level" },
+    "duration_us": { "wire": "du", "type": "uint", "description": "Duration at this level in microseconds" }
+  }
+}

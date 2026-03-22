@@ -4,7 +4,7 @@
  * Enables or disables the 5 V OTG supply rail on the external connector.
  *
  * Wire format (request):
- *   {"id":N,"cmd":"gpio_set_5v","enable":true}
+ *   {"c":N,"i":M,"en":1}
  *
  * Wire format (response):
  *   {"id":N,"status":"ok"}
@@ -24,7 +24,7 @@
 
 void gpio_set_5v_handler(uint32_t id, const char* json) {
     bool enable = false;
-    if(!json_extract_bool(json, "enable", &enable)) {
+    if(!json_extract_bool(json, "en", &enable)) {
         rpc_send_error(id, "missing_enable", "gpio_set_5v");
         return;
     }

@@ -1,0 +1,11 @@
+{
+  "stream": "ibutton_read",
+  "subsystem": "IButton",
+  "description": "Read iButton keys",
+  "resource": "RESOURCE_IBUTTON",
+  "request": {},
+  "event": {
+    "type": { "wire": "ty", "type": "string", "enum": "$IButtonProtocol", "description": "iButton key type" },
+    "data": { "wire": "d", "type": "hex", "description": "Key data as hex string" }
+  }
+}

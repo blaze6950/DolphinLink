@@ -1,0 +1,13 @@
+{
+  "command": "storage_write",
+  "subsystem": "Storage",
+  "description": "Write data to a file",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "File path" },
+    "data": { "wire": "d", "type": "bytes", "description": "File contents (base64-encoded)" }
+  },
+  "response": {},
+  "errors": ["missing_path", "missing_data", "open_failed", "storage_error"],
+  "extensionReturn": { "type": "void" }
+}

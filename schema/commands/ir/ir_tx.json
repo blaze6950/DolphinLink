@@ -1,0 +1,14 @@
+{
+  "command": "ir_tx",
+  "subsystem": "Ir",
+  "description": "Transmit an IR signal using a known protocol",
+  "resource": "RESOURCE_IR",
+  "request": {
+    "protocol": { "wire": "pr", "type": "string", "enum": "$IrProtocol", "description": "IR protocol" },
+    "address": { "wire": "a", "type": "uint", "description": "Device address" },
+    "command": { "wire": "cm", "type": "uint", "description": "IR command code" }
+  },
+  "response": {},
+  "errors": ["resource_busy", "missing_protocol", "unknown_protocol"],
+  "extensionReturn": { "type": "void" }
+}

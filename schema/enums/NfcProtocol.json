@@ -1,0 +1,24 @@
+{
+  "name": "NfcProtocol",
+  "wireType": "string",
+  "csharp": { "customConverter": true },
+  "values": [
+    { "name": "Iso14443_3a", "wire": "Iso14443-3a" },
+    { "name": "Iso14443_3b", "wire": "Iso14443-3b" },
+    { "name": "Iso14443_4a", "wire": "Iso14443-4a" },
+    { "name": "Iso14443_4b", "wire": "Iso14443-4b" },
+    { "name": "Iso15693_3", "wire": "Iso15693-3" },
+    { "name": "FeliCa", "wire": "FeliCa" },
+    { "name": "Mf1S50", "wire": "Mf1S50" },
+    { "name": "Mf1S70", "wire": "Mf1S70" },
+    { "name": "MfUltralight", "wire": "MfUltralight" },
+    { "name": "MfDesfire", "wire": "MfDesfire" },
+    { "name": "Slix", "wire": "Slix" },
+    { "name": "SlixS", "wire": "SlixS" },
+    { "name": "SlixL", "wire": "SlixL" },
+    { "name": "Slix2", "wire": "Slix2" },
+    { "name": "St25tb", "wire": "St25tb" },
+    { "name": "St25pc", "wire": "St25pc" },
+    { "name": "Unknown", "wire": "Unknown" }
+  ]
+}

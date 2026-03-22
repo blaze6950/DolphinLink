@@ -222,9 +222,9 @@ public sealed class StorageTests(FlipperFixture fixture)
 
             var read = await Client.StorageReadAsync(ScratchFile);
 
-            Assert.NotNull(read.Data);
+            Assert.NotNull(read);
 
-            string roundTripped = Encoding.UTF8.GetString(read.Data!);
+            string roundTripped = Encoding.UTF8.GetString(read);
             Assert.Equal(content, roundTripped);
         }
         finally

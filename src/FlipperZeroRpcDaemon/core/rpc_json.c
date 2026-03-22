@@ -141,6 +141,15 @@ bool json_extract_bool(const char* json, const char* key, bool* out) {
         *out = false;
         return true;
     }
+    /* V1 wire format: numeric 1/0 */
+    if(*pos == '1') {
+        *out = true;
+        return true;
+    }
+    if(*pos == '0') {
+        *out = false;
+        return true;
+    }
     return false;
 }
 
@@ -264,6 +273,17 @@ bool json_extract_bool_at(
     if(strncmp(pos, "false", 5) == 0) {
         *out = false;
         *cursor = pos + 5;
+        return true;
+    }
+    /* V1 wire format: numeric 1/0 */
+    if(*pos == '1') {
+        *out = true;
+        *cursor = pos + 1;
+        return true;
+    }
+    if(*pos == '0') {
+        *out = false;
+        *cursor = pos + 1;
         return true;
     }
     return false;

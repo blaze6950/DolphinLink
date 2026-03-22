@@ -1,0 +1,12 @@
+{
+  "command": "storage_remove",
+  "subsystem": "Storage",
+  "description": "Delete a file or empty directory",
+  "resource": null,
+  "request": {
+    "path": { "wire": "p", "type": "string", "description": "Path to remove" }
+  },
+  "response": {},
+  "errors": ["missing_path", "remove_failed"],
+  "extensionReturn": { "type": "void" }
+}

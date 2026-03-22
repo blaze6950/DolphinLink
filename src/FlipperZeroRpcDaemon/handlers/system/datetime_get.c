@@ -2,10 +2,10 @@
  * datetime_get.c — datetime_get command handler implementation
  *
  * Wire protocol:
- *   Request:  {"id":N,"cmd":"datetime_get"}
+ *   Request:  {"c":N,"i":N}
  *   Response: {"t":0,"i":N,"p":{
- *               "year":<u16>,"month":<u8>,"day":<u8>,
- *               "hour":<u8>,"minute":<u8>,"second":<u8>}}
+ *               "yr":<u16>,"mo":<u8>,"dy":<u8>,
+ *               "hr":<u8>,"mn":<u8>,"sc":<u8>,"wd":<u8>}}
  *
  * Reads the current RTC date and time via furi_hal_rtc_get_datetime().
  *
@@ -32,14 +32,15 @@ void datetime_get_handler(uint32_t id, const char* json) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"year\":%" PRIu16 ",\"month\":%" PRIu8
-        ",\"day\":%" PRIu8 ",\"hour\":%" PRIu8 ",\"minute\":%" PRIu8 ",\"second\":%" PRIu8 "}",
+        "{\"yr\":%" PRIu16 ",\"mo\":%" PRIu8
+        ",\"dy\":%" PRIu8 ",\"hr\":%" PRIu8 ",\"mn\":%" PRIu8 ",\"sc\":%" PRIu8 ",\"wd\":%" PRIu8 "}",
         dt.year,
         dt.month,
         dt.day,
         dt.hour,
         dt.minute,
-        dt.second);
+        dt.second,
+        dt.weekday);
 
     char log_entry[CMD_LOG_LINE_LEN];
     snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " datetime_get -> ok", id);
