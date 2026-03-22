@@ -25,6 +25,9 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<Main>> _pending = new();
     private Task? _readerTask;
     private readonly CancellationTokenSource _cts = new();
+    // Wraps to 0 at uint.MaxValue (~4.3 billion); safe because the Flipper native RPC
+    // is only used during bootstrapping (short-lived) and responses are correlated
+    // before any collision can occur.
     private uint _nextId;
     private int _disposed; // 0 = alive, 1 = disposed (Interlocked)
     private int _opened;   // 0 = not yet, 1 = opened (Interlocked)

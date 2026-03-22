@@ -93,7 +93,12 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// <summary>Parses and routes inbound V3 NDJSON envelopes.</summary>
     private readonly RpcMessageDispatcher _dispatcher;
 
-    /// <summary>Monotonically increasing counter for request ids.</summary>
+    /// <summary>
+    /// Monotonically increasing counter for request ids.
+    /// Wraps to 0 at <see cref="uint.MaxValue"/> (~4.3 billion); this is safe because
+    /// request timeouts guarantee no in-flight request survives long enough
+    /// to collide with a recycled id.
+    /// </summary>
     private uint _nextId;
 
     private Task? _readerTask;
