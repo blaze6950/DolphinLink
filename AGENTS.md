@@ -1,236 +1,132 @@
-# FlipperZero.NET
+# FlipperZero.NET — Agent Guide
 
 ## Overview
 
-Monorepo with three sub-projects. The daemon and client communicate over USB CDC serial via NDJSON RPC; the bootstrapper uses the Flipper's native protobuf RPC to install and launch the daemon before handing off to the client.
+Monorepo with three sub-projects. The daemon runs on a Flipper Zero and exposes an NDJSON RPC interface over USB CDC. The client is a .NET library that speaks that protocol. The bootstrapper uses the Flipper's native protobuf RPC to install and launch the daemon.
 
-| Sub-project | Language | Location | Build |
+| Sub-project | Language | Path | Build |
 |---|---|---|---|
-| **RPC Daemon** | C (Flipper Zero FAP) | `src/FlipperZeroRpcDaemon/` | `ufbt` |
+| **RPC Daemon** | C (Flipper Zero FAP) | `src/FlipperZeroRpcDaemon/` | `python -m ufbt` |
 | **RPC Client** | C# (.NET 8 library) | `src/FlipperZero.NET.Client/` | `dotnet build` |
 | **Bootstrapper** | C# (.NET 8 library) | `src/FlipperZero.NET.Bootstrapper/` | `dotnet build` |
 
+---
+
 ## Build
 
-**C Daemon** — requires [ufbt](https://github.com/flipperdevices/flipperzero-ufbt) on `PATH`:
-```bash
-cd src/FlipperZeroRpcDaemon
-python -m ufbt           # build FAP
-python -m ufbt launch    # build + deploy over USB
-python -m ufbt lint      # clang-tidy
-python -m ufbt format    # auto-fix formatting
-```
+### C Daemon
 
-> **LSP false-positives**: C LSP errors for `furi.h`, `bool`, `FuriMessageQueue`,
-> etc. are expected — Flipper SDK headers only exist inside the ufbt toolchain.
-> The authoritative check is `python -m ufbt`.
-
-**C# Client**:
-```bash
-dotnet build   # from repo root; must produce 0 warnings, 0 errors (covers Client + Bootstrapper)
-```
-
-**Bootstrapper — embedding a freshly-built FAP**:
-
-By default `dotnet build` embeds the pre-committed FAP from
-`src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap`.
-
-To rebuild the C daemon and automatically copy the new `.fap` into `Resources/`
-before compilation, pass `BuildDaemon=true`:
+Requires [ufbt](https://github.com/flipperdevices/flipperzero-ufbt) on `PATH`. Run from `src/FlipperZeroRpcDaemon/`:
 
 ```bash
-dotnet build /p:BuildDaemon=true   # builds ufbt FAP first, then compiles C#
+python -m ufbt          # build FAP
+python -m ufbt lint     # clang-tidy
+python -m ufbt format   # auto-fix formatting
 ```
 
-This requires `ufbt` + Python on `PATH`.  CI must always pass this flag to
-ensure the embedded FAP is current.  Local C#-only work can skip it.
+> **LSP false-positives**: C LSP errors for `furi.h`, `bool`, `FuriMessageQueue`, etc. are expected — Flipper SDK headers only exist inside the ufbt toolchain. The authoritative check is `python -m ufbt`.
 
-**Deploy script — build + upload + launch in one command**:
+### C# Solution
 
-`deploy-daemon.csx` (repo root) automates the full iteration cycle:
-builds the C daemon with `ufbt`, reads the resulting `.fap` directly from
-`dist/`, and uses `FlipperBootstrapper.BootstrapAsync` (with `fapOverride`)
-to upload and launch it on the device — no qFlipper needed.
-
-The FAP bytes are passed directly to `BootstrapAsync` rather than being
-embedded in the DLL, so **rebuilding the .NET solution is not required
-between C daemon iterations**.
-
-First-time setup (once per clone):
 ```bash
-dotnet tool restore          # installs dotnet-script from .config/dotnet-tools.json
-dotnet build                 # ensure DLLs exist for the script to load
+dotnet build            # from repo root; builds Client + Bootstrapper
 ```
 
-Run the deploy script:
+CI passes `-warnaserror`. Treat all warnings as errors; zero warnings is required.
+
+To rebuild the C daemon FAP and embed it in the Bootstrapper: `dotnet build /p:BuildDaemon=true`.
+
+### Deploy script
+
+`deploy-daemon.csx` automates build → upload → launch. Run `dotnet tool restore` once, then `dotnet script deploy-daemon.csx`. Use `-- --no-build` to skip C rebuild, `-- --system COM5 --daemon COM6` to override ports.
+
+---
+
+## Test
+
 ```bash
-# Build C daemon + upload + launch (default ports: COM3 system, COM4 daemon)
-dotnet script deploy-daemon.csx
-
-# Skip rebuilding C code (faster iteration when only C# changed)
-dotnet script deploy-daemon.csx -- --no-build
-
-# Override ports
-dotnet script deploy-daemon.csx -- --system COM5 --daemon COM6
+dotnet test --filter "FullyQualifiedName~UnitTests"                  # no hardware needed; CI runs this
+$env:FLIPPER_PORT="COM4"; dotnet test --filter "FullyQualifiedName~HardwareTests"  # needs Flipper
 ```
+
+Set `FLIPPER_SYSTEM_PORT` too for bootstrap tests. Or use `.\test-report.ps1 -Category Hardware` for an HTML report.
+
+| Project | Purpose |
+|---|---|
+| `tests/FlipperZero.NET.Client.UnitTests/` | All new logic; uses `FakeTransport` (in-process) |
+| `tests/FlipperZero.NET.Client.HardwareTests/` | End-to-end on real hardware |
+| `tests/FlipperZero.NET.Client.ManualTests/` | Interactive / exploratory only |
+| `tests/FlipperZero.NET.Tests.Infrastructure/` | Shared fixtures and attributes (not runnable) |
+
+**Conventions:** `RequiresFlipperFact` / `RequiresBootstrapFact` attributes. `[Trait("Category","Hardware")]` on all hardware tests. Method naming: `MethodName_Scenario_ExpectedBehavior`. Cover at minimum: happy-path, resource conflict (if applicable), stream open/close lifecycle.
+
+---
 
 ## Codegen
 
-Command schemas, stream schemas, and enums are defined under `schema/` and are the **single source of truth** for all wire field names and command IDs. Two scripts in `codegens/` generate output from these schemas: `codegens/codegen.csx` generates C# (`.g.cs`) files and `codegens/c-codegen.csx` generates the C dispatch header (`rpc_dispatch_generated.h`).
+Schemas in `schema/` are the **single source of truth**. Never edit generated files (`.g.cs`, `rpc_dispatch_generated.h`).
 
-```
-schema/
-  command-registry.json              # ordered array; index = integer command ID (append-only)
-  commands/<cmd>.json                # one file per command; specifies wire keys, types, errors
-  streams/<stream>.json              # one file per stream command
-  enums/<Name>.json                  # enum definitions referenced via "$EnumName" in schemas
-
-codegens/
-  codegen.csx                        # run with: dotnet script codegens/codegen.csx
-  c-codegen.csx                      # run with: dotnet script codegens/c-codegen.csx
-```
-
-**Re-generate after any schema change:**
 ```bash
-dotnet script codegens/codegen.csx
-dotnet script codegens/c-codegen.csx
-dotnet build   # verify 0 warnings, 0 errors
+dotnet script codegens/codegen.csx      # C# → src/FlipperZero.NET.Client/Generated/
+dotnet script codegens/c-codegen.csx    # C  → src/FlipperZeroRpcDaemon/generated/rpc_dispatch_generated.h
+dotnet build
 ```
 
-Generated files carry a `// <auto-generated />` header and are committed to source control. Do not edit them by hand; edit the schema instead.
+Schema layout: `schema/command-registry.json` (ID → name, append-only), `schema/commands/<subsystem>/<cmd>.json`, `schema/streams/<name>.json`, `schema/enums/<Name>.json`, `schema/resources.json`.
 
-**Generated output:**
-```
-src/FlipperZero.NET.Client/Generated/
-  Enums/<Name>.g.cs
-  Commands/<Subsystem>/<Name>Command.g.cs
-  Streams/<Subsystem>/<Name>Stream.g.cs
-  Extensions/Flipper<Subsystem>Extensions.g.cs
-
-src/FlipperZeroRpcDaemon/generated/
-  rpc_dispatch_generated.h           # COMMAND_NAMES[] + commands[] table; included by rpc_dispatch.c
-```
-
-## Project Layout
-
-```
-schema/                              # JSON schemas (source of truth — see Codegen section)
-codegens/
-  codegen.csx                        # C# code generator
-  c-codegen.csx                      # C code generator
-```
-
-Subsystem folders: `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
-
-`COMMANDS.md` (repo root) — cross-reference table mapping every command name to its integer command ID, wire keys, C handler file, C# types file, and C# extension method. Keep it in sync when adding or removing commands (and always add new commands to `schema/command-registry.json` and create a schema file under `schema/commands/` or `schema/streams/`).
-
-Namespace rule: `FlipperZero.NET.Commands` for request/response types; stream event types use `FlipperZero.NET.Commands.<Subsystem>` (e.g. `FlipperZero.NET.Commands.Ir`).
-
-**Stream event type names** (generated):
-- `IrReceiveEvent` — IR receive stream events (`FlipperZero.NET.Commands.Ir`)
-- `SubghzRxEvent` — Sub-GHz RX stream events (`FlipperZero.NET.Commands.SubGhz`)
-- `InputListenEvent` — input button events (`FlipperZero.NET.Commands.Input`)
-- `IbuttonReadEvent` — iButton key reads (`FlipperZero.NET.Commands.IButton`)
-- `LfrfidReadEvent` — LF RFID card reads (`FlipperZero.NET.Commands.Rfid`)
-- `NfcScanEvent` — NFC tag scans (`FlipperZero.NET.Commands.Nfc`)
-- `GpioWatchEvent` — GPIO pin change events (`FlipperZero.NET.Commands.Gpio`)
+Some C# types use **partial structs** — a generated `.g.cs` alongside a hand-written `.cs` (e.g. `DaemonInfoResponse.Supports()`, `ConfigureCommand`). Add custom logic in the hand-written partial; never modify the `.g.cs`.
 
 ---
 
-## Protocol: NDJSON over USB CDC
+## Adding a New Command
 
-One compact JSON object per line (`\n`-terminated). Never dispatch on `}`.
+### Step 1 — Schema
 
-**Request** (host → Flipper) — V1 format uses integer command IDs from `command-registry.json`:
-```json
-{"c":0,"i":1}
-{"c":19,"i":2}
-{"c":1,"i":3,"s":1}
+**a.** Append to `schema/command-registry.json` (integer key = wire command ID, append-only, never reuse).
+
+**b.** Create `schema/commands/<subsystem>/<cmd>.json`. Copy `schema/commands/gpio/gpio_read.json` (simple) or `schema/commands/ir/ir_tx.json` (resource + enum) as a template. For streams, copy `schema/streams/ir_receive.json`; use `"stream"` instead of `"command"`, `"event"` instead of `"response"`, and register with a `_start` suffix.
+
+**Schema field types:** `bool`, `int`, `uint`, `byte`, `string`, `bytes` (base64), `hex`, `uint[]`, `string[]`. Enum: `"enum": "$EnumName"`. Use `"csharp": { "skip": ["command","response","extension"] }` for hand-written types.
+
+### Step 2 — Codegen
+
+```bash
+dotnet script codegens/c-codegen.csx    # updates dispatch table + COMMAND_NAMES[]
+dotnet script codegens/codegen.csx      # updates C# types + extensions
 ```
 
-Request envelope reserved keys: `"c"` (command ID integer from registry) and `"i"` (request ID, uint). Additional fields are command-specific args using abbreviated wire keys defined in the schema.
+### Step 3 — C handler
 
-All messages use a compact V3 envelope with single-character keys:
+Create `handlers/<subsystem>/<cmd>.{h,c}`. Follow any existing handler as a template (e.g. `handlers/gpio/gpio_read.{h,c}`). The handler signature is always:
 
-| Field | Type | Role |
-|---|---|---|
-| `"t"` | int | Type discriminator: `0` = response, `1` = stream event, `2` = daemon exit |
-| `"i"` | uint | Request id (on `t:0`) or stream id (on `t:1`) |
-| `"p"` | object | Payload; present on success responses and all events |
-| `"e"` | string | Error code; present instead of `"p"` on error responses |
+```c
+void <cmd>_handler(uint32_t id, const char* json, size_t offset);
+```
 
-**Response — success** (`t:0`, no `"e"`): `{"t":0,"i":1,"p":{"pg":true}}`
-**Response — void success** (`t:0`, no `"e"`, no `"p"`): `{"t":0,"i":1}`
-**Response — stream opened** (`t:0`): `{"t":0,"i":2,"p":{"s":1}}`
-**Response — error** (`t:0`, has `"e"`): `{"t":0,"i":1,"e":"resource_busy"}`
-**Stream event** (`t:1`, unsolicited): `{"t":1,"i":1,"p":{"pr":"NEC","a":0,"cm":0,"rp":false}}`
-**Daemon exit** (`t:2`, unsolicited): `{"t":2}`
+Parse args with `json_find()` + `json_value_*()`, respond with `rpc_send_ok()` / `rpc_send_data_response()` / `rpc_send_error()`.
 
-Error codes: `resource_busy`, `unknown_command`, `missing_cmd`, `missing_stream_id`, `stream_not_found`, `stream_table_full`, `out_of_memory`, `missing_path`, `open_failed`, `stat_failed`, `storage_error`, `remove_failed`, `mkdir_failed`, `missing_data`, `missing_pin`, `invalid_pin`, `missing_level`, `missing_enable`, `missing_color`, `invalid_color`, `missing_text`, `missing_protocol`, `unknown_protocol`, `missing_timings`, `missing_freq`, `missing_datetime_fields`.
+**For stream commands**, call `stream_open()` first (it allocates a slot, acquires the resource, and sends the opened response):
 
-### C# Client mapping
+```c
+uint32_t stream_id = 0;
+int slot = stream_open(id, "my_stream_start", RESOURCE_FOO, &stream_id);
+if(slot < 0) return;  // stream_open already sent the error
+```
 
-- `SendAsync<TCmd, TResp>()` → sends `{"c":<id>,"i":N,...}`, routes daemon reply by `"i"` on `t:0`.
-- `SendStreamAsync<TCmd, TEvent>()` → sends open command, daemon replies `{"t":0,"i":N,"p":{"s":M}}`; unsolicited `{"t":1,"i":M,"p":{...}}` events follow.
-- `RpcStream<T>.DisposeAsync()` → sends `{"c":1,"i":N,"s":M}` to release daemon resources.
+### Step 4 — C# (if codegen is insufficient)
 
-### Resource Management (`RESOURCE_SUBGHZ`, `RESOURCE_IR`, `RESOURCE_NFC`, etc.). Dispatcher checks availability before invoking handler. Releasing a stream releases its resources. Max 8 concurrent streams (`MAX_STREAMS`).
+Add a hand-written extension in `Extensions/Flipper<Subsystem>Extensions.cs` using `client.SendAsync<TCmd, TResp>(...)`. Follow existing hand-written extensions as templates.
+
+### Step 5 — Build & verify
+
+```bash
+python -m ufbt          # from src/FlipperZeroRpcDaemon/
+dotnet build            # from repo root; 0 warnings, 0 errors
+```
+
+Bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h` only for **breaking wire-format changes**. Update `COMMANDS.md`.
 
 ---
-
-## Threading Models
-
-**C Daemon:**
-```
-USB ISR  (cdc_rx_callback)
-  │  furi_hal_cdc_receive() → accumulate line → furi_message_queue_put()
-  ▼
-FuriEventLoop  (main thread)
-  │  on_rx_queue → rpc_dispatch() → handler → cdc_send()
-  ▼
-USB TX
-```
-All RPC logic runs on the main thread. ISR does only byte accumulation + queue put.
-
-**C# Client:**
-```
-User code → SendAsync/SendStreamAsync → Register() pending BEFORE send → PacketSerializationTransport
-  ▼                                                                       (BoundedChannel, single writer)
-Transport stack: SerialPortTransport → PacketSerializationTransport → HeartbeatTransport
-  ▼
-Reader loop → parse JSON → route by `"t"`: `t:0` → match `"i"` to pending request (complete TCS or raise FlipperRpcException on `"e"`); `t:1` → match `"i"` to stream channel (push `"p"`); `t:2` → FaultAll
-  ▼
-User code receives Task<TResponse> or IAsyncEnumerable<TEvent>
-```
-
-**C# Bootstrapper:**
-```
-BootstrapAsync()
-  │  1. Try ConnectAsync on daemonPortName → if success, return AlreadyRunning
-  │  2. Open NativeRpcTransport on systemPortName (CDC interface 0)
-  │     PingAsync → StorageStatAsync (check FAP exists) → StorageMd5SumAsync (compare vs bundled MD5)
-  │     If missing or MD5 differs: StorageMkdirAsync + StorageWriteAsync (chunked, 512B) → Installed/Updated
-  │     AppStartAsync → launch FAP
-  │  3. Poll ConnectAsync on daemonPortName until daemon appears (DaemonStartTimeout)
-  ▼
-Returns FlipperBootstrapResult (owns FlipperRpcClient on CDC interface 1)
-```
-
-## Hardware Tests
-
-Hardware and bootstrap tests require a physical Flipper Zero connected over USB.
-
-| Environment variable | CDC interface | Example (Windows) | Example (Linux) |
-|---|---|---|---|
-| `FLIPPER_PORT` | Interface 1 — NDJSON daemon port | `COM4` | `/dev/ttyACM1` |
-| `FLIPPER_SYSTEM_PORT` | Interface 0 — native protobuf RPC port | `COM3` | `/dev/ttyACM0` |
-
-`FLIPPER_PORT` is required for all hardware tests (`RequiresFlipperFact`).
-`FLIPPER_SYSTEM_PORT` is additionally required for bootstrap tests (`RequiresBootstrapFact`).
-
-Bootstrap tests run in the `"Flipper bootstrap"` xUnit collection (no shared fixture, own
-client per test). They execute sequentially **after** the `"Flipper integration"` collection
-finishes, so both ports are free.
 
 ## Flipper SDK Rules
 
@@ -247,68 +143,54 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 | **USB config** | Always `usb_cdc_dual` + CDC interface 1 (`RPC_CDC_IF 1`). Save previous config with `furi_hal_usb_get_config()`, restore on exit. Clear CDC callbacks before restoring. | ~~`usb_cdc_single`~~ (hijacks system RPC) |
 | **GUI with FuriEventLoop** | `ViewPort` + `gui_add_view_port()` | ~~`ViewDispatcher`~~ (owns its own event loop) |
 | **Format specifiers** | `"%" PRIu32` / `"%" PRIx32` from `<inttypes.h>` | ~~`%lu`~~, ~~`%u`~~ (ARM type widths differ) |
-| **Stream slot ordering** | Call `stream_alloc_slot()` BEFORE `resource_acquire()` | Acquiring first → ghost resources on slot exhaustion |
+| **Stream slot ordering** | Call `stream_open()` — it atomically allocates a slot then acquires the resource. | Acquiring resource before slot → ghost resources on slot exhaustion |
 | **Register before send (C#)** | `item.Register()` before `SendLineAsync()` in writer loop | Registering after → reader loop race |
-| **Client construction (C#)** | `new FlipperRpcClient(transport, options, diagnostics)` — single ctor; `SerialPortTransport` is `public`, callers construct it. `default(FlipperRpcClientOptions)` is safe (backing fields resolve to defaults). | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ — removed |
+| **Client construction (C#)** | `new FlipperRpcClient(transport)` or `new FlipperRpcClient(transport, options, diagnostics)` — `options` and `diagnostics` are optional with safe defaults. | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ |
 
 ---
 
 ## C Code Style
 
-- Modules: `core/rpc_<concern>.{h,c}`. Headers expose public API only; internal helpers are `static`.
-- Handlers: `handlers/<subsystem>/<cmd>.{h,c}`, one per command. Header declares one function: `void <cmd>_handler(uint32_t id, const char* json);`
-- Globals shared across modules defined in `flipper_zero_rpc_daemon.c`, declared `extern` in relevant header.
-- `UNUSED(x)` for unused parameters.
-- Follow `.clang-format`; enforce with `python -m ufbt lint`.
+- **Modules:** `core/rpc_<concern>.{h,c}`. **Handlers:** `handlers/<subsystem>/<cmd>.{h,c}`, one per command.
+- **Unused params:** `(void)json; (void)offset;`
+- **Globals:** Defined in `flipper_zero_rpc_daemon.c`, `extern` in headers. Shared handles in `core/rpc_globals.h`.
+- **Headers:** `#pragma once`. **Format:** `<inttypes.h>` macros (`PRIu32`, etc.), never `%lu`/`%u`.
+- **clang-format:** 4-space indent, column limit 99, LF. Enforce with `python -m ufbt format` / `lint`.
 
-## C# Code Style
+**Response helpers** (`core/rpc_response.h`): `rpc_send_ok(id, cmd)`, `rpc_send_data_response(id, json_obj, cmd)`, `rpc_send_error(id, code, cmd)`.
 
-- C# 12, .NET 8, `<Nullable>enable</Nullable>`.
-- `ConfigureAwait(false)` on every `await` in library code.
-- `sealed` on all classes. `readonly struct` for all command/response types.
-- `IAsyncDisposable` on types owning background resources.
-- Generic command pattern: `SendAsync<TCommand, TResponse>()` where `TCommand : struct, IRpcCommand<TResponse>` — no boxing, no reflection.
-- Public API is extension methods in `Extensions/Flipper<Subsystem>Extensions.cs`.
-- Outbound messages flow through a single `BoundedChannel<string>` (cap 32, `SingleReader = true`) inside `PacketSerializationTransport`, not `FlipperRpcClient`.
-- Pending requests use type-erased `Action<JsonElement>` closures over typed `TaskCompletionSource<TResponse>`.
+**JSON parsing** (`core/rpc_json.h`): Zero-copy forward scan. Pass `offset` as initial hint, advance via `val.offset`:
+
+```c
+JsonValue val;
+if(!json_find(json, "pr", offset, &val)) { rpc_send_error(...); return; }
+json_value_string(&val, buf, sizeof(buf));
+if(json_find(json, "a", val.offset, &val)) json_value_uint32(&val, &address);
+```
 
 ---
 
-## Adding a New Command
+## C# Code Style
 
-### C Daemon
+- C# 12, .NET 8, `<Nullable>enable</Nullable>`. `ConfigureAwait(false)` on every `await`.
+- `sealed` classes. `readonly struct` for command/response/event types. `IAsyncDisposable` for resource owners.
+- Generic pattern: `SendAsync<TCommand, TResponse>()` where `TCommand : struct, IRpcCommand<TResponse>`.
+- Public API: extension methods in `Extensions/Flipper<Subsystem>Extensions.cs`.
+- Namespaces: `FlipperZero.NET.Commands`, stream events in `FlipperZero.NET.Commands.<Subsystem>`.
+- `FlipperRpcClientOptions`: `default` is safe (`HeartbeatInterval=3s`, `Timeout=10s`).
+- Exceptions: `FlipperRpcException` → `FlipperDisconnectedException`.
 
-1. Create `handlers/<subsystem>/my_cmd.h` + `my_cmd.c`. Header declares:
-   ```c
-   void my_cmd_handler(uint32_t id, const char* json);
-   ```
-2. In `core/rpc_dispatch.c`: add `#include` and row to `commands[]`:
-   ```c
-   {"my_command", RESOURCE_FLAGS, my_cmd_handler},
-   ```
-3. **Capability negotiation**: add the command name to `SUPPORTED_COMMANDS[]` in `handlers/system/daemon_info.c` so the host detects it via `daemon_info`. If the change is a **breaking wire-format change**, also bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h`.
-4. Implement: parse args with `json_extract_string`/`json_extract_uint32` (`core/rpc_json.h`), respond with `rpc_send_ok()`/`rpc_send_error()` (`core/rpc_response.h`).
-5. **Stream commands**: call `stream_alloc_slot()` first (return error if `-1`), then `resource_acquire()`, then send `{"t":0,"i":N,"p":{"s":M}}\n` via `stream_send_opened()`.
+---
 
-### C# Client
+## Project Layout
 
-1. Create `Commands/<Subsystem>/MyCommand.cs`:
-   ```csharp
-   public readonly struct MyCommand : IRpcCommand<MyResponse>
-   {
-       public string CommandName => "my_command";
-       public void WriteArgs(Utf8JsonWriter writer) { /* ... */ }
-   }
+**Subsystems:** `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
 
-   public readonly struct MyResponse : IRpcCommandResponse
-   {
-       [JsonPropertyName("my_field")] public string? MyField { get; init; }
-   }
-   ```
-2. Add extension method in `Extensions/Flipper<Subsystem>Extensions.cs`:
-   ```csharp
-   public static Task<MyResponse> MyCommandAsync(this FlipperRpcClient client, CancellationToken ct = default)
-       => client.SendAsync<MyCommand, MyResponse>(new MyCommand(), ct);
-   ```
-3. Add integration tests in `tests/FlipperZero.NET.Client.HardwareTests/<Subsystem>/MyCommandTests.cs` covering at minimum: happy-path round-trip, resource conflict (if applicable), and stream open/close lifecycle (for stream commands). Follow the `[Collection(FlipperCollection.Name)]`, `[RequiresFlipperFact]`, `[Trait("Category", "Hardware")]` conventions.
-4. `dotnet build` — must succeed with 0 warnings.
+Key paths not obvious from the directory tree:
+- `src/FlipperZero.NET.Client/Commands/<Sub>/` — hand-written partial structs alongside `Generated/Commands/<Sub>/`
+- `src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap` — pre-built FAP embedded at compile time
+- `tests/FlipperZero.NET.Tests.Infrastructure/` — `FlipperFixture`, `FakeTransport`, skip attributes
+
+`COMMANDS.md` — cross-reference: command name → ID → wire keys → C handler → C# types → extension method.
+`PROTOCOL.md` — wire format, envelope fields, error codes, message examples.
+`ARCHITECTURE.md` — threading models, transport stack, bootstrapper flow.
