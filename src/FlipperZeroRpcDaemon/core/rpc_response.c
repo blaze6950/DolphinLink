@@ -3,6 +3,7 @@
  */
 
 #include "rpc_response.h"
+#include "rpc_metrics.h"
 #include "rpc_transport.h"
 #include "rpc_cmd_log.h"
 
@@ -11,13 +12,30 @@
 #include <string.h>
 
 void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name) {
-    char buf[128];
-    snprintf(
+    if(metrics_enabled) g_metrics.t_handler_done = furi_get_tick();
+    char buf[160]; /* 128 base + 32 headroom for _m fragment */
+    size_t pos = (size_t)snprintf(
         buf,
         sizeof(buf),
-        "{\"t\":0,\"i\":%" PRIu32 ",\"e\":\"%s\"}\n",
+        "{\"t\":0,\"i\":%" PRIu32 ",\"e\":\"%s\"",
         id,
         error_code);
+
+    if(metrics_enabled && pos < sizeof(buf)) {
+        pos = metrics_append(buf, sizeof(buf), pos);
+    }
+
+    /* Close the envelope */
+    if(pos + 3 <= sizeof(buf)) {
+        buf[pos]     = '}';
+        buf[pos + 1] = '\n';
+        buf[pos + 2] = '\0';
+    } else {
+        buf[sizeof(buf) - 3] = '}';
+        buf[sizeof(buf) - 2] = '\n';
+        buf[sizeof(buf) - 1] = '\0';
+    }
+
     cdc_send(buf);
 
     char log_entry[CMD_LOG_LINE_LEN];
@@ -27,8 +45,26 @@ void rpc_send_error(uint32_t id, const char* error_code, const char* cmd_name) {
 }
 
 void rpc_send_ok(uint32_t id, const char* cmd_name) {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "{\"t\":0,\"i\":%" PRIu32 "}\n", id);
+    if(metrics_enabled) g_metrics.t_handler_done = furi_get_tick();
+    char buf[160]; /* 128 base + 32 headroom for _m fragment */
+    size_t pos =
+        (size_t)snprintf(buf, sizeof(buf), "{\"t\":0,\"i\":%" PRIu32 "", id);
+
+    if(metrics_enabled && pos < sizeof(buf)) {
+        pos = metrics_append(buf, sizeof(buf), pos);
+    }
+
+    /* Close the envelope */
+    if(pos + 3 <= sizeof(buf)) {
+        buf[pos]     = '}';
+        buf[pos + 1] = '\n';
+        buf[pos + 2] = '\0';
+    } else {
+        buf[sizeof(buf) - 3] = '}';
+        buf[sizeof(buf) - 2] = '\n';
+        buf[sizeof(buf) - 1] = '\0';
+    }
+
     cdc_send(buf);
 
     char log_entry[CMD_LOG_LINE_LEN];
@@ -37,13 +73,16 @@ void rpc_send_ok(uint32_t id, const char* cmd_name) {
 }
 
 void rpc_send_data_response(uint32_t id, const char* payload_json, const char* log_entry) {
-    /* Header: {"t":0,"i":<id>,"p":  + payload + }\n
-     * Max header overhead: ~20 bytes + PRIu32 (10 digits) = ~30 bytes */
+    if(metrics_enabled) g_metrics.t_handler_done = furi_get_tick();
+    /* Header: {"t":0,"i":<id>,"p":  + payload + }   (no \n yet)
+     * Max header overhead: ~20 bytes + PRIu32 (10 digits) = ~30 bytes
+     * Metrics fragment: ,"_m":{...} ≤ 72 bytes ("_m" + 5 x PRIu32 + labels)
+     * Extra budget: 32 bytes for _m + closing } + trailing \n */
     size_t payload_len = strlen(payload_json);
-    size_t buf_size = payload_len + 64;
+    size_t buf_size = payload_len + 64 + 32; /* +32 for metrics + closing brace */
 
     /* Use stack buffer for small payloads; heap for large ones. */
-    char stack_buf[256];
+    char stack_buf[288]; /* 256 base + 32 metrics headroom */
     char* buf = NULL;
     char* heap_buf = NULL;
 
@@ -59,12 +98,27 @@ void rpc_send_data_response(uint32_t id, const char* payload_json, const char* l
         buf = heap_buf;
     }
 
-    snprintf(
+    size_t pos = (size_t)snprintf(
         buf,
         buf_size,
-        "{\"t\":0,\"i\":%" PRIu32 ",\"p\":%s}\n",
+        "{\"t\":0,\"i\":%" PRIu32 ",\"p\":%s",
         id,
         payload_json);
+
+    if(metrics_enabled && pos < buf_size) {
+        pos = metrics_append(buf, buf_size, pos);
+    }
+
+    /* Close the envelope */
+    if(pos + 3 <= buf_size) {
+        buf[pos]     = '}';
+        buf[pos + 1] = '\n';
+        buf[pos + 2] = '\0';
+    } else {
+        buf[buf_size - 3] = '}';
+        buf[buf_size - 2] = '\n';
+        buf[buf_size - 1] = '\0';
+    }
 
     cdc_send(buf);
     cmd_log_push(log_entry);

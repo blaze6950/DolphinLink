@@ -8,17 +8,18 @@ namespace FlipperZero.NET.Commands.System;
 /// Propagates host-side configuration to the daemon during session startup.
 ///
 /// The client sends this command immediately after <see cref="DaemonInfoCommand"/>
-/// so the daemon can align its behaviour (heartbeat timing, LED indicator) with the
-/// host's <see cref="FlipperRpcClientOptions"/> settings.
+/// so the daemon can align its behaviour (heartbeat timing, LED indicator,
+/// diagnostics) with the host's <see cref="FlipperRpcClientOptions"/> settings.
 ///
 /// All arguments are optional: if a field is omitted the daemon keeps its current
-/// value (initially the compile-time default: 3 s interval, 10 s timeout, LED off).
+/// value (initially the compile-time default: 3 s interval, 10 s timeout, LED off,
+/// diagnostics disabled).
 ///
 /// Wire format (request — all fields optional):
-/// <code>{"c":2,"i":N,"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}</code>
+/// <code>{"c":2,"i":N,"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212},"dx":true}</code>
 ///
 /// Wire format (response — effective values; "led" omitted when not configured):
-/// <code>{"t":0,"i":N,"p":{"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212}}}</code>
+/// <code>{"t":0,"i":N,"p":{"hb":3000,"to":10000,"led":{"r":81,"g":43,"b":212},"dx":true}}</code>
 ///
 /// Daemon-side validation rules (heartbeat):
 /// <list type="bullet">
@@ -34,12 +35,18 @@ namespace FlipperZero.NET.Commands.System;
 /// disconnected.  The config is scoped to a single connection lifecycle and is
 /// cleared on every disconnect.
 ///
+/// Diagnostics behaviour:
+/// When <c>"dx":true</c> is sent the daemon appends a <c>"_m"</c> timing object
+/// to every <c>"t":0</c> response for the rest of the session.  See
+/// <see cref="FlipperRpcClientOptions.DaemonDiagnostics"/> for details.
+///
 /// Resources required: none.
 /// </summary>
 public readonly partial struct ConfigureCommand : IRpcCommand<ConfigureResponse>
 {
     /// <summary>
-    /// Creates a configure command with the specified heartbeat timing and optional LED colour.
+    /// Creates a configure command with the specified heartbeat timing, optional LED colour,
+    /// and optional diagnostics flag.
     /// </summary>
     /// <param name="heartbeatMs">
     /// TX idle interval in milliseconds — a keep-alive frame is sent when no outbound
@@ -54,11 +61,17 @@ public readonly partial struct ConfigureCommand : IRpcCommand<ConfigureResponse>
     /// with this colour while connected and turns it off on disconnect.
     /// Pass <c>null</c> to leave the LED configuration unchanged (PATCH semantics).
     /// </param>
-    public ConfigureCommand(uint heartbeatMs, uint timeoutMs, RgbColor? led = null)
+    /// <param name="diagnostics">
+    /// When <c>true</c>, requests the daemon to append per-request timing metrics
+    /// (<c>"_m"</c>) to every response during this session.
+    /// Defaults to <c>false</c>.
+    /// </param>
+    public ConfigureCommand(uint heartbeatMs, uint timeoutMs, RgbColor? led = null, bool diagnostics = false)
     {
-        HeartbeatMs = heartbeatMs;
-        TimeoutMs   = timeoutMs;
-        Led         = led;
+        HeartbeatMs  = heartbeatMs;
+        TimeoutMs    = timeoutMs;
+        Led          = led;
+        Diagnostics  = diagnostics;
     }
 
     /// <summary>TX idle interval to send to the daemon, in milliseconds.</summary>
@@ -72,6 +85,12 @@ public readonly partial struct ConfigureCommand : IRpcCommand<ConfigureResponse>
     /// to signal an active connection.  When null the LED configuration is left unchanged.
     /// </summary>
     public RgbColor? Led { get; }
+
+    /// <summary>
+    /// When <c>true</c>, requests the daemon to emit per-request timing metrics
+    /// in every response (<c>"_m"</c> field).
+    /// </summary>
+    public bool Diagnostics { get; }
 
     /// <inheritdoc />
     public string CommandName => "configure";
@@ -92,6 +111,13 @@ public readonly partial struct ConfigureCommand : IRpcCommand<ConfigureResponse>
             writer.WriteNumber("g", led.G);
             writer.WriteNumber("b", led.B);
             writer.WriteEndObject();
+        }
+
+        // Only emit "dx" when explicitly requesting diagnostics — omit when false
+        // to keep the wire compact and match PATCH semantics (daemon keeps current value).
+        if (Diagnostics)
+        {
+            writer.WriteBoolean("dx", true);
         }
     }
 }
@@ -119,4 +145,12 @@ public readonly struct ConfigureResponse : IRpcCommandResponse
     /// </summary>
     [JsonPropertyName("led")]
     public RgbColor? Led { get; init; }
+
+    /// <summary>
+    /// Whether per-request timing metrics (<c>"_m"</c> field) are currently
+    /// enabled on the daemon for this session.
+    /// </summary>
+    [JsonPropertyName("dx")]
+    public bool Diagnostics { get; init; }
 }
+

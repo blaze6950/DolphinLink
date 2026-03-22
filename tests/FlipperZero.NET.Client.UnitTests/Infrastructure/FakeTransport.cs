@@ -50,14 +50,15 @@ public sealed class FakeTransport : IFlipperTransport
     /// near-infinite heartbeat timing so the heartbeat loop never fires during
     /// tests.  Always prefer this over <c>new FlipperRpcClient(this)</c>.
     /// </summary>
-    public FlipperRpcClient CreateClient() =>
+    public FlipperRpcClient CreateClient(IRpcDiagnostics? diagnostics = null) =>
         new FlipperRpcClient(
             this,
             new FlipperRpcClientOptions
             {
                 HeartbeatInterval = TimeSpan.FromHours(1),
                 Timeout = TimeSpan.FromHours(2),
-            });
+            },
+            diagnostics);
 
     /// <summary>
     /// All JSON lines sent by the client (in order, without trailing newline).

@@ -6,6 +6,7 @@
 #include "rpc_json.h"
 #include "rpc_response.h"
 #include "rpc_resource.h"
+#include "rpc_metrics.h"
 #define RPC_DISPATCH_IMPL
 #include "../generated/rpc_dispatch_generated.h"
 
@@ -28,6 +29,8 @@ void rpc_dispatch(const char* json) {
     uint32_t request_id = 0;
     size_t hint = 0;
 
+    if(metrics_enabled) g_metrics.t_start = furi_get_tick();
+
     /* "c" is first on the wire: {"c":<id>,...} */
     if(!json_find(json, "c", hint, &val) || !json_value_uint32(&val, &cmd_id)) {
         rpc_send_error(0, "missing_cmd", "???");
@@ -40,6 +43,8 @@ void rpc_dispatch(const char* json) {
         json_value_uint32(&val, &request_id);
         hint = val.offset;
     }
+
+    if(metrics_enabled) g_metrics.t_parsed = furi_get_tick();
 
     if(cmd_id >= CMD_COUNT) {
         rpc_send_error(request_id, "unknown_command", "???");
@@ -54,6 +59,8 @@ void rpc_dispatch(const char* json) {
         rpc_send_error(request_id, "resource_busy", cmd_name);
         return;
     }
+
+    if(metrics_enabled) g_metrics.t_dispatched = furi_get_tick();
     cmd->handler(request_id, json, hint);
 }
 

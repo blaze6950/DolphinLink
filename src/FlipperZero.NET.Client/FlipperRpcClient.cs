@@ -269,14 +269,14 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         }
 
         // Propagate host-side heartbeat timing to the daemon so both sides are in sync.
-        // Also send the LED indicator colour when configured.
+        // Also send the LED indicator colour when configured, and the diagnostics flag.
         // Skip gracefully when talking to an older daemon that predates the configure command.
         if (info.Supports<ConfigureCommand>())
         {
             var heartbeatMs = (uint)_options.HeartbeatInterval.TotalMilliseconds;
             var timeoutMs   = (uint)_options.Timeout.TotalMilliseconds;
             await SendAsync<ConfigureCommand, ConfigureResponse>(
-                new ConfigureCommand(heartbeatMs, timeoutMs, _options.LedIndicatorColor), ct).ConfigureAwait(false);
+                new ConfigureCommand(heartbeatMs, timeoutMs, _options.LedIndicatorColor, _options.DaemonDiagnostics), ct).ConfigureAwait(false);
         }
 
         return info;

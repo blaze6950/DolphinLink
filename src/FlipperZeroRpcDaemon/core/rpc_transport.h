@@ -290,3 +290,20 @@ extern uint8_t led_indicator_b;
  * Must only be called from the main (event-loop) thread.
  */
 void led_indicator_apply(bool connected);
+
+/* -------------------------------------------------------------------------
+ * Per-request timing metrics
+ *
+ * When metrics_enabled is true the dispatcher fills g_metrics with
+ * furi_get_tick() timestamps for each processing phase, and the response
+ * helpers append a "_m" object to every "t":0 response envelope.
+ *
+ * The flag is reset to false by heartbeat_reset_config() on every disconnect
+ * so that each new session starts with metrics disabled (opt-in per session).
+ *
+ * Both globals are only read/written on the main (event-loop) thread.
+ * Storage is in rpc_transport.c alongside the other config globals.
+ * Declarations are in rpc_metrics.h (included below).
+ * ------------------------------------------------------------------------- */
+
+#include "rpc_metrics.h"

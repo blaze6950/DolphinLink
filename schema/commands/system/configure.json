@@ -1,12 +1,13 @@
 {
   "command": "configure",
   "subsystem": "System",
-  "description": "Configure daemon heartbeat interval and timeout",
+  "description": "Configure daemon heartbeat interval, timeout, LED indicator, and diagnostics",
   "resource": null,
   "request": {
     "heartbeat_ms": { "wire": "hb", "type": "uint", "optional": true, "description": "Heartbeat interval in ms" },
     "timeout_ms": { "wire": "to", "type": "uint", "optional": true, "description": "Timeout in ms" },
-    "led": { "wire": "led", "type": "object", "optional": true, "description": "RGB LED color object" }
+    "led": { "wire": "led", "type": "object", "optional": true, "description": "RGB LED color object" },
+    "diagnostics": { "wire": "dx", "type": "bool", "optional": true, "description": "Enable per-request timing metrics (_m field) in responses" }
   },
   "response": {},
   "errors": [],

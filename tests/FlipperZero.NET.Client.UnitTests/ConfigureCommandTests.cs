@@ -41,7 +41,7 @@ public sealed class ConfigureCommandTests
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        // Expect exactly: i, c, hb, to (no led)
+        // Expect exactly: i, c, hb, to (no led, no dx)
         var properties = root.EnumerateObject().Select(p => p.Name).ToList();
         Assert.Equal(new[] { "c", "i", "hb", "to" }, properties);
     }
@@ -104,5 +104,89 @@ public sealed class ConfigureCommandTests
     {
         var opts = new FlipperRpcClientOptions { LedIndicatorColor = RgbColor.Red };
         Assert.Equal(RgbColor.Red, opts.LedIndicatorColor);
+    }
+
+    // -------------------------------------------------------------------------
+    // Diagnostics flag tests
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ConfigureCommand_Diagnostics_DefaultIsFalse()
+    {
+        var cmd = new ConfigureCommand(3000, 10000);
+        Assert.False(cmd.Diagnostics);
+    }
+
+    [Fact]
+    public void ConfigureCommand_WriteArgs_DiagnosticsTrue_EmitsDxTrue()
+    {
+        var cmd = new ConfigureCommand(3000, 10000, diagnostics: true);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandId, cmd.WriteArgs);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.True(root.GetProperty("dx").GetBoolean());
+    }
+
+    [Fact]
+    public void ConfigureCommand_WriteArgs_DiagnosticsFalse_OmitsDx()
+    {
+        // When diagnostics is false (default), "dx" must be absent — PATCH semantics.
+        var cmd = new ConfigureCommand(3000, 10000, diagnostics: false);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandId, cmd.WriteArgs);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.False(root.TryGetProperty("dx", out _));
+    }
+
+    [Fact]
+    public void ConfigureCommand_WriteArgs_DiagnosticsTrue_WithLed_FieldOrder()
+    {
+        // Ensure field order is: c, i, hb, to, led, dx
+        var cmd = new ConfigureCommand(3000, 10000, led: RgbColor.DotNetPurple, diagnostics: true);
+        var json = RpcMessageSerializer.Serialize(1, cmd.CommandId, cmd.WriteArgs);
+
+        using var doc = JsonDocument.Parse(json);
+        var properties = doc.RootElement.EnumerateObject().Select(p => p.Name).ToList();
+
+        Assert.Equal(new[] { "c", "i", "hb", "to", "led", "dx" }, properties);
+    }
+
+    [Fact]
+    public void ConfigureResponse_DeserializesFromJson_WithDx()
+    {
+        var payloadJson = """{"hb":3000,"to":10000,"dx":true}""";
+        var response = System.Text.Json.JsonSerializer.Deserialize<ConfigureResponse>(payloadJson);
+
+        Assert.Equal(3000u, response.HeartbeatMs);
+        Assert.Equal(10000u, response.TimeoutMs);
+        Assert.True(response.Diagnostics);
+    }
+
+    [Fact]
+    public void ConfigureResponse_DeserializesFromJson_DxAbsentDefaultsFalse()
+    {
+        // Older daemons won't emit "dx" — it must default to false.
+        var payloadJson = """{"hb":3000,"to":10000}""";
+        var response = System.Text.Json.JsonSerializer.Deserialize<ConfigureResponse>(payloadJson);
+
+        Assert.False(response.Diagnostics);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DaemonDiagnostics_DefaultIsFalse()
+    {
+        var opts = default(FlipperRpcClientOptions);
+        Assert.False(opts.DaemonDiagnostics);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DaemonDiagnosticsCanBeEnabled()
+    {
+        var opts = new FlipperRpcClientOptions { DaemonDiagnostics = true };
+        Assert.True(opts.DaemonDiagnostics);
     }
 }

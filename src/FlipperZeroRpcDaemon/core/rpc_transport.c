@@ -27,6 +27,7 @@
  */
 
 #include "rpc_transport.h"
+#include "rpc_metrics.h"
 #include "rpc_stream.h"
 #include "rpc_resource.h"
 #include "rpc_gui.h"
@@ -279,6 +280,11 @@ uint8_t led_indicator_r       = 0;
 uint8_t led_indicator_g       = 0;
 uint8_t led_indicator_b       = 0;
 
+/* ---- Per-request timing metrics ---- */
+/* Defaults to disabled; enabled by the "dx" field in the configure command. */
+bool       metrics_enabled = false;
+RpcMetrics g_metrics       = {0};
+
 void led_indicator_apply(bool connected) {
     if(connected && led_indicator_enabled) {
         furi_hal_light_set(LightRed,   led_indicator_r);
@@ -316,6 +322,8 @@ void heartbeat_reset_config(void) {
     led_indicator_g = 0;
     led_indicator_b = 0;
     led_indicator_apply(false);
+    /* Disable per-request metrics — config is scoped to a single connection lifecycle. */
+    metrics_enabled = false;
     FURI_LOG_I("RPC", "Heartbeat config reset to defaults");
 }
 

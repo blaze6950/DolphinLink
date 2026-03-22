@@ -4,34 +4,40 @@ using FlipperZero.NET.Transport;
 namespace FlipperZero.NET;
 
 /// <summary>
-/// Connection-behaviour options for <see cref="FlipperRpcClient"/>.
-///
-/// Both <c>default</c> and <c>new FlipperRpcClientOptions()</c> produce an
-/// instance with the standard heartbeat timing (3 s interval, 10 s timeout)
-/// and the <see cref="RgbColor.DotNetPurple"/> LED indicator.
-/// Use a <c>with</c>-expression or object initialiser to override individual
-/// values:
-///
-/// <code>
-/// // Zero-config — default 3 s heartbeat, 10 s timeout, purple LED:
-/// new FlipperRpcClient(transport)
-///
-/// // Disable the LED indicator:
-/// new FlipperRpcClient(transport, new FlipperRpcClientOptions
-/// {
-///     LedIndicatorColor = null,
-/// })
-///
-/// // Accelerated timing, custom LED color:
-/// new FlipperRpcClient(transport, new FlipperRpcClientOptions
-/// {
-///     HeartbeatInterval = TimeSpan.FromSeconds(1),
-///     Timeout           = TimeSpan.FromSeconds(4),
-///     LedIndicatorColor = RgbColor.Cyan,
-/// })
-/// </code>
-/// </summary>
-public readonly record struct FlipperRpcClientOptions
+    /// Connection-behaviour options for <see cref="FlipperRpcClient"/>.
+    ///
+    /// Both <c>default</c> and <c>new FlipperRpcClientOptions()</c> produce an
+    /// instance with the standard heartbeat timing (3 s interval, 10 s timeout)
+    /// and the <see cref="RgbColor.DotNetPurple"/> LED indicator.
+    /// Use a <c>with</c>-expression or object initialiser to override individual
+    /// values:
+    ///
+    /// <code>
+    /// // Zero-config — default 3 s heartbeat, 10 s timeout, purple LED:
+    /// new FlipperRpcClient(transport)
+    ///
+    /// // Disable the LED indicator:
+    /// new FlipperRpcClient(transport, new FlipperRpcClientOptions
+    /// {
+    ///     LedIndicatorColor = null,
+    /// })
+    ///
+    /// // Accelerated timing, custom LED color:
+    /// new FlipperRpcClient(transport, new FlipperRpcClientOptions
+    /// {
+    ///     HeartbeatInterval = TimeSpan.FromSeconds(1),
+    ///     Timeout           = TimeSpan.FromSeconds(4),
+    ///     LedIndicatorColor = RgbColor.Cyan,
+    /// })
+    ///
+    /// // Enable daemon-side per-request timing diagnostics:
+    /// new FlipperRpcClient(transport, new FlipperRpcClientOptions
+    /// {
+    ///     DaemonDiagnostics = true,
+    /// })
+    /// </code>
+    /// </summary>
+    public readonly record struct FlipperRpcClientOptions
 {
     // Raw backing values — TimeSpan.Zero means "use the default".
     private readonly TimeSpan _heartbeatInterval;
@@ -89,4 +95,33 @@ public readonly record struct FlipperRpcClientOptions
             _ledIndicatorColorSet = true;
         }
     }
+
+    /// <summary>
+    /// When <c>true</c>, requests the daemon to append per-request timing
+    /// metrics to every response during this session.
+    ///
+    /// The daemon will include a <c>"_m"</c> object in every <c>"t":0</c>
+    /// response envelope with millisecond-resolution durations for each
+    /// processing phase:
+    /// <code>
+    /// "_m": { "pr": 1, "dp": 0, "ex": 3, "sr": 0, "tt": 4 }
+    /// </code>
+    /// <list type="table">
+    ///   <listheader><term>Key</term><description>Phase</description></listheader>
+    ///   <item><term>pr</term><description>JSON parse (extract "c" and "i")</description></item>
+    ///   <item><term>dp</term><description>Dispatch (bounds-check + resource pre-check)</description></item>
+    ///   <item><term>ex</term><description>Execute (handler, including arg parsing + HW work)</description></item>
+    ///   <item><term>sr</term><description>Serialize (response envelope formatting)</description></item>
+    ///   <item><term>tt</term><description>Total end-to-end (entry to rpc_dispatch through cdc_send)</description></item>
+    /// </list>
+    ///
+    /// The metrics are available in <see cref="RpcLogEntry.RawJson"/> via
+    /// <see cref="FlipperZero.NET.Abstractions.IRpcDiagnostics"/>.
+    ///
+    /// This flag is scoped to a single connection lifecycle and is reset to
+    /// <c>false</c> by the daemon on every disconnect.
+    ///
+    /// Defaults to <c>false</c> (no metrics overhead).
+    /// </summary>
+    public bool DaemonDiagnostics { get; init; }
 }
