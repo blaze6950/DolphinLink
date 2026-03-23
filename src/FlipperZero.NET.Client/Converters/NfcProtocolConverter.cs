@@ -43,8 +43,12 @@ internal sealed class NfcProtocolJsonConverter : JsonConverter<NfcProtocol>
     public override void Write(Utf8JsonWriter writer, NfcProtocol value, JsonSerializerOptions options)
     {
         if (EnumToWire.TryGetValue(value, out var wire))
+        {
             writer.WriteStringValue(wire);
+        }
         else
+        {
             writer.WriteStringValue(value.ToString());
+        }
     }
 }

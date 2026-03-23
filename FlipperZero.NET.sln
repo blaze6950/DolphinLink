@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-#
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.NET.Client", "src\FlipperZero.NET.Client\FlipperZero.NET.Client.csproj", "{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{01B5A30A-9E98-4333-8196-597B05CC25F9}"
@@ -27,6 +27,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codegens", "codegens", "{C3
 		codegens\c-codegen.csx = codegens\c-codegen.csx
 		codegens\codegen.csx = codegens\codegen.csx
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.NET.WebSerial", "src\FlipperZero.NET.WebSerial\FlipperZero.NET.WebSerial.csproj", "{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{C468D731-EADB-4E45-80CF-4B39BC831322}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlipperZero.Web", "samples\FlipperZero.Web\FlipperZero.Web.csproj", "{6507FB22-9533-4BBE-A3BC-B78127705F0B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,6 +64,14 @@ Global
 		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6507FB22-9533-4BBE-A3BC-B78127705F0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6507FB22-9533-4BBE-A3BC-B78127705F0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6507FB22-9533-4BBE-A3BC-B78127705F0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6507FB22-9533-4BBE-A3BC-B78127705F0B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
@@ -67,5 +81,7 @@ Global
 		{64DC315E-544E-4CD2-9249-8D6267BFDE67} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
 		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
 		{C3BCFC60-5114-4C8A-A639-1F98FC59AA26} = {01B5A30A-9E98-4333-8196-597B05CC25F9}
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+		{6507FB22-9533-4BBE-A3BC-B78127705F0B} = {C468D731-EADB-4E45-80CF-4B39BC831322}
 	EndGlobalSection
 EndGlobal

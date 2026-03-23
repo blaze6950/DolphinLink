@@ -124,4 +124,44 @@ namespace FlipperZero.NET;
     /// Defaults to <c>false</c> (no metrics overhead).
     /// </summary>
     public bool DaemonDiagnostics { get; init; }
+
+    /// <summary>
+    /// When <c>true</c>, the <see cref="HeartbeatTransport"/> keep-alive layer is
+    /// omitted from the transport chain.  No keep-alive frames are sent by the client
+    /// and no inbound-silence timeout is enforced on the client side.
+    ///
+    /// To prevent the daemon from timing out the client (which still runs its own RX
+    /// watchdog), the <c>configure</c> command is sent with very large heartbeat and
+    /// timeout values (effectively infinite) so the daemon never considers the host gone.
+    /// The daemon will still send its own keep-alive frames; the client reader loop
+    /// silently discards them.
+    ///
+    /// Use this in environments where the heartbeat background loop is harmful — for
+    /// example, single-threaded Blazor WASM, where the timer loop competes with the
+    /// WebSerial read pump on the cooperative scheduler and can cause false disconnects.
+    /// In a browser environment the user is present and will notice connection loss
+    /// immediately, so transport-level liveness probing is unnecessary.
+    ///
+    /// Defaults to <c>false</c> (heartbeat enabled).
+    /// </summary>
+    public bool DisableHeartbeat { get; init; }
+
+    /// <summary>
+    /// When <c>true</c>, the <see cref="PacketSerializationTransport"/> single-writer
+    /// serialisation layer is omitted from the transport chain.  Outbound writes go
+    /// directly to the underlying transport without going through a bounded channel and
+    /// a background writer loop.
+    ///
+    /// The serialisation layer exists solely to provide a single-writer guarantee when
+    /// multiple threads call <see cref="FlipperRpcClient.SendAsync{TCommand,TResponse}"/>
+    /// concurrently.  In single-threaded environments (e.g. Blazor WASM) there is no
+    /// thread-level concurrency, so the layer adds overhead — an extra cooperative
+    /// <c>Task.Run</c> loop — without providing any benefit.
+    ///
+    /// When this flag is set the caller is responsible for not invoking
+    /// <c>SendAsync</c> concurrently from multiple threads.
+    ///
+    /// Defaults to <c>false</c> (serialisation enabled).
+    /// </summary>
+    public bool DisablePacketSerialization { get; init; }
 }

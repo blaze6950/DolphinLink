@@ -1,7 +1,5 @@
-using System.IO.Ports;
-using System.Reflection;
 using System.Text;
-using Microsoft.Win32.SafeHandles;
+using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Bootstrapper.NativeRpc.Proto;
 
 namespace FlipperZero.NET.Bootstrapper.NativeRpc;
@@ -29,6 +27,12 @@ namespace FlipperZero.NET.Bootstrapper.NativeRpc;
 /// Sending protobuf frames before the handshake is complete causes the CLI to
 /// interpret the binary data as a garbage command and ignore it — the device
 /// never sends a response and the caller hangs.
+/// </para>
+///
+/// <para>
+/// The underlying serial port is provided via <see cref="ISerialPort"/>, enabling
+/// this class to run over <see cref="FlipperZero.NET.Transport.SystemSerialPort"/>
+/// on desktop or a WebSerial-backed implementation in a browser WASM environment.
 /// </para>
 /// </summary>
 internal sealed class NativeRpcTransport : IAsyncDisposable
@@ -63,26 +67,23 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     // is already active (e.g. BLE or a previous USB session that wasn't closed).
     private const string SessionStartError = "Session start error";
 
-    private readonly SerialPort _port;
-    private Stream? _stream;
+    private readonly ISerialPort _port;
     private int _disposed; // 0 = alive, 1 = disposed (Interlocked)
 
     // Per-call read buffer for varint decoding — avoids per-call allocation.
     private readonly byte[] _readByte = new byte[1];
 
-    /// <param name="portName">
-    /// COM port name for CDC interface 0, e.g. <c>"COM3"</c> or <c>"/dev/ttyACM0"</c>.
-    /// </param>
-    internal NativeRpcTransport(string portName)
+    /// <summary>
+    /// Creates a transport using the supplied <paramref name="port"/>.
+    /// The port must not yet be open; <see cref="OpenAsync"/> will open it.
+    /// </summary>
+    internal NativeRpcTransport(ISerialPort port)
     {
-        _port = new SerialPort(portName, 115200)
-        {
-            Encoding     = Encoding.UTF8,
-            ReadTimeout  = SerialPort.InfiniteTimeout,
-            WriteTimeout = 5000,
-            DtrEnable    = false, // Start low; we toggle it manually in OpenAsync.
-        };
+        _port = port;
     }
+
+    // Convenience property — Stream is only valid after OpenAsync.
+    private Stream Stream => _port.Stream;
 
     /// <summary>
     /// Opens the serial port and performs the full CLI-to-RPC session handshake.
@@ -97,8 +98,8 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     ///   <item>Send <c>start_rpc_session\r</c> (ASCII CLI command).</item>
     ///   <item>Read bytes until <c>\n</c> (end of echo line).  Verify the echo
     ///     does not contain <c>"Session start error"</c>.</item>
-    ///   <item>Restore <see cref="SerialPort.ReadTimeout"/> to
-    ///     <see cref="SerialPort.InfiniteTimeout"/> for subsequent protobuf I/O.</item>
+    ///   <item>Restore <see cref="ISerialPort.ReadTimeout"/> to
+    ///     <c>-1</c> (infinite) for subsequent protobuf I/O.</item>
     /// </list>
     ///
     /// After this method returns the port is in binary protobuf mode and
@@ -106,8 +107,9 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     /// </summary>
     internal async ValueTask OpenAsync(CancellationToken ct = default)
     {
-        _port.Open();
-        _stream = _port.BaseStream;
+        // Open with DTR low; we toggle it manually below.
+        await _port.OpenAsync(ct).ConfigureAwait(false);
+        await _port.SetDtrAsync(false, ct).ConfigureAwait(false);
 
         // Step 1 — USB CDC stabilization delay.
         // Let the Windows USB stack finish setting up the endpoint before we
@@ -115,16 +117,16 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         await Task.Delay(OpenStabilizationDelayMs, ct).ConfigureAwait(false);
 
         // Step 2 — Assert DTR high to trigger the Flipper CLI shell.
-        // The port was opened with DtrEnable = false (DTR low).  Asserting it
-        // now causes the Flipper's cli_vcp_cdc_ctrl_line_callback to fire the
-        // CliVcpInternalEventConnected event, which starts the shell thread,
-        // waits 100 ms for transient disconnects, and then emits the MOTD.
-        _port.DtrEnable = true;
+        // Asserting DTR now causes the Flipper's cli_vcp_cdc_ctrl_line_callback
+        // to fire the CliVcpInternalEventConnected event, which starts the shell
+        // thread, waits 100 ms for transient disconnects, and then emits the MOTD.
+        await _port.SetDtrAsync(true, ct).ConfigureAwait(false);
 
         // Step 3 — Read until the CLI prompt ">: " appears.
         // The prompt is the last thing the Flipper sends before it waits for a
         // command.  We use ReadTimeout (not CancellationToken) because
         // SerialStream.ReadAsync on Windows ignores the token entirely.
+        // WebSerial implementations should use ct-based deadlines instead.
         _port.ReadTimeout = HandshakeReadTimeoutMs;
         try
         {
@@ -144,7 +146,7 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         // OperationCanceledException immediately after open.  WriteWithRetryAsync
         // retries those spurious aborts transparently.
         await WriteWithRetryAsync(s_rpcSessionCmd, ct).ConfigureAwait(false);
-        await _stream.FlushAsync(ct).ConfigureAwait(false);
+        await Stream.FlushAsync(ct).ConfigureAwait(false);
 
         // Step 5 — Read until end of the echo line (\n).
         // The Flipper CLI echoes the command back followed by \r\n.  Consuming
@@ -179,7 +181,7 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         // The protobuf reader loop has no inherent timeout; it blocks until
         // the device responds.  The outer CancellationToken (from BootstrapAsync)
         // provides the overall deadline via transport disposal.
-        _port.ReadTimeout = SerialPort.InfiniteTimeout;
+        _port.ReadTimeout = -1; // SerialPort.InfiniteTimeout == -1
     }
 
     // -------------------------------------------------------------------------
@@ -192,10 +194,10 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     /// bytes (including the marker).
     ///
     /// <para>
-    /// Uses <see cref="SerialPort.ReadTimeout"/> (already set by the caller) to
-    /// enforce a deadline, because <see cref="Stream.ReadAsync(Memory{byte}, CancellationToken)"/>
-    /// on Windows <c>SerialStream</c> ignores <see cref="CancellationToken"/>.
-    /// A <see cref="TimeoutException"/> propagates to the caller unchanged.
+    /// Uses <see cref="ISerialPort.ReadTimeout"/> (already set by the caller) to
+    /// enforce a deadline on desktop (where <c>SerialStream.ReadAsync</c> respects
+    /// the port-level timeout and throws <see cref="TimeoutException"/>).
+    /// WebSerial implementations should rely on <paramref name="ct"/> instead.
     /// </para>
     /// </summary>
     private async ValueTask<byte[]> ReadUntilAsync(byte[] marker, CancellationToken ct)
@@ -207,8 +209,11 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         {
             ct.ThrowIfCancellationRequested();
 
-            int read = await _stream!.ReadAsync(oneByte, ct).ConfigureAwait(false);
-            if (read == 0) throw new EndOfStreamException("Port closed during handshake.");
+            int read = await Stream.ReadAsync(oneByte, ct).ConfigureAwait(false);
+            if (read == 0)
+            {
+                throw new EndOfStreamException("Port closed during handshake.");
+            }
 
             buf.Add(oneByte[0]);
 
@@ -221,7 +226,10 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
                 {
                     if (buf[offset + i] != marker[i]) { match = false; break; }
                 }
-                if (match) return [.. buf];
+                if (match)
+                {
+                    return [.. buf];
+                }
             }
         }
     }
@@ -236,8 +244,6 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     /// </summary>
     internal async ValueTask SendAsync(Main message, CancellationToken ct = default)
     {
-        if (_stream is null) throw new InvalidOperationException("Transport not open.");
-
         // Serialize the message body.
         byte[] body = message.ToByteArray();
 
@@ -248,7 +254,7 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
 
         await WriteWithRetryAsync(varintBuf.AsMemory(0, prefixLen), ct).ConfigureAwait(false);
         await WriteWithRetryAsync(body, ct).ConfigureAwait(false);
-        await _stream.FlushAsync(ct).ConfigureAwait(false);
+        await Stream.FlushAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -276,7 +282,7 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         {
             try
             {
-                await _stream!.WriteAsync(buffer, ct).ConfigureAwait(false);
+                await Stream.WriteAsync(buffer, ct).ConfigureAwait(false);
                 return;
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested && attempt < MaxAttempts - 1)
@@ -296,8 +302,6 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     /// </summary>
     internal async ValueTask<Main> ReceiveAsync(CancellationToken ct = default)
     {
-        if (_stream is null) throw new InvalidOperationException("Transport not open.");
-
         uint length = await ReadVarint32Async(ct).ConfigureAwait(false);
 
         if (length == 0)
@@ -345,7 +349,11 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
             await ReadExactAsync(_readByte, ct).ConfigureAwait(false);
             byte b = _readByte[0];
             result |= (uint)(b & 0x7F) << shift;
-            if ((b & 0x80) == 0) return result;
+            if ((b & 0x80) == 0)
+            {
+                return result;
+            }
+
             shift += 7;
         }
 
@@ -359,8 +367,12 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
         int remaining = buffer.Length;
         while (remaining > 0)
         {
-            int read = await _stream!.ReadAsync(buffer.AsMemory(offset, remaining), ct).ConfigureAwait(false);
-            if (read == 0) throw new EndOfStreamException("Connection closed while reading protobuf frame.");
+            int read = await Stream.ReadAsync(buffer.AsMemory(offset, remaining), ct).ConfigureAwait(false);
+            if (read == 0)
+            {
+                throw new EndOfStreamException("Connection closed while reading protobuf frame.");
+            }
+
             offset    += read;
             remaining -= read;
         }
@@ -370,43 +382,16 @@ internal sealed class NativeRpcTransport : IAsyncDisposable
     // Dispose
     // -------------------------------------------------------------------------
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 1) return ValueTask.CompletedTask;
-
-        // Force-close the underlying OS handle to immediately abort any pending
-        // ReadFile/WriteFile on the port — same pattern as SerialPortTransport.
-        //
-        // SerialPort.Close() deadlocks on Windows when async I/O is in-flight:
-        // it waits for its internal EventLoopRunner task which is blocked on
-        // WaitCommEvent, but WaitCommEvent won't return until the handle is
-        // closed — a circular dependency.
-        //
-        // SerialPort.BaseStream is typed as Stream (not FileStream), so
-        // SafeFileHandle is not directly accessible. The actual runtime type on
-        // Windows is the internal System.IO.Ports.SerialStream, which holds the
-        // native handle in a private "_handle" field of type SafeFileHandle.
-        // Closing it yanks the handle at the OS level: all pending I/O returns
-        // immediately with an error, the internal thread exits, and
-        // _port.Dispose() can then complete without hanging.
-        if (_stream is not null)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
-            try
-            {
-                var handleField = _stream
-                    .GetType()
-                    .GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (handleField?.GetValue(_stream) is SafeFileHandle handle)
-                {
-                    handle.Close();
-                }
-            }
-            catch { /* best-effort — port may not be open or already disposed */ }
+            return;
         }
 
-        try { _port.Dispose(); }
-        catch { /* best-effort */ }
-
-        return ValueTask.CompletedTask;
+        // Dispose the ISerialPort — SystemSerialPort.DisposeAsync handles the
+        // Windows SafeFileHandle force-close to unblock in-flight async I/O.
+        // Other ISerialPort implementations (e.g. WebSerial) handle it their own way.
+        await _port.DisposeAsync().ConfigureAwait(false);
     }
 }

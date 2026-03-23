@@ -1,0 +1,453 @@
+@page "/"
+
+@using FlipperZero.NET
+@using FlipperZero.NET.Bootstrapper
+@using FlipperZero.NET.Commands.System
+@using FlipperZero.NET.Extensions
+@using FlipperZero.NET.WebSerial
+@using System.Runtime.Versioning
+
+@implements IAsyncDisposable
+
+<PageTitle>FlipperZero.NET Web Demo</PageTitle>
+
+<h1>FlipperZero.NET — Browser Demo</h1>
+
+@if (!_webSerialSupported)
+{
+    <div class="alert alert-warning" role="alert">
+        <strong>Browser not supported.</strong>
+        WebSerial is only available in Chromium-based browsers (Chrome, Edge, Opera).
+        Firefox and Safari do not support the WebSerial API.
+    </div>
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger mt-2" role="alert">@_errorMessage</div>
+    }
+}
+else if (_client is null)
+{
+    @if (_busy)
+    {
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></div>
+            <span>@_statusMessage</span>
+        </div>
+
+        @if (_showPickDaemonButton)
+        {
+            <div class="alert alert-info mt-3" role="alert">
+                <strong>Almost there!</strong> The daemon is running. Click below to grant
+                access to the new daemon port (CDC 1) — your browser needs a fresh dialog
+                because the Flipper re-enumerated its USB interfaces.
+            </div>
+            <button class="btn btn-primary mt-1" @onclick="PickDaemonPortAsync">
+                Select Daemon Port (CDC 1)
+            </button>
+        }
+    }
+    else
+    {
+        <p>Connect a Flipper Zero over USB, then click the button below.</p>
+        <p class="text-muted small">
+            Your browser will show a port-picker dialog for the <strong>system port</strong>
+            (CDC 0). The daemon will be installed and launched automatically. A second dialog
+            will then appear for the <strong>daemon port</strong> (CDC 1) — no page reload
+            required.
+        </p>
+
+        <button class="btn btn-primary" @onclick="ConnectAsync">
+            Connect to Flipper Zero
+        </button>
+    }
+
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger mt-3" role="alert">@_errorMessage</div>
+    }
+}
+else
+{
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-success fs-6">Connected</span>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="DisconnectAsync">Disconnect</button>
+    </div>
+
+    @if (_daemonInfo is not null)
+    {
+        <h5>Daemon</h5>
+        <table class="table table-sm table-bordered w-auto mb-3">
+            <tr><th>Name</th><td>@_daemonInfo.Value.Name</td></tr>
+            <tr><th>Protocol version</th><td>@_daemonInfo.Value.Version</td></tr>
+            <tr><th>Commands</th><td>@string.Join(", ", _daemonInfo.Value.Commands ?? [])</td></tr>
+        </table>
+    }
+
+    @if (_deviceInfo is not null)
+    {
+        <h5>Device</h5>
+        <table class="table table-sm table-bordered w-auto mb-4">
+            <tr><th>Name</th><td>@_deviceInfo.Value.Name</td></tr>
+            <tr><th>Model</th><td>@_deviceInfo.Value.Model</td></tr>
+            <tr><th>Firmware</th><td>@_deviceInfo.Value.Firmware (@_deviceInfo.Value.GitBranch, @_deviceInfo.Value.GitHash)</td></tr>
+            <tr><th>Hardware rev</th><td>@_deviceInfo.Value.Hardware</td></tr>
+            <tr><th>UID</th><td><code>@_deviceInfo.Value.Uid</code></td></tr>
+            <tr><th>BLE MAC</th><td><code>@_deviceInfo.Value.BleMac</code></td></tr>
+        </table>
+    }
+
+    <h5>Commands</h5>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-primary" @onclick="GetTimeAsync" disabled="@_busy">Get RTC time</button>
+        <button class="btn btn-success" @onclick="BlinkGreenAsync" disabled="@_busy">Blink green</button>
+        <button class="btn btn-danger" @onclick="BlinkRedAsync" disabled="@_busy">Blink red</button>
+    </div>
+
+    @if (_commandResult is not null)
+    {
+        <div class="alert alert-info mt-3">@_commandResult</div>
+    }
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger mt-3">@_errorMessage</div>
+    }
+}
+
+@code {
+    private bool _webSerialSupported = true;  // assume true until checked
+    private bool _busy;
+    private bool _showPickDaemonButton;
+    private string? _statusMessage;
+    private string? _errorMessage;
+    private string? _commandResult;
+
+    private FlipperRpcClient? _client;
+    private DaemonInfoResponse? _daemonInfo;
+    private DeviceInfoResponse? _deviceInfo;
+
+    // System port kept alive during bootstrap; forgotten (not just closed) before
+    // the daemon FAP switches the Flipper to usb_cdc_dual.
+    private WebSerialPort? _systemPort;
+
+    // Daemon port stored by onBeforeDaemonConnect and consumed by daemonPortFactory.
+    private WebSerialPort? _daemonPort;
+
+    // TCS bridge: pauses onBeforeDaemonConnect until the user picks the daemon port.
+    private TaskCompletionSource<WebSerialPort?>? _daemonPortTcs;
+
+    // Diagnostics — logs every RPC send/receive to the browser console.
+    private readonly BrowserDiagnostics _diagnostics = new();
+
+    // Options tuned for single-threaded Blazor WASM.
+    //
+    // PacketSerialization: disabled — there is no thread-level concurrency in WASM,
+    // so the serialiser's Channel + writer-loop Task.Run is pure overhead that adds
+    // a competing cooperative task without providing any benefit.
+    //
+    // Heartbeat: disabled — the keep-alive timer loop runs as a Task.Run on the same
+    // cooperative thread as the WebSerial JS read pump.  Even with Task.Yield() the
+    // loop starves the pump enough to cause false RX timeouts and spurious disconnects.
+    // In a browser environment the user is present and will notice connection loss
+    // immediately, so transport-level liveness probing is unnecessary.
+    // The configure command is still sent with effectively-infinite hb/to values so
+    // the daemon never times out the client on its own side.
+    private static readonly FlipperRpcClientOptions WasmClientOptions = new()
+    {
+        DisableHeartbeat           = true,
+        DisablePacketSerialization = true,
+    };
+
+    // -------------------------------------------------------------------------
+    // Initialisation — attempt auto-connect on every page load
+    // -------------------------------------------------------------------------
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _webSerialSupported = await WebSerialHelpers.IsSupportedAsync();
+        }
+        catch (Exception ex)
+        {
+            _webSerialSupported = false;
+            _errorMessage = $"Failed to load WebSerial interop module: {ex.Message}";
+            return;
+        }
+
+        if (!_webSerialSupported)
+        {
+            return;
+        }
+
+        // Try to connect to the daemon without user interaction.
+        // Succeeds on subsequent visits when the daemon is already running and
+        // the browser still has a permission grant for the daemon port.
+        _busy = true;
+        _statusMessage = "Looking for Flipper Zero daemon...";
+        StateHasChanged();
+
+        try
+        {
+            _client = await WebSerialPortPicker.TryAutoConnectAsync(
+                clientOptions: WasmClientOptions,
+                diagnostics: _diagnostics);
+
+            if (_client is not null)
+            {
+                _daemonInfo = await _client.SendAsync<DaemonInfoCommand, DaemonInfoResponse>(
+                    new DaemonInfoCommand());
+                _deviceInfo = await _client.SendAsync<DeviceInfoCommand, DeviceInfoResponse>(
+                    new DeviceInfoCommand());
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Auto-connect failed: {ex.Message}";
+            if (_client is not null)
+            {
+                await _client.DisposeAsync();
+                _client = null;
+            }
+        }
+        finally
+        {
+            _busy = false;
+            _statusMessage = null;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Manual connect (bootstrap flow)
+    // -------------------------------------------------------------------------
+
+    [SupportedOSPlatform("browser")]
+    private async Task ConnectAsync()
+    {
+        _busy = true;
+        _errorMessage = null;
+        _commandResult = null;
+
+        try
+        {
+            // Step 1: pick system port (CDC 0) — must be called directly from the
+            // button-click handler to satisfy the browser's user-gesture requirement.
+            _statusMessage = "Select the system port (CDC 0) in the browser dialog...";
+            StateHasChanged();
+
+            _systemPort = await WebSerialPortPicker.PickSystemPortAsync();
+            if (_systemPort is null)
+            {
+                _errorMessage = "System port selection cancelled.";
+                return;
+            }
+
+            // Step 2: create the TCS that bridges onBeforeDaemonConnect (background)
+            // with the PickDaemonPortAsync button click (fresh user gesture).
+            _daemonPortTcs = WebSerialPortPicker.CreateDaemonPortWaiter();
+
+            // Step 3: bootstrap — install/update the daemon FAP and launch it.
+            _statusMessage = "Bootstrapping (installing / launching daemon)...";
+            StateHasChanged();
+
+            FlipperBootstrapResult result = await FlipperBootstrapper.BootstrapAsync(
+                systemPortName: "(webserial)",
+                daemonPortName: "(webserial)",
+                systemPortFactory: () => _systemPort,
+                daemonPortFactory: () => _daemonPort
+                    ?? throw new InvalidOperationException("Daemon port was not set."),
+                clientOptions: WasmClientOptions,
+                diagnostics: _diagnostics,
+                onBeforeDaemonConnect: async () =>
+                {
+                    // Forget (close + revoke permission) the system port so the browser
+                    // releases its OS-level USB claim.  Without this the daemon FAP's
+                    // furi_hal_usb_set_config(&usb_cdc_dual) never succeeds.
+                    await WebSerialPortPicker.ForgetSystemPortAsync(_systemPort!).ConfigureAwait(false);
+                    _systemPort = null;
+
+                    // Wait ~3 s for the Flipper to re-enumerate its dual-CDC interfaces.
+                    _statusMessage = "Waiting for USB re-enumeration...";
+                    StateHasChanged();
+                    await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+
+                    // Show the "Select Daemon Port" button and pause here until the user
+                    // picks the daemon port (CDC 1) via a fresh requestPort() dialog.
+                    _showPickDaemonButton = true;
+                    StateHasChanged();
+
+                    _daemonPort = await WebSerialPortPicker.WaitForDaemonPortAsync(_daemonPortTcs!).ConfigureAwait(false);
+
+                    _showPickDaemonButton = false;
+
+                    if (_daemonPort is null)
+                    {
+                        throw new OperationCanceledException("Daemon port selection was cancelled.");
+                    }
+
+                    _statusMessage = "Connecting to daemon...";
+                    StateHasChanged();
+                });
+
+            // Bootstrap completed — result owns the connected client and already
+            // called daemon_info internally; extract what we need.
+            _client = result.Client;
+            _daemonInfo = result.DaemonInfo;
+            _statusMessage = null;
+
+            _deviceInfo = await _client.SendAsync<DeviceInfoCommand, DeviceInfoResponse>(
+                new DeviceInfoCommand());
+        }
+        catch (OperationCanceledException)
+        {
+            _errorMessage = "Connection cancelled.";
+            await CleanupAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Connection failed: {ex.Message}";
+            await CleanupAsync();
+        }
+        finally
+        {
+            _busy = false;
+            _showPickDaemonButton = false;
+            _statusMessage = null;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Daemon port picker button (fresh user gesture — called while _busy = true)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Called when the user clicks "Select Daemon Port (CDC 1)".
+    /// This button appears inside the busy spinner block so it is visible while
+    /// the bootstrap flow is paused waiting for the TCS.
+    /// Must be a real button click to satisfy browser user-gesture requirement.
+    /// </summary>
+    [SupportedOSPlatform("browser")]
+    private async Task PickDaemonPortAsync()
+    {
+        WebSerialPort? port = await WebSerialPortPicker.PickSystemPortAsync();
+        WebSerialPortPicker.SignalDaemonPortReady(_daemonPortTcs!, port);
+    }
+
+    // -------------------------------------------------------------------------
+    // Disconnect
+    // -------------------------------------------------------------------------
+
+    private async Task DisconnectAsync()
+    {
+        _busy = true;
+        try
+        {
+            // Cancel any pending daemon port waiter.
+            _daemonPortTcs?.TrySetCanceled();
+            _daemonPortTcs = null;
+
+            if (_client is not null)
+            {
+                await _client.DisposeAsync();
+                _client = null;
+            }
+
+            await CleanupAsync();
+
+            _daemonInfo = null;
+            _deviceInfo = null;
+            _commandResult = null;
+            _errorMessage = null;
+            _showPickDaemonButton = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CleanupAsync()
+    {
+        if (_systemPort is not null)
+        {
+            await _systemPort.DisposeAsync();
+            _systemPort = null;
+        }
+
+        if (_daemonPort is not null)
+        {
+            await _daemonPort.DisposeAsync();
+            _daemonPort = null;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Demo commands
+    // -------------------------------------------------------------------------
+
+    private async Task GetTimeAsync()
+    {
+        if (_client is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _commandResult = null;
+        _errorMessage = null;
+        try
+        {
+            var response = await _client.DatetimeGetAsync();
+            _commandResult = $"Flipper RTC: {response.DateTime:yyyy-MM-dd HH:mm:ss}";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Command failed: {ex.Message}";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task BlinkGreenAsync() => await BlinkAsync(0, 255, 0);
+    private async Task BlinkRedAsync()   => await BlinkAsync(255, 0, 0);
+
+    private async Task BlinkAsync(byte r, byte g, byte b)
+    {
+        if (_client is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _commandResult = null;
+        _errorMessage = null;
+        try
+        {
+            await _client.LedSetRgbAsync(new RgbColor(r, g, b));
+            await Task.Delay(400);
+            await _client.LedSetRgbAsync(new RgbColor(0, 0, 0));
+            _commandResult = "LED blinked.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Command failed: {ex.Message}";
+        }
+        finally { _busy = false; }
+    }
+
+    // -------------------------------------------------------------------------
+    // IAsyncDisposable
+    // -------------------------------------------------------------------------
+
+    public async ValueTask DisposeAsync()
+    {
+        _daemonPortTcs?.TrySetCanceled();
+        _daemonPortTcs = null;
+
+        if (_client is not null)
+        {
+            await _client.DisposeAsync();
+            _client = null;
+        }
+
+        await CleanupAsync();
+    }
+}

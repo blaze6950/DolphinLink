@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using FlipperZero.NET.Abstractions;
 using FlipperZero.NET.Bootstrapper.NativeRpc.Proto;
 
 namespace FlipperZero.NET.Bootstrapper.NativeRpc;
@@ -32,9 +33,14 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
     private int _disposed; // 0 = alive, 1 = disposed (Interlocked)
     private int _opened;   // 0 = not yet, 1 = opened (Interlocked)
 
-    internal FlipperNativeRpcClient(string portName)
+    /// <summary>
+    /// Creates a client using the supplied <paramref name="port"/>.
+    /// The port must not yet be open; <see cref="OpenAsync"/> will open it
+    /// as part of the CLI-to-protobuf handshake.
+    /// </summary>
+    internal FlipperNativeRpcClient(ISerialPort port)
     {
-        _transport = new NativeRpcTransport(portName);
+        _transport = new NativeRpcTransport(port);
     }
 
     // -------------------------------------------------------------------------
@@ -45,7 +51,9 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
     internal async ValueTask OpenAsync(CancellationToken ct = default)
     {
         if (Interlocked.Exchange(ref _opened, 1) == 1)
+        {
             throw new InvalidOperationException("OpenAsync has already been called.");
+        }
 
         // OpenAsync handles stabilization delay and raw-byte drain of any
         // session-start noise the Flipper emits on connect.
@@ -101,7 +109,9 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
         foreach (var key in _pending.Keys)
         {
             if (_pending.TryRemove(key, out var tcs))
+            {
                 tcs.TrySetException(ex);
+            }
         }
     }
 
@@ -276,7 +286,10 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
             progress?.Report((written, total));
 
             // Handle empty-file edge case: exit after a single empty write.
-            if (total == 0) break;
+            if (total == 0)
+            {
+                break;
+            }
         }
     }
 
@@ -300,7 +313,10 @@ internal sealed class FlipperNativeRpcClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
 
         await _cts.CancelAsync().ConfigureAwait(false);
         FailAll(new ObjectDisposedException(nameof(FlipperNativeRpcClient)));

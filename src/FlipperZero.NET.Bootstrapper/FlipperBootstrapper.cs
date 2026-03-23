@@ -84,6 +84,36 @@ public static class FlipperBootstrapper
     /// differ.  Intended for development workflows where the FAP is built
     /// locally and passed in directly rather than via an assembly rebuild.
     /// </param>
+    /// <param name="systemPortFactory">
+    /// Optional factory that creates the <see cref="ISerialPort"/> for CDC interface 0
+    /// (the native protobuf system RPC used during bootstrapping).
+    /// When <c>null</c>, defaults to <c>() => new SystemSerialPort(systemPortName, dtrEnable: false)</c>.
+    /// Provide a custom factory to use a non-system-ports implementation, such as a
+    /// WebSerial-backed port in a browser WASM environment.
+    /// </param>
+    /// <param name="daemonPortFactory">
+    /// Optional factory that creates the <see cref="ISerialPort"/> for CDC interface 1
+    /// (the NDJSON RPC daemon port).  The factory may be called multiple times during
+    /// the daemon-wait retry loop.
+    /// When <c>null</c>, defaults to <c>() => new SystemSerialPort(daemonPortName)</c>.
+    /// </param>
+    /// <param name="onBeforeDaemonConnect">
+    /// Optional async callback invoked after the native RPC session closes (i.e. after
+    /// the FAP has been installed and launched) and immediately before the daemon-wait
+    /// retry loop begins.
+    ///
+    /// <para>
+    /// Use this hook to perform any preparation required before the daemon port becomes
+    /// accessible — for example, prompting the user to select the daemon serial port in a
+    /// browser WebSerial environment, where the port picker must be shown <em>after</em>
+    /// the daemon process has started and registered its CDC interface.
+    /// </para>
+    ///
+    /// <para>
+    /// If the callback throws, the exception propagates out of <see cref="BootstrapAsync"/>
+    /// unchanged, allowing the caller to handle cancellation or user-abort scenarios.
+    /// </para>
+    /// </param>
     /// <param name="ct">Cancellation token for the entire bootstrap operation.</param>
     /// <returns>
     /// A <see cref="FlipperBootstrapResult"/> holding a ready-to-use
@@ -105,15 +135,24 @@ public static class FlipperBootstrapper
         IRpcDiagnostics?        diagnostics    = null,
         IProgress<(int Written, int Total)>? progress = null,
         byte[]?                 fapOverride    = null,
+        Func<ISerialPort>?      systemPortFactory = null,
+        Func<ISerialPort>?      daemonPortFactory = null,
+        Func<Task>?             onBeforeDaemonConnect = null,
         CancellationToken ct = default)
     {
+        // Build defaults for any unspecified factory.
+        Func<ISerialPort> resolvedSystemFactory  = systemPortFactory
+            ?? (() => new SystemSerialPort(systemPortName, dtrEnable: false));
+        Func<ISerialPort> resolvedDaemonFactory  = daemonPortFactory
+            ?? (() => new SystemSerialPort(daemonPortName));
+
         using var timeoutCts = new CancellationTokenSource(options.Timeout);
         using var linkedCts  = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
         CancellationToken linked = linkedCts.Token;
 
         // Step 1 — fast path: try the daemon port directly.
         var (directClient, directInfo) = await TryConnectDaemonDirectAsync(
-            daemonPortName, clientOptions, diagnostics, linked).ConfigureAwait(false);
+            resolvedDaemonFactory, clientOptions, diagnostics, linked).ConfigureAwait(false);
 
         if (directClient is not null && directInfo.HasValue)
         {
@@ -124,7 +163,7 @@ public static class FlipperBootstrapper
         byte[] bundledFap = fapOverride ?? LoadBundledFap();
         string bundledMd5 = ComputeMd5(bundledFap);
 
-        await using var native = new FlipperNativeRpcClient(systemPortName);
+        await using var native = new FlipperNativeRpcClient(resolvedSystemFactory());
         try
         {
             await native.OpenAsync(linked).ConfigureAwait(false);
@@ -178,6 +217,14 @@ public static class FlipperBootstrapper
         // Close the native RPC connection before opening the daemon port.
         await native.DisposeAsync().ConfigureAwait(false);
 
+        // Allow the caller to prepare the daemon port before the retry loop starts.
+        // In a browser WebSerial environment this is where the port picker is shown,
+        // since the CDC interface only appears after the daemon FAP has launched.
+        if (onBeforeDaemonConnect is not null)
+        {
+            await onBeforeDaemonConnect().ConfigureAwait(false);
+        }
+
         // Step 3 — wait for the daemon to appear on the NDJSON port.
         // Pass the caller's original ct (not the linked/timeout token) so that
         // WaitForDaemonAsync uses only its own DaemonStartTimeout budget.
@@ -185,7 +232,7 @@ public static class FlipperBootstrapper
         // time native RPC work completes; using it here would cancel the daemon
         // wait before it even starts.
         FlipperRpcClient client = await WaitForDaemonAsync(
-            daemonPortName, clientOptions, diagnostics,
+            resolvedDaemonFactory, clientOptions, diagnostics,
             options.DaemonStartTimeout, ct).ConfigureAwait(false);
 
         DaemonInfoResponse daemonInfo = client.DaemonInfo
@@ -204,7 +251,7 @@ public static class FlipperBootstrapper
     /// </summary>
     private static async Task<(FlipperRpcClient? Client, DaemonInfoResponse? Info)>
         TryConnectDaemonDirectAsync(
-            string daemonPortName,
+            Func<ISerialPort> daemonPortFactory,
             FlipperRpcClientOptions clientOptions,
             IRpcDiagnostics? diagnostics,
             CancellationToken ct)
@@ -212,7 +259,7 @@ public static class FlipperBootstrapper
         FlipperRpcClient? client = null;
         try
         {
-            var transport = new SerialPortTransport(daemonPortName);
+            var transport = new SerialPortTransport(daemonPortFactory());
             client = new FlipperRpcClient(transport, clientOptions, diagnostics);
 
             // Use a short timeout for the direct attempt so we don't block long.
@@ -247,7 +294,11 @@ public static class FlipperBootstrapper
 
     private static async ValueTask DisposeClientSilently(FlipperRpcClient? client)
     {
-        if (client is null) return;
+        if (client is null)
+        {
+            return;
+        }
+
         try { await client.DisposeAsync().ConfigureAwait(false); }
         catch { /* best-effort */ }
     }
@@ -325,7 +376,7 @@ public static class FlipperBootstrapper
     /// <paramref name="startTimeout"/> elapses.
     /// </summary>
     private static async Task<FlipperRpcClient> WaitForDaemonAsync(
-        string daemonPortName,
+        Func<ISerialPort> daemonPortFactory,
         FlipperRpcClientOptions clientOptions,
         IRpcDiagnostics? diagnostics,
         TimeSpan startTimeout,
@@ -342,7 +393,7 @@ public static class FlipperBootstrapper
             FlipperRpcClient? client = null;
             try
             {
-                var transport = new SerialPortTransport(daemonPortName);
+                var transport = new SerialPortTransport(daemonPortFactory());
                 client = new FlipperRpcClient(transport, clientOptions, diagnostics);
 
                 using var attemptCts  = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -381,7 +432,7 @@ public static class FlipperBootstrapper
         ct.ThrowIfCancellationRequested();
 
         var timeoutMessage =
-            $"The daemon did not appear on '{daemonPortName}' within {startTimeout.TotalSeconds:0}s " +
+            $"The daemon did not appear within {startTimeout.TotalSeconds:0}s " +
             $"after being launched. Last error: {lastEx?.Message ?? "(none)"}";
         throw lastEx is not null
             ? new FlipperBootstrapException(timeoutMessage, lastEx)
@@ -407,8 +458,21 @@ public static class FlipperBootstrapper
     }
 
     /// <summary>Computes a lowercase hex MD5 hash of <paramref name="data"/>.</summary>
+    /// <remarks>
+    /// Returns <see cref="string.Empty"/> in browser WASM environments where the MD5
+    /// crypto implementation is unavailable at runtime.  The empty string never matches
+    /// the Flipper's stored MD5, so the FAP is always re-uploaded in the browser.
+    /// </remarks>
     private static string ComputeMd5(byte[] data)
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            // MD5 is not available in the .NET browser WASM runtime.
+            // Returning an empty string ensures it never matches the device's hash,
+            // so the FAP is always re-uploaded — the correct safe default.
+            return string.Empty;
+        }
+
         byte[] hash = MD5.HashData(data);
         return Convert.ToHexString(hash).ToLowerInvariant();
     }

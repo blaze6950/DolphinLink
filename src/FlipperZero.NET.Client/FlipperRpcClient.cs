@@ -15,19 +15,28 @@ namespace FlipperZero.NET;
 /// Architecture
 /// ============
 ///
+/// The default transport chain wraps the supplied transport in two decorator layers:
+///
 /// <code>
 ///   SerialPortTransport          (raw USB-CDC)
 ///       ↑
-///   PacketSerializationTransport (single-writer serialiser)
+///   PacketSerializationTransport (single-writer serialiser — omitted when DisablePacketSerialization)
 ///       ↑
-///   HeartbeatTransport           (keep-alive, disconnect detection)
+///   HeartbeatTransport           (keep-alive, disconnect detection — omitted when DisableHeartbeat)
 ///       ↑
 ///   FlipperRpcClient             (this class — RPC logic only)
 /// </code>
 ///
+/// Both decorator layers are optional and can be disabled via
+/// <see cref="FlipperRpcClientOptions.DisablePacketSerialization"/> and
+/// <see cref="FlipperRpcClientOptions.DisableHeartbeat"/>.  This is useful in
+/// single-threaded environments such as Blazor WASM, where each extra
+/// <c>Task.Run</c> loop competes with the WebSerial JS read pump on the
+/// cooperative scheduler.
+///
 /// There is no outbound channel or writer loop in this class.
-/// <see cref="PacketSerializationTransport"/> provides the single-writer
-/// guarantee; <see cref="SendAsync{TCommand,TResponse}"/> calls
+/// <see cref="PacketSerializationTransport"/> (when present) provides the
+/// single-writer guarantee; <see cref="SendAsync{TCommand,TResponse}"/> calls
 /// <c>_transport.SendAsync()</c> directly.
 ///
 /// Request/response
@@ -46,11 +55,12 @@ namespace FlipperZero.NET;
 ///
 /// Heartbeat / keep-alive
 /// ----------------------
-/// Handled entirely by <see cref="HeartbeatTransport"/>. This class has no
-/// knowledge of heartbeat timing, watchdog logic, or keep-alive frames.
-/// When the transport detects a silent disconnect it raises its
+/// When enabled (the default), handled entirely by <see cref="HeartbeatTransport"/>.
+/// This class has no knowledge of heartbeat timing, watchdog logic, or keep-alive
+/// frames.  When the transport detects a silent disconnect it raises its
 /// <see cref="HeartbeatTransport.Disconnected"/> event, which triggers
-/// <see cref="FaultAll"/>.
+/// <see cref="FaultAll"/>.  When heartbeat is disabled, the reader loop filters
+/// keep-alive frames (bare newlines) from the daemon before parsing.
 ///
 /// Logging
 /// -------
@@ -68,7 +78,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     // -------------------------------------------------------------------------
 
     private readonly IFlipperTransport _transport;
-    private readonly HeartbeatTransport _heartbeat;
+    private readonly HeartbeatTransport? _heartbeat;
 
     /// <summary>
     /// Connection options passed at construction time.
@@ -190,16 +200,27 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         FlipperRpcClientOptions options = default,
         IRpcDiagnostics? diagnostics = null)
     {
-        // Build the transport chain: raw → serializer → heartbeat
-        var serializer = new PacketSerializationTransport(transport);
-        _heartbeat = new HeartbeatTransport(serializer, options.HeartbeatInterval, options.Timeout);
+        // Build the transport chain: raw → [serializer] → [heartbeat]
+        // Both decorator layers are optional; see FlipperRpcClientOptions.
+        IFlipperTransport current = transport;
 
-        // Subscribe to the transport-level disconnect event.
-        // HeartbeatTransport fires this when the inbound channel is silent for
-        // longer than options.Timeout, or when sending a keep-alive frame fails.
-        _heartbeat.Disconnected += OnHeartbeatDisconnected;
+        if (!options.DisablePacketSerialization)
+        {
+            current = new PacketSerializationTransport(current);
+        }
 
-        _transport = _heartbeat;
+        if (!options.DisableHeartbeat)
+        {
+            var heartbeat = new HeartbeatTransport(current, options.HeartbeatInterval, options.Timeout);
+            // Subscribe to the transport-level disconnect event.
+            // HeartbeatTransport fires this when the inbound channel is silent for
+            // longer than options.Timeout, or when sending a keep-alive frame fails.
+            heartbeat.Disconnected += OnHeartbeatDisconnected;
+            _heartbeat = heartbeat;
+            current = heartbeat;
+        }
+
+        _transport = current;
 
         _options = options;
         _diagnostics = diagnostics ?? RpcMessageDispatcher.NullDiagnosticsInstance;
@@ -273,13 +294,31 @@ public sealed class FlipperRpcClient : IAsyncDisposable
                 "Please update the FlipperZero.NET RPC daemon FAP on the device.");
         }
 
-        // Propagate host-side heartbeat timing to the daemon so both sides are in sync.
+        // Propagate host-side configuration to the daemon so both sides are in sync.
         // Also send the LED indicator colour when configured, and the diagnostics flag.
         // Skip gracefully when talking to an older daemon that predates the configure command.
         if (info.Supports<ConfigureCommand>())
         {
-            var heartbeatMs = (uint)_options.HeartbeatInterval.TotalMilliseconds;
-            var timeoutMs   = (uint)_options.Timeout.TotalMilliseconds;
+            uint heartbeatMs;
+            uint timeoutMs;
+
+            if (_options.DisableHeartbeat)
+            {
+                // Client-side heartbeat is disabled — send very large values so the daemon
+                // never times out the client.  The daemon still runs its own RX watchdog,
+                // so without these values it would disconnect after its default 10 s timeout.
+                // 1 h interval / 2 h timeout comfortably satisfies the daemon's validation
+                // rule (timeout > heartbeat) and its minimum thresholds (hb >= 500 ms,
+                // to >= 2000 ms, to > hb).
+                heartbeatMs = (uint)TimeSpan.FromHours(1).TotalMilliseconds;
+                timeoutMs   = (uint)TimeSpan.FromHours(2).TotalMilliseconds;
+            }
+            else
+            {
+                heartbeatMs = (uint)_options.HeartbeatInterval.TotalMilliseconds;
+                timeoutMs   = (uint)_options.Timeout.TotalMilliseconds;
+            }
+
             await SendAsync<ConfigureCommand, ConfigureResponse>(
                 new ConfigureCommand(heartbeatMs, timeoutMs, _options.LedIndicatorColor, _options.DaemonDiagnostics), ct).ConfigureAwait(false);
         }
@@ -457,6 +496,15 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         {
             await foreach (var line in _transport.ReceiveAsync(ct).ConfigureAwait(false))
             {
+                // When the HeartbeatTransport layer is disabled the daemon's own keep-alive
+                // frames (bare newlines) reach this loop directly.  Filter them out here
+                // rather than forwarding to RpcEnvelope.Parse, which would log them as
+                // malformed JSON.
+                if (_options.DisableHeartbeat && line.AsSpan().Trim().IsEmpty)
+                {
+                    continue;
+                }
+
                 var receivedTicks = _clock.ElapsedTicks;
                 var envelope = RpcEnvelope.Parse(line);
 
@@ -468,6 +516,13 @@ public sealed class FlipperRpcClient : IAsyncDisposable
                 }
 
                 _dispatcher.Dispatch(envelope, line, receivedTicks);
+
+                // Yield to the cooperative scheduler after each message.  In single-threaded
+                // Blazor WASM this gives the JS event loop (and the WebSerial read pump) a
+                // turn between messages, preventing starvation when a burst of responses
+                // arrives.  On desktop .NET this is harmless — it simply re-queues the
+                // continuation to the ThreadPool.
+                await Task.Yield();
             }
 
             // ReceiveAsync enumeration ended normally (transport EOF / cancelled).

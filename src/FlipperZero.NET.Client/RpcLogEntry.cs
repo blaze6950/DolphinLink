@@ -93,7 +93,7 @@ public readonly struct RpcLogEntry
     public override string ToString()
     {
         var sb = new System.Text.StringBuilder();
-        sb.Append($"[{Elapsed.TotalMilliseconds:F1}ms] {Source,-6} {Kind,-22}");
+        sb.Append($"[{Elapsed.TotalMilliseconds:F1}ms] {Kind,-22}");
 
         if (RequestId.HasValue)
         {

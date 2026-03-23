@@ -239,6 +239,17 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                 delay = Min(delay, _timeout);
 
                 await Task.Delay(delay, ct).ConfigureAwait(false);
+
+                // Yield to give the JS event loop a turn.  In single-threaded
+                // Blazor WASM, Task.Delay resumes via a .NET timer continuation
+                // that does NOT pump the browser event loop — so reader.read()
+                // in the WebSerial JS pump would starve indefinitely.
+                // Task.Yield() in WASM schedules the continuation via
+                // setTimeout(0), guaranteeing that pending JS microtasks and
+                // I/O callbacks (USB data-arrived events, etc.) run before
+                // this loop resumes.  On desktop .NET this is harmless — it
+                // simply re-queues the continuation to the ThreadPool.
+                await Task.Yield();
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
