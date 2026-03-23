@@ -43,6 +43,7 @@ public sealed class WebSerialPort : ISerialPort
     private int _writeTimeout = -1;
     private int _disposed;  // 0 = alive, 1 = disposed (Interlocked)
     private int _forgotten; // 0 = not forgotten, 1 = forgotten (Interlocked)
+    private int _opened;    // 0 = not yet opened, 1 = opened (Interlocked)
 
     internal WebSerialPort(int portId)
     {
@@ -111,22 +112,35 @@ public sealed class WebSerialPort : ISerialPort
     /// For WebSerial the port is already open after <see cref="CreateAsync"/> completes —
     /// the browser's <c>port.open()</c> is called inside <c>openPort()</c> in JS.
     /// This method creates the <see cref="WebSerialStream"/> and starts the JS read pump.
+    /// Calling this more than once on the same instance is not supported and throws
+    /// <see cref="InvalidOperationException"/>.
     /// </remarks>
     public ValueTask OpenAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+        if (Interlocked.CompareExchange(ref _opened, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "WebSerialPort.OpenAsync has already been called. " +
+                "A port can only be opened once per instance.");
+        }
+
         _stream = new WebSerialStream(_portId);
         return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Stream Stream => _stream
-        ?? throw new InvalidOperationException("Port is not open. Call OpenAsync first.");
+    public Stream Stream => _disposed == 1
+        ? throw new ObjectDisposedException(nameof(WebSerialPort))
+        : _stream ?? throw new InvalidOperationException("Port is not open. Call OpenAsync first.");
 
     /// <inheritdoc/>
     public async ValueTask SetDtrAsync(bool enabled, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
         await WebSerialInterop.SetSignalsJs(_portId, enabled).ConfigureAwait(false);
     }
 

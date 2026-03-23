@@ -309,10 +309,8 @@ public static class WebSerialPortPicker
                 {
                     try { await client.DisposeAsync().ConfigureAwait(false); } catch { }
                 }
-                else
-                {
-                    await port.DisposeAsync().ConfigureAwait(false);
-                }
+                // Port is not owned by the transport; dispose it explicitly.
+                try { await port.DisposeAsync().ConfigureAwait(false); } catch { }
 
                 throw;
             }
@@ -323,10 +321,8 @@ public static class WebSerialPortPicker
                 {
                     try { await client.DisposeAsync().ConfigureAwait(false); } catch { }
                 }
-                else
-                {
-                    await port.DisposeAsync().ConfigureAwait(false);
-                }
+                // Port is not owned by the transport; dispose it explicitly.
+                try { await port.DisposeAsync().ConfigureAwait(false); } catch { }
             }
         }
 

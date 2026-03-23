@@ -71,16 +71,25 @@ The daemon uses `usb_cdc_dual` and CDC interface 1 (`RPC_CDC_IF 1`). Interface 0
 
 ## C# Transport Stack
 
-The C# client layers three transports on top of the raw serial port:
+The C# client layers transports on top of an `ISerialPort` abstraction. On desktop the port is
+`SystemSerialPort` (wrapping `System.IO.Ports.SerialPort`); in a Blazor WASM browser the port is
+`WebSerialPort` (wrapping the browser's WebSerial API). Two optional decorator layers sit between
+the port and the client; both are skipped in WASM (see [WASM transport options](#wasm-transport-options)):
 
 ```
-SerialPortTransport          (raw System.IO.Ports.SerialPort)
-        ↑
-PacketSerializationTransport (single-writer serialisation via BoundedChannel<string>(32))
-        ↑
-HeartbeatTransport           (bidirectional keep-alive + RX timeout)
-        ↑
-FlipperRpcClient             (RPC request/response and stream logic)
+ISerialPort
+  ├── SystemSerialPort             (System.IO.Ports.SerialPort — desktop/server)
+  └── WebSerialPort                (browser WebSerial API — Blazor WASM only)
+         ↓
+SerialPortTransport                (ISerialPort → IFlipperTransport adapter)
+         ↑
+PacketSerializationTransport       (optional — skipped when DisablePacketSerialization=true)
+  single-writer via BoundedChannel<string>(32) + background WriterLoopAsync
+         ↑
+HeartbeatTransport                 (optional — skipped when DisableHeartbeat=true)
+  bidirectional keep-alive + RX timeout watchdog
+         ↑
+FlipperRpcClient                   (RPC request/response and stream logic)
 ```
 
 Each layer implements `IFlipperTransport`:
@@ -104,17 +113,182 @@ public interface IFlipperTransport : IAsyncDisposable
 ### PacketSerializationTransport
 
 - Serialises concurrent `SendAsync` calls through a `BoundedChannel<string>(32)` so only one caller writes to the inner transport at a time.
-- A background `WriterLoopAsync` task drains the channel and calls `_inner.SendAsync`.
+- A background `WriterLoopAsync` task (started via `Task.Run`) drains the channel and calls `_inner.SendAsync`.
 - `ReceiveAsync` forwards directly to the inner transport.
 - `DisposeAsync` order: seal channel → cancel writer CTS → dispose inner transport → await writer task. The inner dispose comes first to unblock any pending `WriteLineAsync` on Windows.
+- **Disabled in WASM** (`DisablePacketSerialization = true`) — see [WASM transport options](#wasm-transport-options).
 
 ### HeartbeatTransport
 
 - Sends a keep-alive (`string.Empty` → bare `\n` on wire) when TX has been idle for `heartbeatInterval` (default 3 s).
 - Tracks last-sent and last-seen timestamps using `Interlocked.Exchange` on `long` tick values.
-- Fires `event Action? Disconnected` exactly once (guarded by `Interlocked.CompareExchange`) when the RX timeout expires or a send fails.
-- `ReceiveAsync` updates `_lastSeenTicks` on every line including keep-alives, then `continue`s on whitespace-only lines so they are invisible to the layer above.
+- Fires `event Action? Disconnected` exactly once (guarded by `Interlocked.CompareExchange`) when the RX timeout expires or a send fails. `FlipperRpcClient` wires this to `FaultAll(HeartbeatTimeout)`.
+- `ReceiveAsync` updates `_lastSeenTicks` on every line including daemon keep-alives, then `continue`s on whitespace-only lines so they are invisible to the layer above.
 - The constraint `timeout > heartbeatInterval` is enforced in the constructor.
+- **Disabled in WASM** (`DisableHeartbeat = true`) — see [WASM transport options](#wasm-transport-options).
+
+---
+
+## WebSerial Transport (Blazor WASM)
+
+`FlipperZero.NET.WebSerial` provides a browser-native `ISerialPort` implementation that wraps the
+[Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API). It is only
+available in Chromium-based browsers (Chrome ≥ 89, Edge ≥ 89). Check
+`WebSerialHelpers.IsSupported()` before showing any port-picker UI.
+
+### Key types
+
+| Type                  | Role                                                                  |
+|-----------------------|-----------------------------------------------------------------------|
+| `WebSerialPort`       | `ISerialPort` implementation; wraps a JS port handle integer          |
+| `WebSerialStream`     | `Stream` adapter; bridges the JS ReadableStream pump to .NET `Stream` |
+| `WebSerialPortPicker` | Static helpers: picker UI, system-port teardown, auto-connect         |
+| `WebSerialInterop`    | Internal `[JSImport]`/`[JSExport]` bindings to `webserial-interop.js` |
+| `WebSerialHelpers`    | `IsSupported()` / `IsSupportedAsync()` browser-detection helpers      |
+
+### Port lifecycle
+
+```
+WebSerialPort.CreateAsync(vid, pid, baud)
+  └─ JSHost.ImportAsync → loads webserial-interop.js ES module
+  └─ InitModuleJs       → resolves [JSExport] OnData via getAssemblyExports
+  └─ OpenPortJs         → navigator.serial.requestPort() → port.open()
+  └─ returns WebSerialPort(portId)          portId = JS Map key (integer)
+
+port.OpenAsync()
+  └─ new WebSerialStream(portId)
+       └─ RegisterCallback(portId, OnDataReceived)
+       └─ StartReadingJs(portId)            starts JS ReadableStream pump
+
+port.DisposeAsync()
+  └─ stream.DisposeAsync()                 completes channel → unblocks ReadAsync
+  └─ ClosePortJs(portId)                   port.close() in JS (keeps permission)
+
+port.ForgetAsync()                         (instead of DisposeAsync when re-enumerating)
+  └─ stream.DisposeAsync()
+  └─ ForgetPortJs(portId)                  port.close() + port.forget() in JS
+```
+
+### Read path (JS → .NET)
+
+```
+JS ReadableStream pump (async loop in webserial-interop.js)
+  └─► WebSerialInterop.OnData(portId, byte[])     [JSExport] static method
+        └─► _callbacks[portId](data)              per-port dispatch table
+              └─► WebSerialStream.OnDataReceived()
+                    non-empty → channel.Writer.TryWrite(data)
+                    empty     → channel.Writer.TryComplete()   (EOF sentinel)
+
+WebSerialStream.ReadAsync()
+  └─► channel.Reader.WaitToReadAsync()            blocks until data or EOF
+  └─► CopyFromCurrent()                           drains chunk into caller's buffer
+```
+
+### Write path (.NET → JS)
+
+```
+WebSerialStream.WriteAsync(buffer)
+  └─► WebSerialInterop.WriteJs(portId, byte[])    [JSImport]
+        └─► JS port WritableStream.write(data)
+```
+
+### JS handle lifecycle and _closedPorts map
+
+The JS module (`webserial-interop.js`) tracks open ports in a `_ports` Map keyed by integer
+handle. `closePort()` moves the raw `SerialPort` object into `_closedPorts` (capped at 32 entries,
+oldest evicted first) before releasing it from `_ports`. `forgetPort()` checks `_closedPorts` as a
+fallback so it can still call `SerialPort.forget()` even after `DisposeAsync` has already run — this
+is required by the bootstrapper flow where the system port is disposed before `ForgetAsync` fires.
+
+### Bootstrapper flow (first visit)
+
+```
+1. Button click → PickSystemPortAsync()     shows picker → CDC 0 (system/native RPC)
+2. FlipperBootstrapper.BootstrapAsync(...)
+3. onBeforeDaemonConnect callback:
+   a. ForgetSystemPortAsync(systemPort)     closes + forgets CDC 0, releases USB claim
+   b. Task.Delay(reEnumerationDelay)        wait for Flipper to re-enumerate as dual-CDC
+   c. show "Pick daemon port" button → UI button click → PickAnyPortAsync() → CDC 1
+   d. SignalDaemonPortReady(tcs, daemonPort)
+   e. WaitForDaemonPortAsync(tcs) returns   bootstrap resumes with daemon port
+4. FlipperBootstrapper returns FlipperBootstrapResult with connected FlipperRpcClient
+```
+
+The `CreateDaemonPortWaiter()` / `WaitForDaemonPortAsync()` / `SignalDaemonPortReady()` trio
+implements a `TaskCompletionSource` bridge between the bootstrap async flow (which cannot call
+`requestPort()` without a user gesture) and the UI button click (which can).
+
+### Subsequent visits (auto-connect)
+
+```
+OnInitializedAsync → TryAutoConnectAsync()
+  └─ GetPortsJs(vid, pid, baud)            navigator.serial.getPorts() — no gesture needed
+  └─ for each portId: probe ConnectAsync with 3 s timeout
+       success → return FlipperRpcClient (daemon port CDC 1)
+       failure → DisposeAsync client + port, try next
+  └─ null → show normal "Connect" button
+```
+
+### Threading notes
+
+Blazor WASM is single-threaded (cooperative). All JS callbacks arrive on the same thread as .NET
+code. The `BoundedChannel<byte[]>(64)` in `WebSerialStream` provides back-pressure across
+`await` yield points only; `TryWrite` is used in `OnDataReceived` rather than `WriteAsync` to avoid
+re-entrancy on the cooperative thread.
+
+### WASM transport options
+
+**Always set both of these when using `WebSerialPort` in a Blazor WASM application:**
+
+```csharp
+var options = new FlipperRpcClientOptions
+{
+    DisablePacketSerialization = true,
+    DisableHeartbeat           = true,
+};
+```
+
+#### Why `DisablePacketSerialization = true`
+
+`PacketSerializationTransport` uses `Task.Run(() => WriterLoopAsync(...))` to run a background
+writer loop. In WASM, `Task.Run` does not spawn an OS thread — it schedules another cooperative
+task on the single-threaded JS event loop. This creates a second competing `await foreach` loop
+alongside the WebSerial JS read pump (`reader.read()` callbacks via `[JSExport] OnData`). The extra
+competing loop adds cooperative-scheduler contention with no benefit: there is no thread-level
+concurrency in WASM, so there are no concurrent `SendAsync` callers to serialize. Setting
+`DisablePacketSerialization = true` completely removes the transport layer and its writer task —
+`SendAsync` calls go directly to the inner transport with zero overhead.
+
+#### Why `DisableHeartbeat = true`
+
+`HeartbeatTransport` also uses `Task.Run` for its heartbeat loop, which runs `await Task.Delay(...)`
+on a fixed interval. Two problems arise in a browser:
+
+1. **Cooperative scheduler starvation.** The heartbeat loop competes with the WebSerial JS read
+   pump on the single-threaded cooperative scheduler. Even with the `await Task.Yield()` that the
+   loop inserts after each `Task.Delay`, the pump can be starved long enough that the heartbeat
+   loop's own RX watchdog (`(now − lastSeen) > timeout`) fires on an otherwise healthy connection.
+
+2. **Browser tab throttling.** When a tab is backgrounded, browsers throttle `setTimeout`
+   (which backs `Task.Delay`) to intervals of ≥ 1 second, sometimes much longer. If throttling
+   delays the heartbeat loop by more than the 10-second RX timeout, `TriggerDisconnect()` fires,
+   which calls `FaultAll(HeartbeatTimeout)` — failing every in-flight request with
+   `FlipperDisconnectedException` and cancelling `client.Disconnected` on a perfectly healthy
+   connection.
+
+Setting `DisableHeartbeat = true` has three coordinated effects:
+
+- `HeartbeatTransport` is never instantiated — no background loop, no timer, no `Disconnected`
+  event subscription.
+- `NegotiateAsync` sends a `configure` command with `heartbeatMs = 3,600,000` (1 h) and
+  `timeoutMs = 7,200,000` (2 h), so the **daemon's own RX watchdog** never fires on the host side
+  either. (Requires daemon protocol version ≥ 4; throws `FlipperRpcException` otherwise.)
+- `ReaderLoopAsync` filters out bare `\n` keep-alive frames that now reach the reader directly
+  (since `HeartbeatTransport` is no longer in the chain to consume them).
+
+The daemon continues to send its own keep-alive `\n` frames every 3 seconds regardless; these are
+simply discarded by the reader loop filter. Connection loss in a browser is immediately visible to
+the user, so transport-level liveness probing is unnecessary.
 
 ---
 

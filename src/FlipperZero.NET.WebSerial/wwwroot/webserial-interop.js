@@ -67,9 +67,16 @@ const _ports = new Map();
  * This lets forget() still revoke the permission grant even after the
  * port handle has been removed from the active _ports registry.
  *
+ * Entries are evicted when forgetPort() is called or when the map grows
+ * beyond _CLOSED_PORTS_MAX, at which point the oldest entries are dropped
+ * to prevent unbounded memory growth in long-running sessions.
+ *
  * @type {Map<number, SerialPort>}
  */
 const _closedPorts = new Map();
+
+/** Maximum number of entries retained in _closedPorts before eviction. */
+const _CLOSED_PORTS_MAX = 32;
 
 // -------------------------------------------------------------------------
 // Public API (called via [JSImport] from .NET)
@@ -222,13 +229,24 @@ export async function closePort(portId) {
     console.log(`[webserial] closePort: portId=${portId}`);
     _ports.delete(portId);
 
-    try { handle.reader?.cancel(); } catch (_) {}
+    // Cancel the reader and await it so the ReadableStream lock is released before
+    // port.close() is called.  Without await, port.close() races the pump's finally
+    // block and may throw "The port is locked" on some browser versions.
+    if (handle.reader) {
+        try { await handle.reader.cancel(); } catch (_) {}
+    }
     try { handle.writer.releaseLock(); } catch (_) {}
     try { await handle.port.close(); } catch (_) {}
 
     // Preserve the raw SerialPort reference so forgetPort() can revoke the
     // permission grant even if closePort() was called first (e.g. by the
     // bootstrapper's DisposeAsync before onBeforeDaemonConnect fires).
+    // Evict oldest entries if the map has grown beyond the cap.
+    if (_closedPorts.size >= _CLOSED_PORTS_MAX) {
+        const oldestKey = _closedPorts.keys().next().value;
+        _closedPorts.delete(oldestKey);
+        console.warn(`[webserial] closePort: _closedPorts cap reached — evicted portId=${oldestKey}`);
+    }
     _closedPorts.set(portId, handle.port);
 }
 
@@ -257,10 +275,12 @@ export async function forgetPort(portId) {
 
     const handle = _ports.get(portId);
     if (handle) {
-        // Port is still active — cancel reader and release writer before forgetting.
+        // Port is still active — cancel reader (awaited) and release writer before forgetting.
         console.log(`[webserial] forgetPort: portId=${portId} (active)`);
         _ports.delete(portId);
-        try { handle.reader?.cancel(); } catch (_) {}
+        if (handle.reader) {
+            try { await handle.reader.cancel(); } catch (_) {}
+        }
         try { handle.writer.releaseLock(); } catch (_) {}
         port = handle.port;
     } else {

@@ -155,6 +155,7 @@ internal sealed class WebSerialStream : Stream, IAsyncDisposable
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
         // [JSImport] requires a plain byte[] — copy if needed.
         var data = buffer.IsEmpty
             ? Array.Empty<byte>()

@@ -234,4 +234,143 @@ public sealed class NegotiateTests
         Assert.Equal(4, info.Version);
         Assert.True(info.Supports("configure"));
     }
+
+    // -------------------------------------------------------------------------
+    // DisableHeartbeat option
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConnectAsync_DisableHeartbeat_SendsLargeTimeoutViaConfigure()
+    {
+        var transport = new FakeTransport();
+        await using var client = new FlipperRpcClient(transport, new FlipperRpcClientOptions
+        {
+            DisableHeartbeat = true,
+        });
+
+        // daemon supports configure — client must send very large heartbeat/timeout values.
+        transport.EnqueueResponse(
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":4,"cmds":["ping","daemon_info","configure"]}}""");
+        transport.EnqueueResponse(
+            """{"t":0,"i":2,"p":{"hb":3600000,"to":7200000}}""");
+
+        await client.ConnectAsync();
+
+        var sent = transport.SentLines;
+        Assert.Equal(2, sent.Count); // daemon_info + configure
+
+        using var configDoc = JsonDocument.Parse(sent[1]);
+        var root = configDoc.RootElement;
+
+        // Heartbeat and timeout should be "effectively infinite" (1 h / 2 h).
+        uint hb = root.GetProperty("hb").GetUInt32();
+        uint to = root.GetProperty("to").GetUInt32();
+
+        Assert.True(hb >= (uint)TimeSpan.FromMinutes(30).TotalMilliseconds,
+            $"Expected hb >= 30 min, got {hb} ms");
+        Assert.True(to >= (uint)TimeSpan.FromHours(1).TotalMilliseconds,
+            $"Expected to >= 1 h, got {to} ms");
+        Assert.True(to > hb, "timeout must be > heartbeat interval");
+    }
+
+    [Fact]
+    public async Task ConnectAsync_DisableHeartbeat_ThrowsWhenDaemonLacksConfigure()
+    {
+        var transport = new FakeTransport();
+        await using var client = new FlipperRpcClient(transport, new FlipperRpcClientOptions
+        {
+            DisableHeartbeat = true,
+        });
+
+        // daemon_info does NOT advertise configure — old daemon that predates the command.
+        transport.EnqueueResponse(ValidDaemonInfoJson);
+
+        var ex = await Assert.ThrowsAsync<FlipperRpcException>(() => client.ConnectAsync());
+
+        Assert.Contains("DisableHeartbeat", ex.Message);
+        Assert.Contains("configure", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_DisableHeartbeat_False_SendsNormalTimings()
+    {
+        var transport = new FakeTransport();
+        // HeartbeatInterval = 5 s, Timeout = 15 s, DisableHeartbeat = false (default)
+        await using var client = new FlipperRpcClient(transport, new FlipperRpcClientOptions
+        {
+            HeartbeatInterval = TimeSpan.FromSeconds(5),
+            Timeout           = TimeSpan.FromSeconds(15),
+        });
+
+        transport.EnqueueResponse(
+            """{"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":4,"cmds":["ping","daemon_info","configure"]}}""");
+        transport.EnqueueResponse(
+            """{"t":0,"i":2,"p":{"hb":5000,"to":15000}}""");
+
+        await client.ConnectAsync();
+
+        var sent = transport.SentLines;
+        Assert.Equal(2, sent.Count);
+
+        using var doc = JsonDocument.Parse(sent[1]);
+        Assert.Equal(5_000u, doc.RootElement.GetProperty("hb").GetUInt32());
+        Assert.Equal(15_000u, doc.RootElement.GetProperty("to").GetUInt32());
+    }
+
+    // -------------------------------------------------------------------------
+    // DisablePacketSerialization option
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConnectAsync_DisablePacketSerialization_SucceedsAndSendsCommands()
+    {
+        var transport = new FakeTransport();
+        await using var client = new FlipperRpcClient(transport, new FlipperRpcClientOptions
+        {
+            DisablePacketSerialization = true,
+            // Use large heartbeat so the heartbeat loop doesn't interfere.
+            HeartbeatInterval = TimeSpan.FromHours(1),
+            Timeout           = TimeSpan.FromHours(2),
+        });
+
+        transport.EnqueueResponse(ValidDaemonInfoJson);
+        var info = await client.ConnectAsync();
+
+        Assert.Equal("flipper_zero_rpc_daemon", info.Name);
+
+        // Verify a subsequent command still works (no serialization layer → direct send).
+        transport.EnqueueResponse("""{"t":0,"i":2,"p":{"pg":1}}""");
+        await client.PingAsync();
+
+        var sent = transport.SentLines;
+        Assert.Equal(2, sent.Count); // daemon_info + ping
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DisableHeartbeat_DefaultIsFalse()
+    {
+        var opts = default(FlipperRpcClientOptions);
+        Assert.False(opts.DisableHeartbeat);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DisablePacketSerialization_DefaultIsFalse()
+    {
+        var opts = default(FlipperRpcClientOptions);
+        Assert.False(opts.DisablePacketSerialization);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DisableHeartbeat_CanBeEnabled()
+    {
+        var opts = new FlipperRpcClientOptions { DisableHeartbeat = true };
+        Assert.True(opts.DisableHeartbeat);
+    }
+
+    [Fact]
+    public void FlipperRpcClientOptions_DisablePacketSerialization_CanBeEnabled()
+    {
+        var opts = new FlipperRpcClientOptions { DisablePacketSerialization = true };
+        Assert.True(opts.DisablePacketSerialization);
+    }
 }

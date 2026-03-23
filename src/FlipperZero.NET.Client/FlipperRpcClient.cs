@@ -322,6 +322,18 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             await SendAsync<ConfigureCommand, ConfigureResponse>(
                 new ConfigureCommand(heartbeatMs, timeoutMs, _options.LedIndicatorColor, _options.DaemonDiagnostics), ct).ConfigureAwait(false);
         }
+        else if (_options.DisableHeartbeat)
+        {
+            // The daemon predates the configure command, so we cannot tell it to use
+            // extended heartbeat timeouts.  With client-side heartbeat disabled and no
+            // configure support, the daemon will disconnect after its built-in ~10 s
+            // inbound-silence timeout.  Fail fast with a clear explanation rather than
+            // letting the caller observe a cryptic disconnect a few seconds later.
+            throw new FlipperRpcException(
+                "DisableHeartbeat=true requires the daemon to support the 'configure' command " +
+                $"(protocol version >= 4), but the connected daemon reports version {info.Version}. " +
+                "Update the FlipperZero.NET RPC daemon FAP, or set DisableHeartbeat=false.");
+        }
 
         return info;
     }

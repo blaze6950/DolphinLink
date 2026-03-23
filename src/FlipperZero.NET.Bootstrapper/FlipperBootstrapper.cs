@@ -168,6 +168,7 @@ public static class FlipperBootstrapper
         {
             await native.OpenAsync(linked).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             throw new FlipperBootstrapException(
@@ -256,10 +257,12 @@ public static class FlipperBootstrapper
             IRpcDiagnostics? diagnostics,
             CancellationToken ct)
     {
+        ISerialPort? port   = null;
         FlipperRpcClient? client = null;
         try
         {
-            var transport = new SerialPortTransport(daemonPortFactory());
+            port = daemonPortFactory();
+            var transport = new SerialPortTransport(port);
             client = new FlipperRpcClient(transport, clientOptions, diagnostics);
 
             // Use a short timeout for the direct attempt so we don't block long.
@@ -270,37 +273,62 @@ public static class FlipperBootstrapper
                 .ConnectAsync(MinProtocolVersion, linked.Token)
                 .ConfigureAwait(false);
 
+            // Success — client owns the transport chain; port lifetime is managed
+            // by the transport and ultimately the client's DisposeAsync.
             return (client, info);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             // Short timeout expired — daemon is not running.
-            await DisposeClientSilently(client).ConfigureAwait(false);
+            await DisposeClientAndPortSilently(client, port).ConfigureAwait(false);
             return (null, null);
         }
         catch (OperationCanceledException)
         {
             // Outer ct was cancelled — propagate so the caller stops immediately.
-            await DisposeClientSilently(client).ConfigureAwait(false);
+            await DisposeClientAndPortSilently(client, port).ConfigureAwait(false);
             throw;
         }
         catch
         {
             // Port doesn't exist, wrong daemon, version too old, etc.
-            await DisposeClientSilently(client).ConfigureAwait(false);
+            await DisposeClientAndPortSilently(client, port).ConfigureAwait(false);
             return (null, null);
         }
     }
 
-    private static async ValueTask DisposeClientSilently(FlipperRpcClient? client)
+    /// <summary>
+    /// Disposes the client (which owns its transport chain) and then, if the port was
+    /// not yet handed off to the transport, disposes the port directly.
+    ///
+    /// <para>
+    /// <see cref="SerialPortTransport(ISerialPort)"/> sets <c>ownsPort=false</c>, so the
+    /// transport does NOT dispose the port when it is itself disposed.  In failure paths
+    /// the port must therefore be disposed explicitly alongside the client.
+    /// </para>
+    ///
+    /// <para>
+    /// Pass <paramref name="port"/> as <c>null</c> when the port was never created (e.g.
+    /// the factory threw before the port was assigned), or when the caller has already
+    /// arranged for the port's lifetime separately.
+    /// </para>
+    /// </summary>
+    private static async ValueTask DisposeClientAndPortSilently(
+        FlipperRpcClient? client,
+        ISerialPort? port)
     {
-        if (client is null)
+        if (client is not null)
         {
-            return;
+            try { await client.DisposeAsync().ConfigureAwait(false); }
+            catch { /* best-effort */ }
         }
 
-        try { await client.DisposeAsync().ConfigureAwait(false); }
-        catch { /* best-effort */ }
+        // Dispose the port directly — the transport does not own it.
+        if (port is not null)
+        {
+            try { await port.DisposeAsync().ConfigureAwait(false); }
+            catch { /* best-effort */ }
+        }
     }
 
     /// <summary>
@@ -390,27 +418,29 @@ public static class FlipperBootstrapper
 
         while (!linked.IsCancellationRequested)
         {
+            ISerialPort? port = null;
             FlipperRpcClient? client = null;
             try
             {
-                var transport = new SerialPortTransport(daemonPortFactory());
+                port = daemonPortFactory();
+                var transport = new SerialPortTransport(port);
                 client = new FlipperRpcClient(transport, clientOptions, diagnostics);
 
                 using var attemptCts  = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                 using var attemptLink = CancellationTokenSource.CreateLinkedTokenSource(linked, attemptCts.Token);
 
                 await client.ConnectAsync(MinProtocolVersion, attemptLink.Token).ConfigureAwait(false);
-                return client; // success
+                return client; // success — caller owns client (and transitively the transport)
             }
             catch (OperationCanceledException) when (linked.IsCancellationRequested)
             {
-                await DisposeClientSilently(client).ConfigureAwait(false);
+                await DisposeClientAndPortSilently(client, port).ConfigureAwait(false);
                 throw;
             }
             catch (Exception ex)
             {
                 lastEx = ex;
-                await DisposeClientSilently(client).ConfigureAwait(false);
+                await DisposeClientAndPortSilently(client, port).ConfigureAwait(false);
             }
 
             try
