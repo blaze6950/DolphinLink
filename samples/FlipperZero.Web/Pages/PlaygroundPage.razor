@@ -1,0 +1,156 @@
+@page "/playground"
+
+@using FlipperZero.Web.Playground
+@using FlipperZero.Web.Services
+@using FlipperZero.Web.Components.Playground
+
+@inject FlipperClientService Flipper
+
+@implements IDisposable
+
+<PageTitle>Playground — FlipperZero.NET</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="mb-0">RPC Playground</h1>
+    @if (Flipper.IsConnected)
+    {
+        <span class="badge bg-success fs-6">Connected</span>
+    }
+    else
+    {
+        <span class="badge bg-secondary fs-6">Not connected — go to <a href="/" class="text-white">Home</a> to connect</span>
+    }
+</div>
+
+<p class="text-muted">
+    Auto-generated interactive UI for every Flipper RPC command and stream.
+    Select a subsystem on the left, then expand any command to send it live.
+</p>
+
+<div class="row g-3">
+    @* ── Subsystem sidebar ──────────────────────────────────────────────── *@
+    <div class="col-12 col-md-3 col-lg-2">
+        <div class="list-group">
+            @foreach (var sub in PlaygroundRegistry.Subsystems)
+            {
+                <button type="button"
+                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2
+                               @(sub == _selectedSubsystem ? "active" : "")"
+                        @onclick="() => SelectSubsystem(sub)">
+                    <span>@sub.Name</span>
+                    <span class="badge @(sub == _selectedSubsystem ? "bg-light text-dark" : "bg-secondary") rounded-pill">
+                        @(sub.Commands.Count + sub.Streams.Count)
+                    </span>
+                </button>
+            }
+        </div>
+
+        @* Search *@
+        <input class="form-control form-control-sm mt-3"
+               type="search"
+               placeholder="Filter commands..."
+               @bind="_searchText"
+               @bind:event="oninput" />
+    </div>
+
+    @* ── Command + stream panels ────────────────────────────────────────── *@
+    <div class="col-12 col-md-9 col-lg-10">
+        @if (_selectedSubsystem is null)
+        {
+            <div class="text-muted fst-italic">Select a subsystem to browse its commands.</div>
+        }
+        else
+        {
+            var filteredCmds    = FilteredCommands();
+            var filteredStreams  = FilteredStreams();
+            var hasResults      = filteredCmds.Count > 0 || filteredStreams.Count > 0;
+
+            @if (!hasResults)
+            {
+                <div class="text-muted fst-italic">No commands or streams match "@_searchText".</div>
+            }
+
+            @* Commands *@
+            @if (filteredCmds.Count > 0)
+            {
+                <h5 class="text-uppercase text-muted small mb-2">
+                    Commands
+                    <span class="badge bg-secondary ms-1">@filteredCmds.Count</span>
+                </h5>
+                @foreach (var cmd in filteredCmds)
+                {
+                    <CommandPanel Command="cmd" />
+                }
+            }
+
+            @* Streams *@
+            @if (filteredStreams.Count > 0)
+            {
+                <h5 class="text-uppercase text-muted small mb-2 mt-3">
+                    Streams
+                    <span class="badge bg-info text-dark ms-1">@filteredStreams.Count</span>
+                </h5>
+                @foreach (var stream in filteredStreams)
+                {
+                    <StreamPanel Stream="stream" />
+                }
+        }
+    }
+</div>
+</div>
+
+@code {
+    private SubsystemDescriptor? _selectedSubsystem;
+    private string _searchText = "";
+
+    protected override void OnInitialized()
+    {
+        // Auto-select first subsystem.
+        _selectedSubsystem = PlaygroundRegistry.Subsystems.Count > 0
+            ? PlaygroundRegistry.Subsystems[0]
+            : null;
+
+        Flipper.StateChanged += OnStateChanged;
+    }
+
+    private void SelectSubsystem(SubsystemDescriptor sub)
+    {
+        _selectedSubsystem = sub;
+        _searchText        = "";
+    }
+
+    private IReadOnlyList<CommandDescriptor> FilteredCommands()
+    {
+        if (_selectedSubsystem is null) return [];
+        if (string.IsNullOrWhiteSpace(_searchText))
+            return _selectedSubsystem.Commands;
+
+        var q = _searchText.Trim().ToLowerInvariant();
+        return _selectedSubsystem.Commands
+            .Where(c => c.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || c.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || c.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private IReadOnlyList<StreamDescriptor> FilteredStreams()
+    {
+        if (_selectedSubsystem is null) return [];
+        if (string.IsNullOrWhiteSpace(_searchText))
+            return _selectedSubsystem.Streams;
+
+        var q = _searchText.Trim().ToLowerInvariant();
+        return _selectedSubsystem.Streams
+            .Where(s => s.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || s.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || s.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Flipper.StateChanged -= OnStateChanged;
+    }
+}

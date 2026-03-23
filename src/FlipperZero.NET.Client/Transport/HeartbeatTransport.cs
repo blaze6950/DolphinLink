@@ -70,10 +70,13 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     private readonly IFlipperTransport _inner;
     private readonly TimeSpan _heartbeatInterval;
     private readonly TimeSpan _timeout;
-    private readonly Stopwatch _clock = new();
 
-    private long _lastSeenTicks;
-    private long _lastSentTicks;
+    // Absolute Stopwatch timestamps (from Stopwatch.GetTimestamp()) for the
+    // last received / sent lines.
+    // Using Stopwatch.GetTimestamp() + Stopwatch.GetElapsedTime() avoids the
+    // TimeSpan.FromTicks(ElapsedTicks) unit-mismatch bug (Stopwatch ticks ≠ TimeSpan ticks).
+    private long _lastSeenTimestamp;
+    private long _lastSentTimestamp;
     private int _disconnected;
 
     private Task? _heartbeatTask;
@@ -121,7 +124,6 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     public async ValueTask OpenAsync(CancellationToken ct = default)
     {
         await _inner.OpenAsync(ct).ConfigureAwait(false);
-        _clock.Start();
         _heartbeatTask = Task.Run(() => HeartbeatLoopAsync(_heartbeatCts.Token));
     }
 
@@ -129,7 +131,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     public async ValueTask SendAsync(string data, CancellationToken ct = default)
     {
         await _inner.SendAsync(data, ct).ConfigureAwait(false);
-        Interlocked.Exchange(ref _lastSentTicks, _clock.ElapsedTicks);
+        Interlocked.Exchange(ref _lastSentTimestamp, Stopwatch.GetTimestamp());
     }
 
     /// <inheritdoc/>
@@ -142,7 +144,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
     {
         await foreach (var line in _inner.ReceiveAsync(ct).ConfigureAwait(false))
         {
-            Interlocked.Exchange(ref _lastSeenTicks, _clock.ElapsedTicks);
+            Interlocked.Exchange(ref _lastSeenTimestamp, Stopwatch.GetTimestamp());
 
             if (line.AsSpan().Trim().IsEmpty)
             {
@@ -181,15 +183,15 @@ internal sealed class HeartbeatTransport : IFlipperTransport
         {
             while (!ct.IsCancellationRequested)
             {
-                var nowTicks = _clock.ElapsedTicks;
-                var lastSeen = Interlocked.Read(ref _lastSeenTicks);
-                var lastSent = Interlocked.Read(ref _lastSentTicks);
+                var nowTs   = Stopwatch.GetTimestamp();
+                var lastSeen = Interlocked.Read(ref _lastSeenTimestamp);
+                var lastSent = Interlocked.Read(ref _lastSentTimestamp);
 
                 // ---- RX timeout check ----
                 // Skip until the first line arrives (grace period during connect).
                 if (lastSeen > 0)
                 {
-                    var silenceSeen = TimeSpan.FromTicks(nowTicks - lastSeen);
+                    var silenceSeen = Stopwatch.GetElapsedTime(lastSeen, nowTs);
                     if (silenceSeen > _timeout)
                     {
                         TriggerDisconnect();
@@ -200,7 +202,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                 // ---- TX heartbeat check ----
                 var silenceSent = lastSent == 0
                     ? _heartbeatInterval
-                    : TimeSpan.FromTicks(nowTicks - lastSent);
+                    : Stopwatch.GetElapsedTime(lastSent, nowTs);
 
                 if (silenceSent >= _heartbeatInterval)
                 {
@@ -208,7 +210,7 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                     {
                         // Empty string → transport appends \n → bare \n on the wire.
                         await _inner.SendAsync(string.Empty, ct).ConfigureAwait(false);
-                        Interlocked.Exchange(ref _lastSentTicks, _clock.ElapsedTicks);
+                        Interlocked.Exchange(ref _lastSentTimestamp, Stopwatch.GetTimestamp());
                     }
                     catch (OperationCanceledException)
                     {
@@ -222,17 +224,17 @@ internal sealed class HeartbeatTransport : IFlipperTransport
                 }
 
                 // ---- Dynamic delay ----
-                var now2Ticks = _clock.ElapsedTicks;
-                var lastSeen2 = Interlocked.Read(ref _lastSeenTicks);
-                var lastSent2 = Interlocked.Read(ref _lastSentTicks);
+                var now2Ts   = Stopwatch.GetTimestamp();
+                var lastSeen2 = Interlocked.Read(ref _lastSeenTimestamp);
+                var lastSent2 = Interlocked.Read(ref _lastSentTimestamp);
 
                 var timeoutDelay = lastSeen2 == 0
                     ? _timeout
-                    : _timeout - TimeSpan.FromTicks(now2Ticks - lastSeen2);
+                    : _timeout - Stopwatch.GetElapsedTime(lastSeen2, now2Ts);
 
                 var heartbeatDelay = lastSent2 == 0
                     ? _heartbeatInterval
-                    : _heartbeatInterval - TimeSpan.FromTicks(now2Ticks - lastSent2);
+                    : _heartbeatInterval - Stopwatch.GetElapsedTime(lastSent2, now2Ts);
 
                 var delay = Min(timeoutDelay, heartbeatDelay);
                 delay = Max(delay, TimeSpan.FromMilliseconds(1));

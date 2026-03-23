@@ -186,7 +186,9 @@ public static partial class RpcJsonNormalizer
         {
             string pkWire = prop.Name;
             // "s" with no command context → stream_id (stream-open response).
-            string pkHuman = (pkWire == "s" && resolvedCmd == null)
+            // "s" in a response payload always means stream_id — no command response
+            // uses "s" for any other purpose, regardless of whether we know the command name.
+            string pkHuman = pkWire == "s"
                 ? "stream_id"
                 : ExpandResponseKey(resolvedCmd, pkWire) ?? pkWire;
 

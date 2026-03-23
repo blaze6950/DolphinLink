@@ -8,8 +8,8 @@
  *     p — pin enum integer (ADC-capable pins only)
  *
  * Wire format (response):
- *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}
- *     raw — raw 12-bit ADC count (0–4095)
+ *   {"t":0,"i":N,"p":{"rw":2048,"mv":1650}}
+ *     rw  — raw 12-bit ADC count (0–4095)
  *     mv  — voltage in millivolts (integer)
  *
  * Error codes:

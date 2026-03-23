@@ -62,28 +62,28 @@ public sealed class PendingRequestsTests
     }
 
     // -------------------------------------------------------------------------
-    // StampSentTicks
+    // StampSentTimestamp
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void StampSentTicks_UpdatesExistingRequest()
+    public void StampSentTimestamp_UpdatesExistingRequest()
     {
         var sut = new RpcPendingRequests();
         var req = MakeRequest();
         sut.Register(7, req);
 
-        sut.StampSentTicks(7, 12345L);
+        sut.StampSentTimestamp(7, 12345L);
 
-        Assert.Equal(12345L, req.SentTicks);
+        Assert.Equal(12345L, req.SentTimestamp);
     }
 
     [Fact]
-    public void StampSentTicks_IsNoOp_WhenIdNotFound()
+    public void StampSentTimestamp_IsNoOp_WhenIdNotFound()
     {
         var sut = new RpcPendingRequests();
 
         // Should not throw
-        sut.StampSentTicks(999, 12345L);
+        sut.StampSentTimestamp(999, 12345L);
     }
 
     // -------------------------------------------------------------------------

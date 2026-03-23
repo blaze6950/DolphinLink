@@ -22,7 +22,7 @@ public sealed class DispatcherTests
     /// </summary>
     private sealed class FakePendingRequest : IPendingRequest
     {
-        public long SentTicks { get; set; }
+        public long SentTimestamp { get; set; }
         public List<JsonElement> Completions { get; } = new();
         public List<Exception> Failures { get; } = new();
 
@@ -40,7 +40,6 @@ public sealed class DispatcherTests
     {
         public RpcPendingRequests Pending { get; } = new();
         public RpcStreamManager Streams { get; } = new();
-        public Stopwatch Clock { get; } = Stopwatch.StartNew();
         public FakeDiagnostics Diagnostics { get; } = new();
         public List<RpcLogEntry> LogEntries => Diagnostics.LogEntries;
 
@@ -51,7 +50,6 @@ public sealed class DispatcherTests
             Dispatcher = new RpcMessageDispatcher(
                 Pending,
                 Streams,
-                Clock,
                 Diagnostics);
         }
 
@@ -59,7 +57,7 @@ public sealed class DispatcherTests
         public void Dispatch(string rawLine)
         {
             var envelope = RpcEnvelope.Parse(rawLine);
-            Dispatcher.Dispatch(envelope, rawLine, Clock.ElapsedTicks);
+            Dispatcher.Dispatch(envelope, rawLine, Stopwatch.GetTimestamp());
         }
 
         /// <summary>Registers a <see cref="FakePendingRequest"/> and returns it.</summary>
@@ -193,7 +191,7 @@ public sealed class DispatcherTests
         var f = new DispatcherFixture();
         f.RegisterPending(4);
         // Stamp a non-zero sent time
-        f.Pending.StampSentTicks(4, f.Clock.ElapsedTicks);
+        f.Pending.StampSentTimestamp(4, Stopwatch.GetTimestamp());
 
         f.Dispatch("""{"t":0,"i":4}""");
 

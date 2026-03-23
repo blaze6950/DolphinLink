@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Converters;
 
 namespace FlipperZero.NET.Commands.System;
 
@@ -41,6 +42,7 @@ public readonly partial struct DeviceInfoResponse : IRpcCommandResponse
     [JsonPropertyName("go")] public string? GitOrigin { get; init; }
 
     /// <summary><c>true</c> if the firmware was built with uncommitted changes.</summary>
+    [JsonConverter(typeof(NumericBoolJsonConverter))]
     [JsonPropertyName("dy")] public bool Dirty { get; init; }
 
     // ---- Hardware OTP ----

@@ -101,3 +101,171 @@ a, .btn-link {
 code {
     color: #c02d76;
 }
+
+/* ── RPC Console fixed footer ───────────────────────────────────────────── */
+
+.rpc-console-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #1e1e1e;
+    border-top: 1px solid #3c3c3c;
+    color: #d4d4d4;
+}
+
+/* ── Drag handle ─────────────────────────────────────────────────────────── */
+
+.rpc-console-drag-handle {
+    height: 8px;
+    cursor: ns-resize;
+    background: #252526;
+    border-bottom: 1px solid #3c3c3c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.rpc-console-drag-handle:hover {
+    background: #2d2d30;
+}
+
+.rpc-console-drag-dots::before {
+    content: '· · · · ·';
+    font-size: 0.6em;
+    color: #555;
+    letter-spacing: 3px;
+    line-height: 1;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.rpc-console-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.rpc-console-toolbar:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+.rpc-console-toggle {
+    color: #d4d4d4;
+    font-size: 0.8em;
+    line-height: 1;
+    pointer-events: none; /* purely decorative — parent handles click */
+}
+
+.rpc-console-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rpc-console-toolbar-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ── Log area ────────────────────────────────────────────────────────────── */
+
+.rpc-console-log {
+    height: 260px;
+    overflow-y: auto;
+    padding: 6px 8px;
+}
+
+/* ── Individual log entries ──────────────────────────────────────────────── */
+
+.rpc-entry {
+    padding: 3px 6px;
+    margin-bottom: 1px;
+    border-left: 3px solid transparent;
+    border-radius: 0 2px 2px 0;
+}
+
+.rpc-entry--cmd {
+    border-left-color: #569cd6;
+    background: rgba(86,156,214,0.06);
+}
+
+.rpc-entry--resp {
+    border-left-color: #4ec9b0;
+    background: rgba(78,201,176,0.06);
+}
+
+.rpc-entry--event {
+    border-left-color: #9cdcfe;
+    background: rgba(156,220,254,0.06);
+}
+
+.rpc-entry--error {
+    border-left-color: #f44747;
+    background: rgba(244,71,71,0.08);
+}
+
+.rpc-entry-arrow {
+    color: inherit;
+    margin-left: 4px;
+    user-select: none;
+    font-family: monospace;
+}
+
+.rpc-entry--cmd    .rpc-entry-arrow { color: #569cd6; }
+.rpc-entry--resp   .rpc-entry-arrow { color: #4ec9b0; }
+.rpc-entry--event  .rpc-entry-arrow { color: #9cdcfe; }
+.rpc-entry--error  .rpc-entry-arrow { color: #f44747; }
+
+.rpc-entry-name {
+    color: #9cdcfe;
+}
+
+/* ── Command + Response groups ───────────────────────────────────────────── */
+
+.rpc-entry-group {
+    border-left: 3px solid #569cd6;
+    border-radius: 0 2px 2px 0;
+    margin-bottom: 4px;
+    background: rgba(86,156,214,0.03);
+}
+
+/* Entries inside a group lose their individual left border (group provides it) */
+.rpc-entry-group .rpc-entry {
+    border-left: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+/* Response inside a group gets a subtle separator and slight indent */
+.rpc-entry-group .rpc-entry--grouped-response {
+    border-top: 1px solid rgba(78,201,176,0.15);
+    padding-left: 12px;
+    background: rgba(78,201,176,0.04);
+}
+
+/* On desktop (sidebar is 250px wide), offset footer to start after the sidebar */
+@media (min-width: 641px) {
+    .rpc-console-footer {
+        left: 250px;
+    }
+}
+
+/* Pad the main content area so it is never hidden behind the footer */
+.content {
+    padding-bottom: 320px; /* expanded console (~300px) + comfortable gap */
+}
+
+/* Reduce bottom padding when console is collapsed */
+.rpc-console-footer--collapsed ~ * .content,
+body:has(.rpc-console-footer--collapsed) .content {
+    padding-bottom: 60px;
+}
+

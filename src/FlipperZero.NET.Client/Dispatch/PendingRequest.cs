@@ -18,7 +18,7 @@ internal sealed class PendingRequest<TResponse> : IPendingRequest
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public long SentTicks { get; set; }
+    public long SentTimestamp { get; set; }
 
     /// <summary>The task that resolves when the response arrives or the request fails.</summary>
     public Task<TResponse> Task => _tcs.Task;

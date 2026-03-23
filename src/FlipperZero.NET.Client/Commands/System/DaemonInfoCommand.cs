@@ -19,7 +19,7 @@ public readonly partial struct DaemonInfoResponse : IRpcCommandResponse
     /// Increment this in the C daemon whenever a breaking wire-format change is made.
     /// </summary>
     [JsonPropertyName("v")]
-    public int Version { get; init; }
+    public uint Version { get; init; }
 
     /// <summary>
     /// All command names registered in the running daemon's dispatch table.

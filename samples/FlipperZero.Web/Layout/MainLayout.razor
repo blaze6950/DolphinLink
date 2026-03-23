@@ -1,12 +1,18 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+
+@using FlipperZero.Web.Services
+@using FlipperZero.Web.Components.Playground
+
+@inject FlipperClientService Flipper
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 d-flex align-items-center justify-content-end gap-3">
+            <ConnectionBar />
         </div>
 
         <article class="content px-4">
@@ -14,3 +20,14 @@
         </article>
     </main>
 </div>
+
+<RpcConsole />
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Auto-connect once when the app starts. Safe to call repeatedly — the service
+        // short-circuits immediately if already connected.
+        await Flipper.AutoConnectAsync();
+    }
+}

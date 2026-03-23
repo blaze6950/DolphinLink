@@ -6,11 +6,12 @@ namespace FlipperZero.NET.Dispatch;
 internal interface IPendingRequest
 {
     /// <summary>
-    /// Stopwatch ticks recorded when the command line was sent.
+    /// Absolute timestamp recorded when the command line was sent, obtained via
+    /// <see cref="System.Diagnostics.Stopwatch.GetTimestamp"/>.
     /// Set by the writer loop immediately after the send; read by the dispatcher
-    /// to compute round-trip time.
+    /// to compute round-trip time via <see cref="System.Diagnostics.Stopwatch.GetElapsedTime"/>.
     /// </summary>
-    long SentTicks { get; set; }
+    long SentTimestamp { get; set; }
 
     /// <summary>
     /// Called when a success response arrives.

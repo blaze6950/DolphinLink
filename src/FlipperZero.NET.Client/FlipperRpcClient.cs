@@ -154,12 +154,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     public CancellationToken Disconnected => _disconnectCts.Token;
 
     /// <summary>
-    /// Monotonic clock started at <see cref="ConnectAsync"/> time.
-    /// Used to stamp all <see cref="RpcLogEntry"/> records.
-    /// </summary>
-    private readonly Stopwatch _clock = new();
-
-    /// <summary>
     /// Diagnostics sink. Never null — defaults to the no-op singleton inside
     /// <see cref="RpcMessageDispatcher"/>, but stored here for the two direct
     /// call sites in <see cref="SendAsync{TCommand,TResponse}"/> and
@@ -225,7 +219,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         _options = options;
         _diagnostics = diagnostics ?? RpcMessageDispatcher.NullDiagnosticsInstance;
 
-        _dispatcher = new RpcMessageDispatcher(_pending, _streams, _clock, _diagnostics);
+        _dispatcher = new RpcMessageDispatcher(_pending, _streams, _diagnostics);
     }
 
     // -------------------------------------------------------------------------
@@ -257,12 +251,11 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     /// <paramref name="minProtocolVersion"/>.
     /// </exception>
     public async Task<DaemonInfoResponse> ConnectAsync(
-        int minProtocolVersion = 1,
+        uint minProtocolVersion = 1,
         CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
         await _transport.OpenAsync(ct).ConfigureAwait(false);
-        _clock.Start();
         _readerTask = Task.Run(() => ReaderLoopAsync(_cts.Token));
 
         DaemonInfo = await NegotiateAsync(minProtocolVersion, ct).ConfigureAwait(false);
@@ -270,7 +263,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
     }
 
     private async Task<DaemonInfoResponse> NegotiateAsync(
-        int minProtocolVersion,
+        uint minProtocolVersion,
         CancellationToken ct)
     {
         const string ExpectedName = "flipper_zero_rpc_daemon";
@@ -389,7 +382,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         }
 
         // Stamp the send time for round-trip tracking.
-        _pending.StampSentTicks(id, _clock.ElapsedTicks);
+        _pending.StampSentTimestamp(id, Stopwatch.GetTimestamp());
 
         _diagnostics.Log(new RpcLogEntry
         {
@@ -398,7 +391,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             RequestId = id,
             CommandName = command.CommandName,
             RawJson = json,
-            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
         });
 
         return await pending.Task.ConfigureAwait(false);
@@ -450,7 +442,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             throw;
         }
 
-        _pending.StampSentTicks(id, _clock.ElapsedTicks);
+        _pending.StampSentTimestamp(id, Stopwatch.GetTimestamp());
 
         _diagnostics.Log(new RpcLogEntry
         {
@@ -459,7 +451,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             RequestId = id,
             CommandName = command.CommandName,
             RawJson = json,
-            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
         });
 
         var openResult = await openPending.Task.ConfigureAwait(false);
@@ -517,7 +508,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
                     continue;
                 }
 
-                var receivedTicks = _clock.ElapsedTicks;
+                var receivedTimestamp = Stopwatch.GetTimestamp();
                 var envelope = RpcEnvelope.Parse(line);
 
                 if (envelope.Type == RpcMessageType.Disconnect)
@@ -527,7 +518,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
                     return;
                 }
 
-                _dispatcher.Dispatch(envelope, line, receivedTicks);
+                _dispatcher.Dispatch(envelope, line, receivedTimestamp);
 
                 // Yield to the cooperative scheduler after each message.  In single-threaded
                 // Blazor WASM this gives the JS event loop (and the WebSerial read pump) a
@@ -566,7 +557,6 @@ public sealed class FlipperRpcClient : IAsyncDisposable
             Source = RpcLogSource.Client,
             Kind = RpcLogKind.Error,
             Status = status,
-            Elapsed = TimeSpan.FromTicks(_clock.ElapsedTicks),
         });
 
     private void OnHeartbeatDisconnected()

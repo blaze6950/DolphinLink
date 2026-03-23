@@ -12,7 +12,6 @@ namespace FlipperZero.NET.Dispatch;
 /// <list type="bullet">
 ///   <item><see cref="RpcPendingRequests"/> — resolved request/response callbacks.</item>
 ///   <item><see cref="RpcStreamManager"/> — active stream event channels.</item>
-///   <item><see cref="Stopwatch"/> — monotonic clock for log timestamps and round-trip times.</item>
 ///   <item><see cref="IRpcDiagnostics"/> — log sink; defaults to <see cref="NullDiagnostics"/> (no-op).</item>
 /// </list>
 ///
@@ -43,18 +42,15 @@ internal sealed class RpcMessageDispatcher
 
     private readonly RpcPendingRequests _pending;
     private readonly RpcStreamManager _streams;
-    private readonly Stopwatch _clock;
     private readonly IRpcDiagnostics _diagnostics;
 
     public RpcMessageDispatcher(
         RpcPendingRequests pending,
         RpcStreamManager streams,
-        Stopwatch clock,
         IRpcDiagnostics? diagnostics = null)
     {
         _pending = pending;
         _streams = streams;
-        _clock = clock;
         _diagnostics = diagnostics ?? NullDiagnostics.Instance;
     }
 
@@ -62,16 +58,22 @@ internal sealed class RpcMessageDispatcher
     /// Dispatches a pre-parsed V3 envelope to the correct pending request or stream.
     /// <see cref="RpcMessageType.Disconnect"/> is ignored — callers handle it externally.
     /// </summary>
-    public void Dispatch(RpcEnvelope envelope, string rawLine, long receivedTicks)
+    /// <param name="receivedTimestamp">
+    /// Absolute timestamp captured via <see cref="Stopwatch.GetTimestamp"/> in the
+    /// reader loop at the moment the line was received.  Used together with
+    /// <see cref="IPendingRequest.SentTimestamp"/> to compute round-trip time via
+    /// <see cref="Stopwatch.GetElapsedTime"/>.
+    /// </param>
+    public void Dispatch(RpcEnvelope envelope, string rawLine, long receivedTimestamp)
     {
         switch (envelope.Type)
         {
             case RpcMessageType.Event:
-                DispatchEvent(envelope, rawLine, receivedTicks);
+                DispatchEvent(envelope, rawLine);
                 return;
 
             case RpcMessageType.Response:
-                DispatchResponse(envelope, rawLine, receivedTicks);
+                DispatchResponse(envelope, rawLine, receivedTimestamp);
                 return;
 
             case RpcMessageType.Disconnect:
@@ -86,7 +88,6 @@ internal sealed class RpcMessageDispatcher
                     Kind = RpcLogKind.Error,
                     Status = "Malformed JSON received.",
                     RawJson = rawLine,
-                    Elapsed = TimeSpan.FromTicks(receivedTicks),
                 });
                 return;
         }
@@ -96,7 +97,7 @@ internal sealed class RpcMessageDispatcher
     // Event dispatch
     // -------------------------------------------------------------------------
 
-    private void DispatchEvent(RpcEnvelope envelope, string rawLine, long receivedTicks)
+    private void DispatchEvent(RpcEnvelope envelope, string rawLine)
     {
         if (envelope.Id is not { } streamId)
         {
@@ -109,7 +110,6 @@ internal sealed class RpcMessageDispatcher
             Kind = RpcLogKind.StreamEventReceived,
             StreamId = streamId,
             RawJson = rawLine,
-            Elapsed = TimeSpan.FromTicks(receivedTicks),
         });
 
         _streams.TryRouteEvent(streamId, envelope.Payload);
@@ -119,7 +119,7 @@ internal sealed class RpcMessageDispatcher
     // Response dispatch
     // -------------------------------------------------------------------------
 
-    private void DispatchResponse(RpcEnvelope envelope, string rawLine, long receivedTicks)
+    private void DispatchResponse(RpcEnvelope envelope, string rawLine, long receivedTimestamp)
     {
         if (envelope.Id is not { } requestId)
         {
@@ -131,11 +131,12 @@ internal sealed class RpcMessageDispatcher
             return; // No one waiting — ignore
         }
 
-        // Compute round-trip time
+        // Compute round-trip time using Stopwatch.GetElapsedTime so the tick
+        // units are handled correctly on all platforms.
         TimeSpan? roundTrip = null;
-        if (pending.SentTicks > 0)
+        if (pending.SentTimestamp > 0)
         {
-            roundTrip = TimeSpan.FromTicks(receivedTicks - pending.SentTicks);
+            roundTrip = Stopwatch.GetElapsedTime(pending.SentTimestamp, receivedTimestamp);
         }
 
         var status = envelope.Error ?? "ok";
@@ -147,7 +148,6 @@ internal sealed class RpcMessageDispatcher
             RequestId = requestId,
             Status = status,
             RawJson = rawLine,
-            Elapsed = TimeSpan.FromTicks(receivedTicks),
             RoundTrip = roundTrip,
         });
 

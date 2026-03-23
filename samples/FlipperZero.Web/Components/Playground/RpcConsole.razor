@@ -1,0 +1,348 @@
+@using FlipperZero.Web.Services
+@using FlipperZero.NET
+@using System.Text.Json
+
+@inject RpcConsoleService Console
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+@implements IAsyncDisposable
+
+@* ── RpcConsole — fixed bottom footer visible on every page ─────────────── *@
+
+<div id="rpc-console-footer"
+     class="rpc-console-footer @(_collapsed ? "rpc-console-footer--collapsed" : "")">
+
+    @* ── Drag handle ──────────────────────────────────────────────────────── *@
+    @if (!_collapsed)
+    {
+        <div id="rpc-console-drag-handle" class="rpc-console-drag-handle" title="Drag to resize">
+            <span class="rpc-console-drag-dots"></span>
+        </div>
+    }
+
+    @* ── Toolbar (entire bar is clickable to toggle) ───────────────────────── *@
+    <div class="rpc-console-toolbar"
+         @onclick="ToggleCollapsed"
+         title="@(_collapsed ? "Expand console" : "Collapse console")"
+         style="cursor:pointer">
+
+        <span class="rpc-console-toggle" aria-hidden="true">
+            @(_collapsed ? "▶" : "▼")
+        </span>
+
+        <span class="rpc-console-title">
+            RPC Console
+            @if (Console.Entries.Count > 0)
+            {
+                <span class="badge bg-secondary ms-1" style="font-size:0.65em">@Console.Entries.Count</span>
+            }
+        </span>
+
+        @if (!_collapsed)
+        {
+            <div class="rpc-console-toolbar-controls" @onclick:stopPropagation="true">
+                @* Humanize toggle *@
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-1">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           role="switch"
+                           id="humanize-toggle"
+                           checked="@Console.HumanizeEnabled"
+                           @onchange="OnHumanizeChanged" />
+                    <label class="form-check-label small" style="color:#d4d4d4" for="humanize-toggle">
+                        Humanize
+                    </label>
+                </div>
+
+                @* Pretty Print toggle *@
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-1">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           role="switch"
+                           id="prettyprint-toggle"
+                           checked="@Console.PrettyPrintEnabled"
+                           @onchange="OnPrettyPrintChanged" />
+                    <label class="form-check-label small" style="color:#d4d4d4" for="prettyprint-toggle">
+                        Pretty Print
+                    </label>
+                </div>
+
+                @* Clear button *@
+                <button class="btn btn-sm btn-outline-secondary py-0"
+                        @onclick="Console.Clear"
+                        disabled="@(Console.Entries.Count == 0)"
+                        title="Clear console">
+                    Clear
+                </button>
+            </div>
+        }
+    </div>
+
+    @* ── Log area ─────────────────────────────────────────────────────────── *@
+    @if (!_collapsed)
+    {
+        <div id="rpc-console-log"
+             class="rpc-console-log font-monospace small">
+            @if (Console.Entries.Count == 0)
+            {
+                <span class="text-secondary fst-italic">No entries yet. Connect and send a command or start a stream.</span>
+            }
+            else
+            {
+                @foreach (var group in BuildGroups(Console.Entries))
+                {
+                    if (group.Response is not null)
+                    {
+                        @* ── Paired command + response ──────────────────────── *@
+                        <div class="rpc-entry-group">
+                            @RenderEntry(group.Command)
+                            @RenderEntry(group.Response.Value, isGroupedResponse: true)
+                        </div>
+                    }
+                    else
+                    {
+                        @* ── Standalone entry ───────────────────────────────── *@
+                        @RenderEntry(group.Command)
+                    }
+                }
+            }
+        </div>
+    }
+</div>
+
+@* ── Entry rendering helper (render fragment) ────────────────────────────── *@
+@code {
+    private RenderFragment RenderEntry(ConsoleEntry ce, bool isGroupedResponse = false) =>
+        @<div class="rpc-entry rpc-entry--@KindCssClass(ce.Entry.Kind) @(isGroupedResponse ? "rpc-entry--grouped-response" : "")">
+            @* Wall-clock timestamp *@
+            <span class="text-secondary" style="font-size:0.75em">
+                @ce.Timestamp.ToString("HH:mm:ss.fff")
+            </span>
+
+            @* Direction + kind indicator *@
+            <span class="rpc-entry-arrow" aria-hidden="true">@KindArrow(ce.Entry.Kind)</span>
+
+            @* Command / stream context *@
+            @if (ce.Entry.CommandName is not null)
+            {
+                <span class="ms-1 rpc-entry-name">@ce.Entry.CommandName</span>
+            }
+            else if (ce.Entry.StreamId.HasValue)
+            {
+                <span class="ms-1 text-secondary">s:@ce.Entry.StreamId</span>
+            }
+
+            @* Request / stream ID *@
+            @if (ce.Entry.RequestId.HasValue)
+            {
+                <span class="ms-1 text-secondary" style="font-size:0.75em">#@ce.Entry.RequestId</span>
+            }
+
+            @* Status badge *@
+            @if (ce.Entry.Status is not null)
+            {
+                @if (ce.Entry.Status == "ok")
+                {
+                    <span class="badge ms-1" style="background:#1e6823;font-size:0.65em">ok</span>
+                }
+                else
+                {
+                    <span class="badge ms-1" style="background:#7d2020;font-size:0.65em">@ce.Entry.Status</span>
+                }
+            }
+
+            @* Round-trip *@
+            @if (ce.Entry.RoundTrip.HasValue)
+            {
+                <span class="ms-1 text-secondary" style="font-size:0.75em">
+                    RT @(ce.Entry.RoundTrip.Value.TotalMilliseconds.ToString("F1"))ms
+                </span>
+            }
+
+            @* Daemon metrics *@
+            @if (RpcConsoleService.GetMetrics(ce) is { } metrics)
+            {
+                <span class="ms-1" style="font-size:0.72em;color:#b5cea8">[@metrics]</span>
+            }
+
+            @* JSON body *@
+            <div class="mt-1 ms-3" style="white-space:pre-wrap;word-break:break-all;color:#ce9178">
+                @Console.GetDisplayJson(ce)
+            </div>
+        </div>;
+}
+
+@code {
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    private bool _collapsed;
+    private bool _pendingScroll;
+    private IJSObjectReference? _jsModule;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        Console.StateChanged += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./../rpc-console.js").ConfigureAwait(false);
+
+            await InitResizeAsync().ConfigureAwait(false);
+        }
+
+        if (_pendingScroll && !_collapsed)
+        {
+            _pendingScroll = false;
+            await ScrollToBottomAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task InitResizeAsync()
+    {
+        if (_jsModule is null || _collapsed) return;
+        try
+        {
+            await _jsModule.InvokeVoidAsync(
+                "initResize",
+                null,                       // dotnet ref (reserved)
+                "rpc-console-drag-handle",  // handle element id
+                "rpc-console-log",          // log element id
+                80,                         // min height px
+                0.75                        // max ratio of viewport height
+            ).ConfigureAwait(false);
+        }
+        catch { /* JS interop may fail during prerendering */ }
+    }
+
+    private void OnStateChanged()
+    {
+        _pendingScroll = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        if (_jsModule is null) return;
+        try
+        {
+            await _jsModule.InvokeVoidAsync("scrollToBottom", "rpc-console-log")
+                           .ConfigureAwait(false);
+        }
+        catch { /* Ignore JS interop failures (e.g. element not yet mounted). */ }
+    }
+
+    private async Task SyncPaddingAsync()
+    {
+        if (_jsModule is null) return;
+        try
+        {
+            await _jsModule.InvokeVoidAsync("syncContentPadding", "rpc-console-drag-handle")
+                           .ConfigureAwait(false);
+        }
+        catch { }
+    }
+
+    private async Task ToggleCollapsed()
+    {
+        _collapsed = !_collapsed;
+        if (!_collapsed)
+        {
+            _pendingScroll = true;
+            // After expand renders, re-init resize (handle is now in DOM).
+            await InvokeAsync(async () =>
+            {
+                StateHasChanged();
+                await Task.Yield();
+                await InitResizeAsync().ConfigureAwait(false);
+                await SyncPaddingAsync().ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
+        else
+        {
+            await SyncPaddingAsync().ConfigureAwait(false);
+        }
+    }
+
+    private void OnHumanizeChanged(ChangeEventArgs _) => Console.ToggleHumanize();
+    private void OnPrettyPrintChanged(ChangeEventArgs _) => Console.TogglePrettyPrint();
+
+    public async ValueTask DisposeAsync()
+    {
+        Console.StateChanged -= OnStateChanged;
+        if (_jsModule is not null)
+        {
+            try { await _jsModule.DisposeAsync().ConfigureAwait(false); }
+            catch { }
+        }
+    }
+
+    // ── Grouping ──────────────────────────────────────────────────────────────
+
+    private readonly record struct EntryGroup(ConsoleEntry Command, ConsoleEntry? Response);
+
+    private static List<EntryGroup> BuildGroups(IReadOnlyList<ConsoleEntry> entries)
+    {
+        var groups = new List<EntryGroup>(entries.Count);
+
+        // Index responses by RequestId for O(1) lookup.
+        var responses = new Dictionary<uint, int>(); // requestId → entries index
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var e = entries[i];
+            if (e.Entry.Kind == RpcLogKind.ResponseReceived && e.Entry.RequestId.HasValue)
+                responses[e.Entry.RequestId.Value] = i;
+        }
+
+        var consumed = new HashSet<int>();
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            if (consumed.Contains(i)) continue;
+
+            var ce = entries[i];
+
+            if (ce.Entry.Kind == RpcLogKind.CommandSent && ce.Entry.RequestId.HasValue)
+            {
+                var rid = ce.Entry.RequestId.Value;
+                if (responses.TryGetValue(rid, out var ri) && !consumed.Contains(ri))
+                {
+                    consumed.Add(i);
+                    consumed.Add(ri);
+                    groups.Add(new EntryGroup(ce, entries[ri]));
+                    continue;
+                }
+            }
+
+            consumed.Add(i);
+            groups.Add(new EntryGroup(ce, null));
+        }
+
+        return groups;
+    }
+
+    // ── Entry rendering helpers ───────────────────────────────────────────────
+
+    private static string KindArrow(RpcLogKind kind) => kind switch
+    {
+        RpcLogKind.CommandSent         => "-->",
+        RpcLogKind.ResponseReceived    => "<--",
+        RpcLogKind.StreamEventReceived => "<~ ",
+        RpcLogKind.Error               => "!! ",
+        _                              => "   ",
+    };
+
+    private static string KindCssClass(RpcLogKind kind) => kind switch
+    {
+        RpcLogKind.CommandSent         => "cmd",
+        RpcLogKind.ResponseReceived    => "resp",
+        RpcLogKind.StreamEventReceived => "event",
+        RpcLogKind.Error               => "error",
+        _                              => "other",
+    };
+}

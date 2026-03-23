@@ -30,7 +30,7 @@ public sealed class NegotiateTests
         var info = await client.ConnectAsync(minProtocolVersion: 1);
 
         Assert.Equal("flipper_zero_rpc_daemon", info.Name);
-        Assert.Equal(1, info.Version);
+        Assert.Equal(1u, info.Version);
         Assert.True(info.Supports("ping"));
         Assert.True(info.Supports("daemon_info"));
         Assert.False(info.Supports("nonexistent_cmd"));
@@ -46,7 +46,7 @@ public sealed class NegotiateTests
         await client.ConnectAsync();
 
         Assert.Equal("flipper_zero_rpc_daemon", client.DaemonInfo!.Value.Name);
-        Assert.Equal(1, client.DaemonInfo!.Value.Version);
+        Assert.Equal(1u, client.DaemonInfo!.Value.Version);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class NegotiateTests
 
         var info = await client.ConnectAsync(minProtocolVersion: 1);
 
-        Assert.Equal(5, info.Version);
+        Assert.Equal(5u, info.Version);
     }
 
     // -------------------------------------------------------------------------
@@ -156,7 +156,7 @@ public sealed class NegotiateTests
         var info = new DaemonInfoResponse
         {
             Name = "flipper_zero_rpc_daemon",
-            Version = 1,
+            Version = 1u,
             Commands = ["ping", "daemon_info"],
         };
 
@@ -231,7 +231,7 @@ public sealed class NegotiateTests
         var info = await client.ConnectAsync();
 
         Assert.Equal("flipper_zero_rpc_daemon", info.Name);
-        Assert.Equal(4, info.Version);
+        Assert.Equal(4u, info.Version);
         Assert.True(info.Supports("configure"));
     }
 

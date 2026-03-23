@@ -116,41 +116,41 @@ void device_info_handler(uint32_t id, const char* json, size_t offset) {
     pos += snprintf(resp + pos, sizeof(resp) - pos, "{");
 
     /* Identity */
-    pos += snprintf(resp + pos, sizeof(resp) - pos, "\"name\":\"%s\"", name);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"model\":\"%s\"", model);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"model_code\":\"%s\"", model_code);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "\"nm\":\"%s\"", name);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"m\":\"%s\"", model);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"mc\":\"%s\"", model_code);
 
     /* Firmware */
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"firmware\":\"%s\"", fw_ver);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"firmware_origin\":\"%s\"", fw_origin);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"build_date\":\"%s\"", fw_build);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"git_hash\":\"%s\"", git_hash);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"git_branch\":\"%s\"", git_branch);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"git_branch_num\":\"%s\"", git_branchnum);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"git_origin\":\"%s\"", git_origin);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"dirty\":%s", dirty ? "true" : "false");
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"fw\":\"%s\"", fw_ver);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"fo\":\"%s\"", fw_origin);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"bd\":\"%s\"", fw_build);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"gh\":\"%s\"", git_hash);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"gb\":\"%s\"", git_branch);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"gbn\":\"%s\"", git_branchnum);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"go\":\"%s\"", git_origin);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"dy\":%d", dirty ? 1 : 0);
 
     /* Hardware */
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hardware\":%" PRIu32, (uint32_t)hw_version);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_target\":%" PRIu32, (uint32_t)hw_target);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_body\":%" PRIu32, (uint32_t)hw_body);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_color\":%" PRIu32, (uint32_t)hw_color);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_connect\":%" PRIu32, (uint32_t)hw_connect);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_display\":%" PRIu32, (uint32_t)hw_display);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_region\":%" PRIu32, (uint32_t)hw_region);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_region_name\":\"%s\"", hw_region_name);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw_timestamp\":%" PRIu32, hw_ts);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hw\":%" PRIu32, (uint32_t)hw_version);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwt\":%" PRIu32, (uint32_t)hw_target);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwb\":%" PRIu32, (uint32_t)hw_body);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwc\":%" PRIu32, (uint32_t)hw_color);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwcn\":%" PRIu32, (uint32_t)hw_connect);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwd\":%" PRIu32, (uint32_t)hw_display);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwr\":%" PRIu32, (uint32_t)hw_region);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwrn\":\"%s\"", hw_region_name);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"hwts\":%" PRIu32, hw_ts);
 
     /* Identity — UID and BLE MAC */
     pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"uid\":\"%s\"", uid_str);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ble_mac\":\"%s\"", ble_mac_str);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"bm\":\"%s\"", ble_mac_str);
 
     /* Regulatory */
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"fcc_id\":\"%s\"", fcc_id);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ic_id\":\"%s\"", ic_id);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"mic_id\":\"%s\"", mic_id);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"srrc_id\":\"%s\"", srrc_id);
-    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ncc_id\":\"%s\"", ncc_id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"fcc\":\"%s\"", fcc_id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ic\":\"%s\"", ic_id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"mic\":\"%s\"", mic_id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"srrc\":\"%s\"", srrc_id);
+    pos += snprintf(resp + pos, sizeof(resp) - pos, ",\"ncc\":\"%s\"", ncc_id);
 
     pos += snprintf(resp + pos, sizeof(resp) - pos, "}");
     UNUSED(pos);

@@ -4,7 +4,7 @@
  * Wire protocol:
  *   Request:  {"c":9,"i":N}
  *   Response: {"t":0,"i":N,"p":{
- *               "region":"<name>",
+ *               "rg":"<name>",
  *               "bands":[{"start":<u32>,"end":<u32>,"power_limit":<u8>},...] }}
  *
  * Reads the active regulatory region from furi_hal_region_get() and serialises
@@ -57,7 +57,7 @@ void region_info_handler(uint32_t id, const char* json, size_t offset) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"region\":\"%s\",\"bands\":%s}",
+        "{\"rg\":\"%s\",\"bands\":%s}",
         region_name,
         bands_buf);
 

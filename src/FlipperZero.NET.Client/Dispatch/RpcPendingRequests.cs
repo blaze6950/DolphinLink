@@ -18,14 +18,14 @@ internal sealed class RpcPendingRequests
         => _pending[id] = request;
 
     /// <summary>
-    /// Stamps the send-time ticks on an already-registered request.
+    /// Stamps the send-time timestamp on an already-registered request.
     /// No-op if the id is not found (defensive: race with FailAll is benign).
     /// </summary>
-    public void StampSentTicks(uint id, long ticks)
+    public void StampSentTimestamp(uint id, long timestamp)
     {
         if (_pending.TryGetValue(id, out var pr))
         {
-            pr.SentTicks = ticks;
+            pr.SentTimestamp = timestamp;
         }
     }
 

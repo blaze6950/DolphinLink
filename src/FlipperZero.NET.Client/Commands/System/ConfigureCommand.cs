@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Converters;
 
 namespace FlipperZero.NET.Commands.System;
 
@@ -150,6 +151,7 @@ public readonly struct ConfigureResponse : IRpcCommandResponse
     /// Whether per-request timing metrics (<c>"_m"</c> field) are currently
     /// enabled on the daemon for this session.
     /// </summary>
+    [JsonConverter(typeof(NumericBoolJsonConverter))]
     [JsonPropertyName("dx")]
     public bool Diagnostics { get; init; }
 }

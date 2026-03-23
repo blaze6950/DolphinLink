@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using FlipperZero.NET.Abstractions;
+using FlipperZero.NET.Converters;
 
 namespace FlipperZero.NET.Commands.Storage;
 
@@ -11,6 +12,7 @@ public readonly struct StorageEntry : IRpcCommandResponse
     public string? Name { get; init; }
 
     /// <summary><c>true</c> if this entry is a directory.</summary>
+    [JsonConverter(typeof(NumericBoolJsonConverter))]
     [JsonPropertyName("d")]
     public bool IsDir { get; init; }
 

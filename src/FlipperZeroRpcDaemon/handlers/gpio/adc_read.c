@@ -8,8 +8,8 @@
  *   {"c":14,"i":N,"p":<GpioPin int 1-8>}
  *
  * Wire format (response):
- *   {"t":0,"i":N,"p":{"raw":2048,"mv":1650}}
- *     raw — 12-bit raw ADC count (0–4095)
+ *   {"t":0,"i":N,"p":{"rw":2048,"mv":1650}}
+ *     rw  — raw 12-bit ADC count (0–4095)
  *     mv  — voltage in millivolts (integer)
  *
  * Error codes:
@@ -66,7 +66,7 @@ void adc_read_handler(uint32_t id, const char* json, size_t offset) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"raw\":%" PRIu16 ",\"mv\":%" PRIi32 "}",
+        "{\"rw\":%" PRIu16 ",\"mv\":%" PRIi32 "}",
         raw,
         mv);
 

@@ -74,13 +74,6 @@ public readonly struct RpcLogEntry
     public string? RawJson { get; init; }
 
     /// <summary>
-    /// Monotonic elapsed time since the <see cref="FlipperRpcClient"/> was
-    /// connected, measured by a <see cref="System.Diagnostics.Stopwatch"/>
-    /// on the client.
-    /// </summary>
-    public TimeSpan Elapsed { get; init; }
-
-    /// <summary>
     /// For <see cref="RpcLogKind.ResponseReceived"/> entries:
     /// the time elapsed between the matching <see cref="RpcLogKind.CommandSent"/>
     /// and this response.  Measures the full client-observable round-trip
@@ -93,7 +86,7 @@ public readonly struct RpcLogEntry
     public override string ToString()
     {
         var sb = new System.Text.StringBuilder();
-        sb.Append($"[{Elapsed.TotalMilliseconds:F1}ms] {Kind,-22}");
+        sb.Append($"{Kind,-22}");
 
         if (RequestId.HasValue)
         {

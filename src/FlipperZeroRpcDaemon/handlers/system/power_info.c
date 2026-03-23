@@ -4,8 +4,8 @@
  * Wire protocol:
  *   Request:  {"c":6,"i":N}
  *   Response: {"t":0,"i":N,"p":{
- *               "charge":<u8>,"charging":<bool>,
- *               "voltage_mv":<i32>,"current_ma":<i32>}}
+ *               "ch":<u8>,"cg":<0|1>,
+ *               "mv":<i32>,"ma":<i32>}}
  *
  * Voltage and current are returned as integer millivolts / milliamps to
  * avoid floating-point format specifiers on the embedded target.
@@ -40,10 +40,10 @@ void power_info_handler(uint32_t id, const char* json, size_t offset) {
     snprintf(
         resp,
         sizeof(resp),
-        "{\"charge\":%" PRIu8 ",\"charging\":%s"
-        ",\"voltage_mv\":%" PRIi32 ",\"current_ma\":%" PRIi32 "}",
+        "{\"ch\":%" PRIu8 ",\"cg\":%d"
+        ",\"mv\":%" PRIi32 ",\"ma\":%" PRIi32 "}",
         pct,
-        charging ? "true" : "false",
+        charging ? 1 : 0,
         voltage_mv,
         current_ma);
 

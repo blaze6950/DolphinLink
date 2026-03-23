@@ -88,14 +88,12 @@ public sealed class LogStreamTests
         // CommandSent entry
         Assert.Equal(RpcLogSource.Client, sent.Source);
         Assert.NotNull(sent.RawJson);
-        Assert.True(sent.Elapsed > TimeSpan.Zero, "CommandSent.Elapsed must be positive");
         Assert.Null(sent.RoundTrip);
 
         // ResponseReceived entry
         Assert.Equal(RpcLogSource.Client, received.Source);
         Assert.NotNull(received.RawJson);
         Assert.Equal("ok", received.Status);
-        Assert.True(received.Elapsed > TimeSpan.Zero, "ResponseReceived.Elapsed must be positive");
         Assert.NotNull(received.RoundTrip);
         Assert.True(received.RoundTrip!.Value > TimeSpan.Zero, "RoundTrip must be positive");
 
