@@ -14,24 +14,28 @@
     return;
 }
 
-<table class="table table-sm table-bordered mb-0">
+<table class="table table-sm table-bordered mb-0" style="font-size:0.85em">
     <thead class="table-light">
         <tr>
             <th class="w-25">Field</th>
+            <th style="width:6em">Type</th>
             <th>Value</th>
+            <th class="text-muted fw-normal">Description</th>
         </tr>
     </thead>
     <tbody>
         @foreach (var field in Fields)
         {
             <tr>
-                <td class="fw-semibold align-middle text-nowrap">
-                    @field.Name
+                <td class="align-middle">
+                    <span class="fw-semibold">@field.Name</span>
                     <span class="d-block text-muted small fw-normal font-monospace">@field.WireKey</span>
                 </td>
-                <td class="align-middle font-monospace">
-                    @RenderValue(field)
+                <td class="align-middle font-monospace text-muted small">
+                    @field.Type@(field.Enum is not null ? $"/{field.Enum.Name}" : "")
                 </td>
+                <td class="align-middle font-monospace">@RenderValue(field)</td>
+                <td class="align-middle text-muted small">@field.Description</td>
             </tr>
         }
     </tbody>
@@ -40,7 +44,6 @@
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<FieldDescriptor>? Fields { get; set; }
 
-    /// <summary>The parsed JSON response object from the daemon.</summary>
     [Parameter] public JsonElement? JsonResponse { get; set; }
 
     private string RenderValue(FieldDescriptor field)
@@ -50,24 +53,23 @@
         if (!JsonResponse.Value.TryGetProperty(field.WireKey, out var el))
             return "(not present)";
 
-        // Render depending on schema type
         return field.Type switch
         {
             "bool"     => el.ValueKind == JsonValueKind.Number
-                            ? (el.GetInt32() != 0 ? "true" : "false")
-                            : el.GetRawText(),
+                              ? (el.GetInt32() != 0 ? "true" : "false")
+                              : el.GetRawText(),
             "bytes"    => TryBase64(el),
             "hex"      => el.GetString() ?? el.GetRawText(),
             "uint[]"   => el.ValueKind == JsonValueKind.Array
-                            ? string.Join(", ", el.EnumerateArray().Select(e => e.GetRawText()))
-                            : el.GetRawText(),
+                              ? string.Join(", ", el.EnumerateArray().Select(e => e.GetRawText()))
+                              : el.GetRawText(),
             "string[]" => el.ValueKind == JsonValueKind.Array
-                            ? string.Join(", ", el.EnumerateArray().Select(e => e.GetString() ?? e.GetRawText()))
-                            : el.GetRawText(),
-            "object"   or "object[]" => el.GetRawText(),
-            _          => field.Enum is not null
-                            ? LookupEnum(field, el)
-                            : el.GetRawText()
+                              ? string.Join(", ", el.EnumerateArray().Select(e => e.GetString() ?? e.GetRawText()))
+                              : el.GetRawText(),
+            "object" or "object[]" => el.GetRawText(),
+            _ => field.Enum is not null
+                     ? LookupEnum(field, el)
+                     : el.GetRawText()
         };
     }
 
@@ -86,11 +88,9 @@
     private static string LookupEnum(FieldDescriptor field, JsonElement el)
     {
         if (field.Enum is null) return el.GetRawText();
-
         var wireVal = el.ValueKind == JsonValueKind.Number
             ? el.GetInt32().ToString()
             : el.GetString() ?? el.GetRawText();
-
         var match = field.Enum.Values.FirstOrDefault(v => v.WireValue == wireVal);
         return match is not null ? $"{match.Name} ({wireVal})" : wireVal;
     }

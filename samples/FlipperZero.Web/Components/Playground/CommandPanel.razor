@@ -8,42 +8,71 @@
 
 @* CommandPanel — renders a full request form and response area for a CommandDescriptor. *@
 
-<div class="card mb-3">
-    <div class="card-header d-flex align-items-center justify-content-between py-2"
+<div class="playground-item @(_collapsed ? "" : "playground-item--open") mb-2">
+
+    @* ── Header (always visible) ────────────────────────────────────────────── *@
+    <div class="playground-item-header"
          @onclick="ToggleCollapsed"
          title="@(_collapsed ? "Expand" : "Collapse")"
-         style="cursor:pointer;user-select:none">
-        <div>
-            <span class="fw-bold">@Command.DisplayName</span>
-            <span class="badge bg-secondary ms-2 font-monospace">cmd #@Command.CommandId</span>
+         role="button"
+         tabindex="0"
+         @onkeydown="OnKeyDown">
+
+        @* Left cluster: method badge + name + id badge *@
+        <div class="playground-item-left">
+            <span class="playground-method-badge playground-method-badge--cmd">CMD</span>
+            <span class="playground-item-name">@Command.DisplayName</span>
+            <span class="badge bg-secondary font-monospace">#@Command.CommandId</span>
             @if (Command.Resource is not null)
             {
-                <span class="badge bg-warning text-dark ms-1">@Command.Resource</span>
+                <span class="badge playground-resource-badge" title="Acquires resource">@Command.Resource</span>
             }
         </div>
-        <span class="text-secondary" style="font-size:0.8em;pointer-events:none" aria-hidden="true">
-            @(_collapsed ? "▶" : "▼")
-        </span>
+
+        @* Right cluster: description + expand arrow *@
+        <div class="playground-item-right">
+            <span class="playground-item-desc text-muted small">@Command.Description</span>
+            <span class="playground-item-arrow" aria-hidden="true">@(_collapsed ? "▶" : "▼")</span>
+        </div>
     </div>
 
+    @* ── Body (expanded only) ───────────────────────────────────────────────── *@
     @if (!_collapsed)
     {
-        <div class="card-body">
-            <p class="text-muted small mb-3">@Command.Description</p>
+        <div class="playground-item-body">
 
-            @* Request form *@
+            @* ── Metadata row ─────────────────────────────────────────────── *@
+            <div class="playground-meta mb-3">
+                <span class="font-monospace small text-muted me-3">
+                    <span class="text-secondary">name:</span> @Command.Name
+                </span>
+                @if (Command.Errors.Count > 0)
+                {
+                    <span class="small text-muted">
+                        <span class="text-secondary me-1">possible errors:</span>
+                        @foreach (var err in Command.Errors)
+                        {
+                            <code class="me-1 playground-error-code">@err</code>
+                        }
+                    </span>
+                }
+            </div>
+
+            @* ── Request section ──────────────────────────────────────────── *@
             @if (Command.RequestFields.Count > 0)
             {
-                <h6 class="text-uppercase text-muted small mb-2">Request</h6>
-                @foreach (var field in Command.RequestFields)
-                {
-                    <FieldInput Field="field" Values="_fieldValues" ValuesChanged="OnValuesChanged" />
-                }
+                <div class="playground-section-label">Request parameters</div>
+                <div class="playground-fields mb-3">
+                    @foreach (var field in Command.RequestFields)
+                    {
+                        <FieldInput Field="field" Values="_fieldValues" ValuesChanged="OnValuesChanged" />
+                    }
+                </div>
             }
 
-            @* Send button *@
-            <div class="d-flex align-items-center gap-2 mt-2">
-                <button class="btn btn-primary btn-sm"
+            @* ── Send button row ──────────────────────────────────────────── *@
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <button class="btn btn-primary btn-sm px-3"
                         @onclick="SendAsync"
                         disabled="@(_busy || !Flipper.IsConnected)">
                     @if (_busy)
@@ -58,41 +87,42 @@
                 }
                 @if (_lastDurationMs.HasValue)
                 {
-                    <span class="text-muted small">@_lastDurationMs ms</span>
+                    <span class="badge bg-light text-dark border">@_lastDurationMs ms</span>
+                }
+                @if (_lastDurationMs.HasValue && _errorMessage is null)
+                {
+                    <span class="badge bg-success">OK</span>
                 }
             </div>
 
-            @* Error *@
+            @* ── Error alert ──────────────────────────────────────────────── *@
             @if (_errorMessage is not null)
             {
-                <div class="alert alert-danger mt-3 py-2 small mb-0">
+                <div class="alert alert-danger py-2 small mb-3">
                     <strong>Error:</strong> @_errorMessage
-                    @if (Command.Errors.Count > 0)
-                    {
-                        <div class="mt-1 text-muted">Possible errors: @string.Join(", ", Command.Errors)</div>
-                    }
                 </div>
             }
 
-            @* Response *@
+            @* ── Response section ─────────────────────────────────────────── *@
             @if (_responsePayload is not null || _responseJson is not null)
             {
-                <div class="mt-3">
-                    <h6 class="text-uppercase text-muted small mb-2">Response</h6>
-                    @if (Command.ResponseFields.Count == 0)
-                    {
-                        <span class="badge bg-success">OK (void)</span>
-                    }
-                    else
-                    {
-                        <ResponseDisplay Fields="Command.ResponseFields" JsonResponse="_responsePayload" />
-                    }
-                </div>
+                <div class="playground-section-label">Response</div>
+                @if (Command.ResponseFields.Count == 0)
+                {
+                    <span class="badge bg-success mb-2">OK (void response)</span>
+                }
+                else
+                {
+                    <ResponseDisplay Fields="Command.ResponseFields" JsonResponse="_responsePayload" />
+                }
+
                 <details class="mt-2">
                     <summary class="text-muted small" style="cursor:pointer">Raw JSON</summary>
-                    <pre class="border rounded p-2 mt-1 small bg-light font-monospace" style="white-space:pre-wrap;word-break:break-all">@_responseJson</pre>
+                    <pre class="border rounded p-2 mt-1 small bg-light font-monospace"
+                         style="white-space:pre-wrap;word-break:break-all">@_responseJson</pre>
                 </details>
             }
+
         </div>
     }
 </div>
@@ -101,14 +131,19 @@
     [Parameter, EditorRequired] public CommandDescriptor Command { get; set; } = null!;
 
     private Dictionary<string, string> _fieldValues = new();
-    private bool _busy;
-    private bool _collapsed = true;
+    private bool   _busy;
+    private bool   _collapsed   = true;
     private string? _errorMessage;
     private JsonElement? _responsePayload;
     private string? _responseJson;
-    private long? _lastDurationMs;
+    private long?  _lastDurationMs;
 
     private void ToggleCollapsed() => _collapsed = !_collapsed;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") ToggleCollapsed();
+    }
 
     private Task OnValuesChanged(Dictionary<string, string> values)
     {
@@ -120,7 +155,7 @@
     {
         if (Flipper.Client is null) return;
 
-        _busy = true;
+        _busy            = true;
         _errorMessage    = null;
         _responsePayload = null;
         _responseJson    = null;
@@ -131,7 +166,7 @@
             var argsJson = BuildRequestJson();
 
             using var argsDoc = JsonDocument.Parse(argsJson);
-            var argsElement   = argsDoc.RootElement.Clone();   // Clone before doc is disposed
+            var argsElement   = argsDoc.RootElement.Clone();
 
             var cmd = new GenericRpcCommand(Command.CommandId, Command.Name, argsElement);
 
@@ -143,7 +178,6 @@
             _lastDurationMs  = sw.ElapsedMilliseconds;
             _responsePayload = resp.ToJsonElement();
             _responseJson    = resp.ToRawJson();
-            _collapsed       = false;
         }
         catch (FlipperRpcException ex)
         {
@@ -159,7 +193,6 @@
         }
     }
 
-    /// <summary>Builds the arg-portion of the request JSON from the current field values.</summary>
     private string BuildRequestJson()
     {
         using var ms = new System.IO.MemoryStream();
@@ -183,17 +216,13 @@
     {
         w.WritePropertyName(field.WireKey);
 
-        // Enum with int wire type
         if (field.Enum is { WireType: "int" })
         {
-            if (int.TryParse(raw, out var iv))
-                w.WriteNumberValue(iv);
-            else
-                w.WriteStringValue(raw);
+            if (int.TryParse(raw, out var iv)) w.WriteNumberValue(iv);
+            else w.WriteStringValue(raw);
             return;
         }
 
-        // Enum with string wire type — write as string
         if (field.Enum is { WireType: "string" })
         {
             w.WriteStringValue(raw);
@@ -203,8 +232,7 @@
         switch (field.Type)
         {
             case "bool":
-                var boolVal = raw is "true" or "1";
-                w.WriteNumberValue(boolVal ? 1 : 0);
+                w.WriteNumberValue(raw is "true" or "1" ? 1 : 0);
                 break;
             case "int":
                 if (long.TryParse(raw, out var lv)) w.WriteNumberValue(lv);
@@ -223,8 +251,6 @@
                 else w.WriteStringValue(raw);
                 break;
             case "bytes":
-                w.WriteStringValue(raw);
-                break;
             case "hex":
                 w.WriteStringValue(raw);
                 break;

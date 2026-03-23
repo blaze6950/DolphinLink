@@ -21,4 +21,26 @@
     <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json" />
   </ItemGroup>
 
+  <!-- Embed schema JSON files directly from the repo schema/ directory so the
+       Blazor app can parse them at runtime without a separate codegen step.
+       Link places them under a schema\ virtual folder in the project tree;
+       LogicalName gives them stable, predictable assembly resource names. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\schema\command-registry.json"
+                      Link="schema\command-registry.json"
+                      LogicalName="Schema.command-registry.json" />
+    <EmbeddedResource Include="..\..\schema\resources.json"
+                      Link="schema\resources.json"
+                      LogicalName="Schema.resources.json" />
+    <EmbeddedResource Include="..\..\schema\commands\**\*.json"
+                      Link="schema\commands\%(RecursiveDir)%(Filename)%(Extension)"
+                      LogicalName="Schema.commands.%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\schema\streams\*.json"
+                      Link="schema\streams\%(Filename)%(Extension)"
+                      LogicalName="Schema.streams.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\schema\enums\*.json"
+                      Link="schema\enums\%(Filename)%(Extension)"
+                      LogicalName="Schema.enums.%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

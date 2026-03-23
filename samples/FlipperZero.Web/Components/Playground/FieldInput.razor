@@ -5,19 +5,21 @@
 
 @if (Field is null) { return; }
 
-<div class="mb-2">
+<div class="mb-3">
     <label class="form-label mb-1">
         <span class="fw-semibold">@Field.Name</span>
         @if (Field.Optional)
         {
             <span class="text-muted ms-1 small">(optional)</span>
         }
-        <span class="text-muted ms-2 small font-monospace">@Field.Type@(Field.Enum is not null ? $" / {Field.Enum.Name}" : "")</span>
+        <span class="text-muted ms-2 small">
+            <code class="playground-wire-key">@Field.WireKey</code>
+            <span class="ms-1 font-monospace">@Field.Type@(Field.Enum is not null ? $" / {Field.Enum.Name}" : "")</span>
+        </span>
     </label>
 
     @if (Field.Enum is not null)
     {
-        @* Enum → dropdown *@
         <select class="form-select form-select-sm" value="@GetString()" @onchange="OnSelectChanged">
             @if (Field.Optional)
             {
@@ -31,7 +33,6 @@
     }
     else if (Field.Type == "bool")
     {
-        @* bool → toggle *@
         <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox"
                    checked="@GetBool()"
@@ -40,7 +41,6 @@
     }
     else if (Field.Type is "int" or "uint" or "byte" or "ushort")
     {
-        @* numeric → number input *@
         <input class="form-control form-control-sm font-monospace"
                type="number"
                min="@MinFor(Field.Type)"
@@ -51,7 +51,6 @@
     }
     else if (Field.Type == "hex")
     {
-        @* hex bytes → text with hex hint *@
         <input class="form-control form-control-sm font-monospace"
                type="text"
                placeholder="e.g. DEADBEEF"
@@ -61,7 +60,6 @@
     }
     else if (Field.Type == "bytes")
     {
-        @* base64 bytes → textarea + optional file picker *@
         <textarea class="form-control form-control-sm font-monospace"
                   rows="3"
                   placeholder="Base64-encoded bytes"
@@ -73,7 +71,6 @@
     }
     else if (Field.Type is "uint[]")
     {
-        @* uint array → comma-separated *@
         <input class="form-control form-control-sm font-monospace"
                type="text"
                placeholder="comma-separated integers, e.g. 100,200,300"
@@ -83,7 +80,6 @@
     }
     else if (Field.Type is "string[]")
     {
-        @* string array → comma-separated *@
         <input class="form-control form-control-sm"
                type="text"
                placeholder="comma-separated strings"
@@ -93,7 +89,6 @@
     }
     else
     {
-        @* string, or any unknown type → plain text *@
         <input class="form-control form-control-sm"
                type="text"
                placeholder="@(Field.Optional ? "leave blank to omit" : "required")"
@@ -110,19 +105,11 @@
 @code {
     [Parameter, EditorRequired] public FieldDescriptor Field { get; set; } = null!;
 
-    /// <summary>
-    /// Shared dictionary (keyed by field name) holding the raw string values for
-    /// all fields in the parent form. The parent passes <c>@bind-Values</c>.
-    /// </summary>
     [Parameter, EditorRequired] public Dictionary<string, string> Values { get; set; } = null!;
     [Parameter] public EventCallback<Dictionary<string, string>> ValuesChanged { get; set; }
 
-    // ── Read helpers ───────────────────────────────────────────────────────
-
     private string GetString() => Values.TryGetValue(Field.Name, out var v) ? v : "";
     private bool GetBool() => Values.TryGetValue(Field.Name, out var v) && v is "true" or "1";
-
-    // ── Write helpers ───────────────────────────────────────────────────────
 
     private async Task SetValue(string value)
     {
@@ -143,7 +130,6 @@
     {
         try
         {
-            // Read up to 1 MB
             const long maxSize = 1024 * 1024;
             await using var stream = e.File.OpenReadStream(maxSize);
             using var ms = new MemoryStream();
@@ -155,8 +141,6 @@
             await SetValue($"ERROR: {ex.Message}");
         }
     }
-
-    // ── Type range helpers ──────────────────────────────────────────────────
 
     private static string MinFor(string type) => type switch
     {

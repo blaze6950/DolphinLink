@@ -10,46 +10,67 @@
 
 @* StreamPanel — renders a start/stop form and live event log for a StreamDescriptor. *@
 
-<div class="card mb-3">
-    <div class="card-header d-flex align-items-center justify-content-between py-2"
+<div class="playground-item @(_collapsed ? "" : "playground-item--open") mb-2">
+
+    @* ── Header (always visible) ────────────────────────────────────────────── *@
+    <div class="playground-item-header"
          @onclick="ToggleCollapsed"
          title="@(_collapsed ? "Expand" : "Collapse")"
-         style="cursor:pointer;user-select:none">
-        <div>
-            <span class="fw-bold">@Stream.DisplayName</span>
-            <span class="badge bg-info text-dark ms-2 font-monospace">stream</span>
+         role="button"
+         tabindex="0"
+         @onkeydown="OnKeyDown">
+
+        <div class="playground-item-left">
+            <span class="playground-method-badge playground-method-badge--stream">STREAM</span>
+            <span class="playground-item-name">@Stream.DisplayName</span>
+            <span class="badge bg-secondary font-monospace">#@Stream.CommandId</span>
+            @if (_streaming)
+            {
+                <span class="badge bg-success">Live</span>
+            }
             @if (Stream.Resource is not null)
             {
-                <span class="badge bg-warning text-dark ms-1">@Stream.Resource</span>
+                <span class="badge playground-resource-badge" title="Acquires resource">@Stream.Resource</span>
             }
         </div>
-        <span class="text-secondary" style="font-size:0.8em;pointer-events:none" aria-hidden="true">
-            @(_collapsed ? "▶" : "▼")
-        </span>
+
+        <div class="playground-item-right">
+            <span class="playground-item-desc text-muted small">@Stream.Description</span>
+            <span class="playground-item-arrow" aria-hidden="true">@(_collapsed ? "▶" : "▼")</span>
+        </div>
     </div>
 
+    @* ── Body (expanded only) ───────────────────────────────────────────────── *@
     @if (!_collapsed)
     {
-        <div class="card-body">
-            <p class="text-muted small mb-3">@Stream.Description</p>
+        <div class="playground-item-body">
 
-            @* Request (start) form *@
+            @* ── Metadata row ─────────────────────────────────────────────── *@
+            <div class="playground-meta mb-3">
+                <span class="font-monospace small text-muted">
+                    <span class="text-secondary">name:</span> @Stream.Name
+                </span>
+            </div>
+
+            @* ── Start parameters ─────────────────────────────────────────── *@
             @if (Stream.RequestFields.Count > 0)
             {
-                <h6 class="text-uppercase text-muted small mb-2">Start Parameters</h6>
-                @foreach (var field in Stream.RequestFields)
-                {
-                    <FieldInput Field="field"
-                                Values="_fieldValues"
-                                ValuesChanged="OnValuesChanged" />
-                }
+                <div class="playground-section-label">Start parameters</div>
+                <div class="playground-fields mb-3">
+                    @foreach (var field in Stream.RequestFields)
+                    {
+                        <FieldInput Field="field"
+                                    Values="_fieldValues"
+                                    ValuesChanged="OnValuesChanged" />
+                    }
+                </div>
             }
 
-            @* Start / Stop buttons *@
-            <div class="d-flex align-items-center gap-2 mt-2">
+            @* ── Start / Stop buttons ─────────────────────────────────────── *@
+            <div class="d-flex align-items-center gap-2 mb-3">
                 @if (!_streaming)
                 {
-                    <button class="btn btn-success btn-sm"
+                    <button class="btn btn-success btn-sm px-3"
                             @onclick="StartAsync"
                             disabled="@(_busy || !Flipper.IsConnected)">
                         @if (_busy)
@@ -61,77 +82,102 @@
                 }
                 else
                 {
-                    <button class="btn btn-danger btn-sm"
+                    <button class="btn btn-danger btn-sm px-3"
                             @onclick="StopAsync"
                             disabled="@_busy">
                         Stop Stream
                     </button>
-                    <span class="badge bg-success">Live</span>
                 }
-
                 @if (!Flipper.IsConnected)
                 {
                     <span class="text-muted small">Not connected</span>
                 }
                 @if (_eventCount > 0)
                 {
-                    <span class="text-muted small">@_eventCount event(s) received</span>
+                    <span class="badge bg-light text-dark border">@_eventCount event(s)</span>
                 }
             </div>
 
-            @* Error *@
+            @* ── Error ────────────────────────────────────────────────────── *@
             @if (_errorMessage is not null)
             {
-                <div class="alert alert-danger mt-3 py-2 small mb-0">
+                <div class="alert alert-danger py-2 small mb-3">
                     <strong>Error:</strong> @_errorMessage
                 </div>
             }
 
-            @* Event log *@
+            @* ── Event field schema ───────────────────────────────────────── *@
+            @if (Stream.EventFields.Count > 0)
+            {
+                <div class="playground-section-label">Event fields</div>
+                <table class="table table-sm table-bordered mb-3" style="font-size:0.82em">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Field</th>
+                            <th>Wire key</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ef in Stream.EventFields)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@ef.Name</td>
+                                <td class="font-monospace text-muted">@ef.WireKey</td>
+                                <td class="font-monospace text-muted">
+                                    @ef.Type@(ef.Enum is not null ? $" / {ef.Enum.Name}" : "")
+                                </td>
+                                <td class="text-muted">@ef.Description</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @* ── Event log ────────────────────────────────────────────────── *@
             @if (_events.Count > 0)
             {
-                <div class="mt-3">
-                    <div class="d-flex align-items-center justify-content-between mb-1">
-                        <h6 class="text-uppercase text-muted small mb-0">Event Log</h6>
-                        <button class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                @onclick="ClearEvents">Clear</button>
-                    </div>
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <div class="playground-section-label mb-0">Event log</div>
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                            @onclick="ClearEvents">Clear</button>
+                </div>
 
-                    <div class="border rounded overflow-auto font-monospace small"
-                         style="max-height:300px; background:#1e1e1e; color:#d4d4d4;">
-                        @foreach (var (idx, fields) in _events)
-                        {
-                            <div class="px-2 py-1 border-bottom border-secondary"
-                                 style="border-color:#444 !important">
-                                <span class="text-secondary me-2">#@idx</span>
-                                @if (Stream.EventFields.Count > 0)
+                <div class="border rounded overflow-auto font-monospace small"
+                     style="max-height:300px; background:#1e1e1e; color:#d4d4d4;">
+                    @foreach (var (idx, fields) in _events)
+                    {
+                        <div class="px-2 py-1 border-bottom border-secondary"
+                             style="border-color:#444 !important">
+                            <span class="text-secondary me-2">#@idx</span>
+                            @if (Stream.EventFields.Count > 0)
+                            {
+                                @foreach (var ef in Stream.EventFields)
                                 {
-                                    @foreach (var ef in Stream.EventFields)
-                                    {
-                                        <span class="me-3">
-                                            <span style="color:#9cdcfe">@ef.WireKey</span>
-                                            <span style="color:#808080">=</span>
-                                            <span style="color:#ce9178">@RenderEventField(ef, fields)</span>
-                                        </span>
-                                    }
+                                    <span class="me-3">
+                                        <span style="color:#9cdcfe">@ef.WireKey</span>
+                                        <span style="color:#808080">=</span>
+                                        <span style="color:#ce9178">@RenderEventField(ef, fields)</span>
+                                    </span>
                                 }
-                                else
+                            }
+                            else
+                            {
+                                @foreach (var kv in fields)
                                 {
-                                    @* No typed fields — dump raw JSON *@
-                                    @foreach (var kv in fields)
-                                    {
-                                        <span class="me-3">
-                                            <span style="color:#9cdcfe">@kv.Key</span>
-                                            <span style="color:#808080">=</span>
-                                            <span style="color:#ce9178">@kv.Value.GetRawText()</span>
-                                        </span>
-                                    }
+                                    <span class="me-3">
+                                        <span style="color:#9cdcfe">@kv.Key</span>
+                                        <span style="color:#808080">=</span>
+                                        <span style="color:#ce9178">@kv.Value.GetRawText()</span>
+                                    </span>
                                 }
-                            </div>
-                        }
-                    </div>
+                            }
+                        </div>
+                    }
                 </div>
             }
+
         </div>
     }
 </div>
@@ -140,13 +186,12 @@
     [Parameter, EditorRequired] public StreamDescriptor Stream { get; set; } = null!;
 
     private Dictionary<string, string> _fieldValues = new();
-    private bool _busy;
-    private bool _collapsed = true;
-    private bool _streaming;
+    private bool   _busy;
+    private bool   _collapsed  = true;
+    private bool   _streaming;
     private string? _errorMessage;
-    private int _eventCount;
+    private int    _eventCount;
 
-    // Capped list of (index, raw fields) for display — max 200 entries.
     private readonly List<(int idx, Dictionary<string, JsonElement> fields)> _events = new();
     private const int MaxEvents = 200;
 
@@ -154,6 +199,11 @@
     private CancellationTokenSource? _stopCts;
 
     private void ToggleCollapsed() => _collapsed = !_collapsed;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") ToggleCollapsed();
+    }
 
     private Task OnValuesChanged(Dictionary<string, string> values)
     {
@@ -188,8 +238,6 @@
 
             _streaming = true;
             _stopCts   = new CancellationTokenSource();
-
-            // Enumerate events in a fire-and-forget task; UI updates via InvokeAsync.
             _ = RunEventLoopAsync(_activeStream, _stopCts.Token);
         }
         catch (FlipperRpcException ex)
@@ -217,9 +265,7 @@
 
                 await InvokeAsync(() =>
                 {
-                    // Cap the log to MaxEvents (drop oldest).
-                    if (_events.Count >= MaxEvents)
-                        _events.RemoveAt(0);
+                    if (_events.Count >= MaxEvents) _events.RemoveAt(0);
                     _events.Add((idx, fields));
                     StateHasChanged();
                 }).ConfigureAwait(false);
@@ -366,16 +412,16 @@
 
         return field.Type switch
         {
-            "bool"   => el.ValueKind == JsonValueKind.Number
-                            ? (el.GetInt32() != 0 ? "true" : "false")
-                            : el.GetRawText(),
-            "bytes"  => $"({el.GetString()?.Length ?? 0} chars b64)",
-            "uint[]" => el.ValueKind == JsonValueKind.Array
-                            ? string.Join(", ", el.EnumerateArray().Select(e => e.GetRawText()))
-                            : el.GetRawText(),
+            "bool"     => el.ValueKind == JsonValueKind.Number
+                              ? (el.GetInt32() != 0 ? "true" : "false")
+                              : el.GetRawText(),
+            "bytes"    => $"({el.GetString()?.Length ?? 0} chars b64)",
+            "uint[]"   => el.ValueKind == JsonValueKind.Array
+                              ? string.Join(", ", el.EnumerateArray().Select(e => e.GetRawText()))
+                              : el.GetRawText(),
             "string[]" => el.ValueKind == JsonValueKind.Array
-                            ? string.Join(", ", el.EnumerateArray().Select(e => e.GetString() ?? e.GetRawText()))
-                            : el.GetRawText(),
+                              ? string.Join(", ", el.EnumerateArray().Select(e => e.GetString() ?? e.GetRawText()))
+                              : el.GetRawText(),
             _ => el.GetRawText().Trim('"')
         };
     }

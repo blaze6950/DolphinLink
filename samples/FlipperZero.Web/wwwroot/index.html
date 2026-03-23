@@ -27,6 +27,12 @@
         <a class="dismiss">🗙</a>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
+    <script>
+        window.scrollToId = function (id) {
+            var el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+    </script>
 </body>
 
 </html>

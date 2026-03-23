@@ -102,6 +102,328 @@ code {
     color: #c02d76;
 }
 
+/* ── Playground: global search bar ─────────────────────────────────────── */
+
+.playground-search-bar .input-group {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-radius: 6px;
+}
+
+.playground-search-bar .input-group-text,
+.playground-search-bar .form-control,
+.playground-search-bar .btn {
+    border-color: #ced4da;
+}
+
+.playground-search-bar .form-control:focus {
+    box-shadow: none;
+    border-color: #86b7fe;
+}
+
+/* ── Playground: two-column layout (sticky ToC + content) ───────────────── */
+
+.playground-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+/* ── Playground: sticky ToC ─────────────────────────────────────────────── */
+
+.playground-toc {
+    flex: 0 0 160px;
+    position: sticky;
+    top: 3.5rem; /* matches .top-row height */
+    max-height: calc(100vh - 3.5rem - 320px);
+    overflow-y: auto;
+    padding-bottom: 1rem;
+}
+
+.playground-toc-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+}
+
+.playground-toc-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #495057;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    transition: background 0.1s;
+    /* button reset */
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.playground-toc-item:hover {
+    background: #f0f0f0;
+    color: #212529;
+    text-decoration: none;
+}
+
+.playground-toc-item.active {
+    background: #e8f0fe;
+    color: #1a56db;
+    font-weight: 600;
+}
+
+.playground-toc-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playground-toc-badges {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 3px;
+}
+
+.playground-toc-badges .badge {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+}
+
+/* ── Playground: scrollable content area ────────────────────────────────── */
+
+.playground-content {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* ── Playground: subsystem section ─────────────────────────────────────── */
+
+.playground-section {
+    margin-bottom: 2.5rem;
+    scroll-margin-top: 4.5rem; /* clear sticky top-row on anchor jump */
+}
+
+.playground-section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.playground-section-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #212529;
+}
+
+.playground-section-badges {
+    display: flex;
+    gap: 4px;
+}
+
+/* ── Playground: individual item (command / stream) ─────────────────────── */
+
+.playground-item {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+
+.playground-item:hover {
+    border-color: #adb5bd;
+}
+
+.playground-item--open {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 1px rgba(13,110,253,0.15);
+}
+
+.playground-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.85rem;
+    background: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+}
+
+.playground-item--open .playground-item-header {
+    background: #e7f0ff;
+    border-bottom: 1px solid #c9d9f8;
+}
+
+.playground-item-header:hover {
+    background: #e9ecef;
+}
+
+.playground-item--open .playground-item-header:hover {
+    background: #dceafe;
+}
+
+.playground-item-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.playground-item-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    max-width: 55%;
+}
+
+.playground-item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.playground-item-desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8rem;
+    max-width: 40ch;
+}
+
+.playground-item-arrow {
+    font-size: 0.75rem;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+/* ── Playground: method badges ──────────────────────────────────────────── */
+
+.playground-method-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+}
+
+.playground-method-badge--cmd {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.playground-method-badge--stream {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+/* ── Playground: resource badge ─────────────────────────────────────────── */
+
+.playground-resource-badge {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    font-size: 0.7rem;
+}
+
+/* ── Playground: item body ──────────────────────────────────────────────── */
+
+.playground-item-body {
+    padding: 1rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.playground-item--open .playground-item-body {
+    border-top-color: #c9d9f8;
+}
+
+/* ── Playground: section label (Request / Response / etc.) ─────────────── */
+
+.playground-section-label {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+/* ── Playground: metadata row ───────────────────────────────────────────── */
+
+.playground-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+
+/* ── Playground: error code pill ────────────────────────────────────────── */
+
+.playground-error-code {
+    background: #fff5f5;
+    color: #c53030;
+    border: 1px solid #feb2b2;
+    border-radius: 3px;
+    font-size: 0.78rem;
+    padding: 1px 5px;
+}
+
+/* ── Playground: request fields container ───────────────────────────────── */
+
+.playground-fields {
+    padding: 0.75rem;
+    background: #fdfdfd;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+/* ── Playground: wire key badge in FieldInput label ─────────────────────── */
+
+.playground-wire-key {
+    background: #e8f0fe;
+    color: #1a56db;
+    border: 1px solid #c7d7fb;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    padding: 1px 5px;
+}
+
+/* ── Responsive: hide ToC on small screens ──────────────────────────────── */
+
+@media (max-width: 767px) {
+    .playground-toc {
+        display: none;
+    }
+
+    .playground-item-right {
+        max-width: 100%;
+    }
+
+    .playground-item-desc {
+        display: none;
+    }
+}
+
 /* ── RPC Console fixed footer ───────────────────────────────────────────── */
 
 .rpc-console-footer {

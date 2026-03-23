@@ -13,6 +13,11 @@
 }
 else if (Flipper.IsConnected)
 {
+    @* Show the Flipper's name when known *@
+    @if (Flipper.DeviceInfo is { Name: { Length: > 0 } name } && name != "unknown")
+    {
+        <span class="text-light small me-1 fw-semibold">@name</span>
+    }
     <span class="badge bg-success me-2">Connected</span>
     <button class="btn btn-outline-secondary btn-sm"
             @onclick="DisconnectAsync"
@@ -40,7 +45,6 @@ else
         Connect to Flipper
     </button>
 
-    @* Daemon Metrics checkbox — only visible when disconnected and idle *@
     <div class="form-check form-switch mb-0 d-flex align-items-center gap-1 ms-2">
         <input class="form-check-input"
                type="checkbox"
