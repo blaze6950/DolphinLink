@@ -14,6 +14,14 @@ internal interface IPendingRequest
     long SentTimestamp { get; set; }
 
     /// <summary>
+    /// The command name (e.g. <c>"device_info"</c>) associated with this request.
+    /// Set by the writer loop after the send; read by the dispatcher to populate
+    /// <see cref="RpcLogEntry.CommandName"/> on the <see cref="RpcLogKind.ResponseReceived"/>
+    /// log entry so the normalizer can expand abbreviated wire keys.
+    /// </summary>
+    string? CommandName { get; set; }
+
+    /// <summary>
     /// Called when a success response arrives.
     /// <paramref name="payload"/> is the content of the <c>"p"</c> field
     /// from the V3 envelope, or a default <see cref="JsonElement"/> for void responses.

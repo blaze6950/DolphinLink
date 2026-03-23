@@ -383,6 +383,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         // Stamp the send time for round-trip tracking.
         _pending.StampSentTimestamp(id, Stopwatch.GetTimestamp());
+        _pending.StampCommandName(id, command.CommandName);
 
         _diagnostics.Log(new RpcLogEntry
         {
@@ -443,6 +444,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
         }
 
         _pending.StampSentTimestamp(id, Stopwatch.GetTimestamp());
+        _pending.StampCommandName(id, command.CommandName);
 
         _diagnostics.Log(new RpcLogEntry
         {
@@ -458,6 +460,7 @@ public sealed class FlipperRpcClient : IAsyncDisposable
 
         // Step 2: register the stream AFTER the stream-open response arrives.
         var stream = _streams.CreateStream<TEvent>(streamId, _disconnectCts.Token);
+        _streams.StampCommandName(streamId, command.CommandName);
         stream.Closed += sid => CloseStreamAsync(sid, _disconnectCts.Token);
         return stream;
     }

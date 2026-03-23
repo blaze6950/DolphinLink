@@ -30,6 +30,18 @@ internal sealed class RpcPendingRequests
     }
 
     /// <summary>
+    /// Stamps the command name on an already-registered request.
+    /// No-op if the id is not found (defensive: race with FailAll is benign).
+    /// </summary>
+    public void StampCommandName(uint id, string? commandName)
+    {
+        if (_pending.TryGetValue(id, out var pr))
+        {
+            pr.CommandName = commandName;
+        }
+    }
+
+    /// <summary>
     /// Removes and returns the pending request for <paramref name="id"/>.
     /// Returns <see langword="false"/> if no request is registered.
     /// </summary>

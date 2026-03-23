@@ -12,6 +12,7 @@ namespace FlipperZero.NET.Streaming;
 internal sealed class RpcStreamManager
 {
     private readonly ConcurrentDictionary<uint, StreamState> _streams = new();
+    private readonly ConcurrentDictionary<uint, string> _commandNames = new();
 
     /// <summary>Registers an open stream under the given <paramref name="streamId"/>.</summary>
     public void Register(uint streamId, StreamState state)
@@ -64,6 +65,34 @@ internal sealed class RpcStreamManager
     }
 
     /// <summary>
+    /// Records the command name associated with the stream identified by
+    /// <paramref name="streamId"/>.  Called by the writer loop after
+    /// <see cref="CreateStream{TEvent}"/> so the dispatcher can populate
+    /// <see cref="RpcLogEntry.CommandName"/> on stream-event log entries.
+    /// </summary>
+    public void StampCommandName(uint streamId, string? commandName)
+    {
+        if (commandName is not null)
+        {
+            _commandNames[streamId] = commandName;
+        }
+    }
+
+    /// <summary>
+    /// Returns the command name associated with <paramref name="streamId"/>, if any.
+    /// </summary>
+    public bool TryGetCommandName(uint streamId, out string? commandName)
+    {
+        if (_commandNames.TryGetValue(streamId, out var name))
+        {
+            commandName = name;
+            return true;
+        }
+        commandName = null;
+        return false;
+    }
+
+    /// <summary>
     /// Removes the stream identified by <paramref name="streamId"/> and marks
     /// its channel as complete (normal close, no exception).
     /// </summary>
@@ -73,6 +102,7 @@ internal sealed class RpcStreamManager
     /// </returns>
     public bool TryRemoveAndComplete(uint streamId)
     {
+        _commandNames.TryRemove(streamId, out _);
         if (!_streams.TryRemove(streamId, out var state))
         {
             return false;

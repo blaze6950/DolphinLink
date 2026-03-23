@@ -109,6 +109,7 @@ internal sealed class RpcMessageDispatcher
             Source = RpcLogSource.Client,
             Kind = RpcLogKind.StreamEventReceived,
             StreamId = streamId,
+            CommandName = _streams.TryGetCommandName(streamId, out var evtCmdName) ? evtCmdName : null,
             RawJson = rawLine,
         });
 
@@ -146,6 +147,7 @@ internal sealed class RpcMessageDispatcher
             Source = RpcLogSource.Client,
             Kind = RpcLogKind.ResponseReceived,
             RequestId = requestId,
+            CommandName = pending.CommandName,
             Status = status,
             RawJson = rawLine,
             RoundTrip = roundTrip,

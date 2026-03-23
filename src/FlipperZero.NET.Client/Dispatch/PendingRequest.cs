@@ -20,6 +20,9 @@ internal sealed class PendingRequest<TResponse> : IPendingRequest
     /// <inheritdoc/>
     public long SentTimestamp { get; set; }
 
+    /// <inheritdoc/>
+    public string? CommandName { get; set; }
+
     /// <summary>The task that resolves when the response arrives or the request fails.</summary>
     public Task<TResponse> Task => _tcs.Task;
 

@@ -23,6 +23,7 @@ public sealed class DispatcherTests
     private sealed class FakePendingRequest : IPendingRequest
     {
         public long SentTimestamp { get; set; }
+        public string? CommandName { get; set; }
         public List<JsonElement> Completions { get; } = new();
         public List<Exception> Failures { get; } = new();
 
