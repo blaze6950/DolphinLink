@@ -41,9 +41,16 @@ jobs:
           --no-incremental
           -warnaserror
 
+      - name: Build unit tests
+        run: >
+          dotnet build tests/DolphinLink.Client.UnitTests
+          --configuration Release
+          --no-incremental
+          -warnaserror
+
       - name: Unit tests
         run: >
-          dotnet test
+          dotnet test tests/DolphinLink.Client.UnitTests
           --filter "FullyQualifiedName~UnitTests"
           --configuration Release
           --no-build

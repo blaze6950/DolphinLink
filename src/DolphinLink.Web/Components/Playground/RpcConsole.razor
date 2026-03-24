@@ -191,7 +191,7 @@
         if (firstRender)
         {
             _jsModule = await JS.InvokeAsync<IJSObjectReference>(
-                "import", "./../rpc-console.js").ConfigureAwait(false);
+                "import", "./rpc-console.js").ConfigureAwait(false);
 
             await InitResizeAsync().ConfigureAwait(false);
         }
