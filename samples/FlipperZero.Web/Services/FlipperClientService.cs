@@ -143,19 +143,22 @@ public sealed class FlipperClientService : IAsyncDisposable
 
         try
         {
-            var client = await WebSerialPortPicker.TryAutoConnectAsync(
+            var autoResult = await WebSerialPortPicker.TryAutoConnectAsync(
                 clientOptions: BuildClientOptions(),
                 diagnostics:   _diagnostics).ConfigureAwait(false);
 
-            if (client is not null)
+            if (autoResult is not null)
             {
-                var daemonInfo = await client
+                // Track the daemon port so DisconnectAsync can close it properly.
+                _daemonPort = autoResult.DaemonPort;
+
+                var daemonInfo = await autoResult.Client
                     .SendAsync<DaemonInfoCommand, DaemonInfoResponse>(new DaemonInfoCommand())
                     .ConfigureAwait(false);
-                var deviceInfo = await client
+                var deviceInfo = await autoResult.Client
                     .SendAsync<DeviceInfoCommand, DeviceInfoResponse>(new DeviceInfoCommand())
                     .ConfigureAwait(false);
-                SetConnectedCore(client, daemonInfo, deviceInfo);
+                SetConnectedCore(autoResult.Client, daemonInfo, deviceInfo);
             }
         }
         catch (Exception ex)
@@ -174,8 +177,12 @@ public sealed class FlipperClientService : IAsyncDisposable
     // ── Manual connect — bootstrap flow ──────────────────────────────────────
 
     /// <summary>
-    /// Starts the full bootstrap flow: shows the system-port picker (CDC 0), installs /
-    /// launches the daemon FAP, waits for USB re-enumeration, then connects via CDC 1.
+    /// Starts the manual connect flow.  First attempts a quick reconnect using
+    /// previously-granted ports (no user interaction needed); if the daemon is
+    /// already running this completes instantly without bootstrap.  If no daemon
+    /// is reachable, falls through to the full bootstrap flow: shows the system-port
+    /// picker (CDC 0), installs / launches the daemon FAP, waits for USB
+    /// re-enumeration, then connects via CDC 1.
     ///
     /// <para>
     /// Must be called directly from a button-click handler to satisfy the browser's
@@ -190,8 +197,33 @@ public sealed class FlipperClientService : IAsyncDisposable
 
         try
         {
+            // Quick reconnect: if the daemon is still running from a previous session,
+            // connect immediately using previously-granted ports (no user gesture needed).
+            StatusMessage = "Checking for running daemon...";
+            NotifyStateChanged();
+
+            var quickResult = await WebSerialPortPicker.TryAutoConnectAsync(
+                clientOptions: BuildClientOptions(),
+                diagnostics:   _diagnostics).ConfigureAwait(false);
+
+            if (quickResult is not null)
+            {
+                // Track the daemon port so the next DisconnectAsync can close it.
+                _daemonPort = quickResult.DaemonPort;
+
+                var quickDaemonInfo = await quickResult.Client
+                    .SendAsync<DaemonInfoCommand, DaemonInfoResponse>(new DaemonInfoCommand())
+                    .ConfigureAwait(false);
+                var quickDeviceInfo = await quickResult.Client
+                    .SendAsync<DeviceInfoCommand, DeviceInfoResponse>(new DeviceInfoCommand())
+                    .ConfigureAwait(false);
+                SetConnectedCore(quickResult.Client, quickDaemonInfo, quickDeviceInfo);
+                return;
+            }
+
+            // No daemon reachable — fall through to full bootstrap.
             // Step 1: system port picker — must be in a user-gesture handler.
-            StatusMessage = "Select the system port (CDC 0) in the browser dialog...";
+            StatusMessage = "Select the Flipper system port, e.g. COM3 (CDC 0), in the browser dialog...";
             NotifyStateChanged();
 
             _systemPort = await WebSerialPortPicker.PickSystemPortAsync().ConfigureAwait(false);
@@ -273,8 +305,8 @@ public sealed class FlipperClientService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Called from the "Select Daemon Port (CDC 1)" button click — a fresh user gesture
-    /// that satisfies the browser's <c>requestPort()</c> activation requirement.
+    /// Called from the "Select Daemon Port, e.g. COM4 (CDC 1)" button click — a fresh
+    /// user gesture that satisfies the browser's <c>requestPort()</c> activation requirement.
     /// </summary>
     public async Task PickDaemonPortAsync()
     {

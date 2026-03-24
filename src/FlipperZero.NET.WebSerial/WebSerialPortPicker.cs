@@ -237,11 +237,12 @@ public static class WebSerialPortPicker
     /// <param name="diagnostics">Optional diagnostics sink.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>
-    /// A connected <see cref="FlipperRpcClient"/>, or <see langword="null"/> if the
-    /// daemon is not reachable on any available port.  The caller owns the returned
-    /// client and is responsible for disposing it.
+    /// A <see cref="WebSerialAutoConnectResult"/> holding the connected
+    /// <see cref="FlipperRpcClient"/> and the underlying <see cref="WebSerialPort"/>,
+    /// or <see langword="null"/> if the daemon is not reachable on any available port.
+    /// The caller owns both and is responsible for disposing them on disconnect.
     /// </returns>
-    public static async Task<FlipperRpcClient?> TryAutoConnectAsync(
+    public static async Task<WebSerialAutoConnectResult?> TryAutoConnectAsync(
         int baudRate = 115200,
         TimeSpan? probeTimeout = null,
         FlipperRpcClientOptions clientOptions = default,
@@ -300,7 +301,7 @@ public static class WebSerialPortPicker
                     catch { /* best-effort */ }
                 }
 
-                return client;
+                return new WebSerialAutoConnectResult(client, port);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -327,5 +328,44 @@ public static class WebSerialPortPicker
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// Holds the result of a successful <see cref="WebSerialPortPicker.TryAutoConnectAsync"/>
+/// call: the connected <see cref="FlipperRpcClient"/> and the underlying
+/// <see cref="WebSerialPort"/> daemon handle.
+///
+/// <para>
+/// The caller owns both objects.  On disconnect, call
+/// <see cref="IAsyncDisposable.DisposeAsync"/> on the client first, then on
+/// the port — or simply dispose this result object which handles both in the
+/// correct order.
+/// </para>
+/// </summary>
+[SupportedOSPlatform("browser")]
+public sealed class WebSerialAutoConnectResult : IAsyncDisposable
+{
+    /// <summary>The connected RPC client.</summary>
+    public FlipperRpcClient Client { get; }
+
+    /// <summary>
+    /// The underlying <see cref="WebSerialPort"/> that the client communicates
+    /// through.  Must be kept alive (not disposed) for as long as the client is
+    /// in use, and closed after the client is disposed on disconnect.
+    /// </summary>
+    public WebSerialPort DaemonPort { get; }
+
+    internal WebSerialAutoConnectResult(FlipperRpcClient client, WebSerialPort daemonPort)
+    {
+        Client     = client;
+        DaemonPort = daemonPort;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        await Client.DisposeAsync().ConfigureAwait(false);
+        await DaemonPort.DisposeAsync().ConfigureAwait(false);
     }
 }

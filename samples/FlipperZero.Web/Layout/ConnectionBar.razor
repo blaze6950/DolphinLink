@@ -34,14 +34,16 @@ else if (Flipper.IsBusy)
         @if (Flipper.ShowPickDaemonButton)
         {
             <button class="btn btn-primary btn-sm" @onclick="PickDaemonPortAsync">
-                Select Daemon Port (CDC&nbsp;1)
+                Select Daemon Port, e.g. COM4 (CDC&nbsp;1)
             </button>
         }
     </div>
 }
 else
 {
-    <button class="btn btn-primary btn-sm" @onclick="ConnectAsync">
+    <button class="btn btn-primary btn-sm btn-connect-pulse"
+            title="Click to connect your Flipper Zero via WebSerial"
+            @onclick="ConnectAsync">
         Connect to Flipper
     </button>
 
