@@ -1,4 +1,4 @@
-# FlipperZero.NET — Agent Guide
+# DolphinLink — Agent Guide
 
 ## Overview
 
@@ -6,9 +6,9 @@ Monorepo with three sub-projects. The daemon runs on a Flipper Zero and exposes 
 
 | Sub-project | Language | Path | Build |
 |---|---|---|---|
-| **RPC Daemon** | C (Flipper Zero FAP) | `src/FlipperZeroRpcDaemon/` | `python -m ufbt` |
-| **RPC Client** | C# (.NET 8 library) | `src/FlipperZero.NET.Client/` | `dotnet build` |
-| **Bootstrapper** | C# (.NET 8 library) | `src/FlipperZero.NET.Bootstrapper/` | `dotnet build` |
+| **RPC Daemon** | C (Flipper Zero FAP) | `src/DolphinLinkRpcDaemon/` | `python -m ufbt` |
+| **RPC Client** | C# (.NET 8 library) | `src/DolphinLink.Client/` | `dotnet build` |
+| **Bootstrapper** | C# (.NET 8 library) | `src/DolphinLink.Bootstrapper/` | `dotnet build` |
 
 ---
 
@@ -16,7 +16,7 @@ Monorepo with three sub-projects. The daemon runs on a Flipper Zero and exposes 
 
 ### C Daemon
 
-Requires [ufbt](https://github.com/flipperdevices/flipperzero-ufbt) on `PATH`. Run from `src/FlipperZeroRpcDaemon/`:
+Requires [ufbt](https://github.com/flipperdevices/flipperzero-ufbt) on `PATH`. Run from `src/DolphinLinkRpcDaemon/`:
 
 ```bash
 python -m ufbt          # build FAP
@@ -53,12 +53,12 @@ Set `FLIPPER_SYSTEM_PORT` too for bootstrap tests. Or use `.\test-report.ps1 -Ca
 
 | Project | Purpose |
 |---|---|
-| `tests/FlipperZero.NET.Client.UnitTests/` | All new logic; uses `FakeTransport` (in-process) |
-| `tests/FlipperZero.NET.Client.HardwareTests/` | End-to-end on real hardware |
-| `tests/FlipperZero.NET.Client.ManualTests/` | Interactive / exploratory only |
-| `tests/FlipperZero.NET.Tests.Infrastructure/` | Shared fixtures and attributes (not runnable) |
+| `tests/DolphinLink.Client.UnitTests/` | All new logic; uses `FakeTransport` (in-process) |
+| `tests/DolphinLink.Client.HardwareTests/` | End-to-end on real hardware |
+| `tests/DolphinLink.Client.ManualTests/` | Interactive / exploratory only |
+| `tests/DolphinLink.Tests.Infrastructure/` | Shared fixtures and attributes (not runnable) |
 
-**Conventions:** `RequiresFlipperFact` / `RequiresBootstrapFact` attributes. `[Trait("Category","Hardware")]` on all hardware tests. Method naming: `MethodName_Scenario_ExpectedBehavior`. Cover at minimum: happy-path, resource conflict (if applicable), stream open/close lifecycle.
+**Conventions:** `RequiresDeviceFact` / `RequiresBootstrapFact` attributes. `[Trait("Category","Hardware")]` on all hardware tests. Method naming: `MethodName_Scenario_ExpectedBehavior`. Cover at minimum: happy-path, resource conflict (if applicable), stream open/close lifecycle.
 
 ---
 
@@ -67,8 +67,8 @@ Set `FLIPPER_SYSTEM_PORT` too for bootstrap tests. Or use `.\test-report.ps1 -Ca
 Schemas in `schema/` are the **single source of truth**. Never edit generated files (`.g.cs`, `rpc_dispatch_generated.h`).
 
 ```bash
-dotnet script codegens/codegen.csx      # C# → src/FlipperZero.NET.Client/Generated/
-dotnet script codegens/c-codegen.csx    # C  → src/FlipperZeroRpcDaemon/generated/rpc_dispatch_generated.h
+dotnet script codegens/codegen.csx      # C# → src/DolphinLink.Client/Generated/
+dotnet script codegens/c-codegen.csx    # C  → src/DolphinLinkRpcDaemon/generated/rpc_dispatch_generated.h
 dotnet build
 ```
 
@@ -120,7 +120,7 @@ Add a hand-written extension in `Extensions/Flipper<Subsystem>Extensions.cs` usi
 ### Step 5 — Build & verify
 
 ```bash
-python -m ufbt          # from src/FlipperZeroRpcDaemon/
+python -m ufbt          # from src/DolphinLinkRpcDaemon/
 dotnet build            # from repo root; 0 warnings, 0 errors
 ```
 
@@ -145,7 +145,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 | **Format specifiers** | `"%" PRIu32` / `"%" PRIx32` from `<inttypes.h>` | ~~`%lu`~~, ~~`%u`~~ (ARM type widths differ) |
 | **Stream slot ordering** | Call `stream_open()` — it atomically allocates a slot then acquires the resource. | Acquiring resource before slot → ghost resources on slot exhaustion |
 | **Register before send (C#)** | `item.Register()` before `SendLineAsync()` in writer loop | Registering after → reader loop race |
-| **Client construction (C#)** | `new FlipperRpcClient(transport)` or `new FlipperRpcClient(transport, options, diagnostics)` — `options` and `diagnostics` are optional with safe defaults. | ~~`new FlipperRpcClient(portName)`~~, ~~`new FlipperRpcClient(transport, interval, timeout)`~~ |
+| **Client construction (C#)** | `new RpcClient(transport)` or `new RpcClient(transport, options, diagnostics)` — `options` and `diagnostics` are optional with safe defaults. | ~~`new RpcClient(portName)`~~, ~~`new RpcClient(transport, interval, timeout)`~~ |
 
 ---
 
@@ -153,7 +153,7 @@ These are correctness-critical. LLMs frequently hallucinate the wrong names.
 
 - **Modules:** `core/rpc_<concern>.{h,c}`. **Handlers:** `handlers/<subsystem>/<cmd>.{h,c}`, one per command.
 - **Unused params:** `(void)json; (void)offset;`
-- **Globals:** Defined in `flipper_zero_rpc_daemon.c`, `extern` in headers. Shared handles in `core/rpc_globals.h`.
+- **Globals:** Defined in `dolphin_link_rpc_daemon.c`, `extern` in headers. Shared handles in `core/rpc_globals.h`.
 - **Headers:** `#pragma once`. **Format:** `<inttypes.h>` macros (`PRIu32`, etc.), never `%lu`/`%u`.
 - **clang-format:** 4-space indent, column limit 99, LF. Enforce with `python -m ufbt format` / `lint`.
 
@@ -176,9 +176,9 @@ if(json_find(json, "a", val.offset, &val)) json_value_uint32(&val, &address);
 - `sealed` classes. `readonly struct` for command/response/event types. `IAsyncDisposable` for resource owners.
 - Generic pattern: `SendAsync<TCommand, TResponse>()` where `TCommand : struct, IRpcCommand<TResponse>`.
 - Public API: extension methods in `Extensions/Flipper<Subsystem>Extensions.cs`.
-- Namespaces: `FlipperZero.NET.Commands`, stream events in `FlipperZero.NET.Commands.<Subsystem>`.
-- `FlipperRpcClientOptions`: `default` is safe (`HeartbeatInterval=3s`, `Timeout=10s`).
-- Exceptions: `FlipperRpcException` → `FlipperDisconnectedException`.
+- Namespaces: `DolphinLink.Client.Commands`, stream events in `DolphinLink.Client.Commands.<Subsystem>`.
+- `RpcClientOptions`: `default` is safe (`HeartbeatInterval=3s`, `Timeout=10s`).
+- Exceptions: `RpcException` → `DisconnectedException`.
 
 ---
 
@@ -187,9 +187,9 @@ if(json_find(json, "a", val.offset, &val)) json_value_uint32(&val, &address);
 **Subsystems:** `core`, `system`, `gpio`, `ir`, `subghz`, `nfc`, `notification`, `storage`, `rfid`, `ibutton`, `ui`, `input`.
 
 Key paths not obvious from the directory tree:
-- `src/FlipperZero.NET.Client/Commands/<Sub>/` — hand-written partial structs alongside `Generated/Commands/<Sub>/`
-- `src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap` — pre-built FAP embedded at compile time
-- `tests/FlipperZero.NET.Tests.Infrastructure/` — `FlipperFixture`, `FakeTransport`, skip attributes
+- `src/DolphinLink.Client/Commands/<Sub>/` — hand-written partial structs alongside `Generated/Commands/<Sub>/`
+- `src/DolphinLink.Bootstrapper/Resources/dolphin_link_rpc_daemon.fap` — pre-built FAP embedded at compile time
+- `tests/DolphinLink.Tests.Infrastructure/` — `DeviceFixture`, `FakeTransport`, skip attributes
 
 `PROTOCOL.md` — wire format, envelope fields, error codes, message examples.
 `ARCHITECTURE.md` — threading models, transport stack, bootstrapper flow.

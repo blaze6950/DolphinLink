@@ -4,11 +4,11 @@
   "description": "Listen for input button events",
   "resource": null,
   "request": {
-    "exit_key": { "wire": "ek", "type": "int", "enum": "$FlipperInputKey", "optional": true, "description": "Key that auto-closes the stream" },
-    "exit_type": { "wire": "et", "type": "int", "enum": "$FlipperInputType", "optional": true, "description": "Event type that triggers auto-close" }
+    "exit_key": { "wire": "ek", "type": "int", "enum": "$InputKey", "optional": true, "description": "Key that auto-closes the stream" },
+    "exit_type": { "wire": "et", "type": "int", "enum": "$InputType", "optional": true, "description": "Event type that triggers auto-close" }
   },
   "event": {
-    "key": { "wire": "k", "type": "int", "enum": "$FlipperInputKey", "description": "Input key" },
-    "type": { "wire": "ty", "type": "int", "enum": "$FlipperInputType", "description": "Event type" }
+    "key": { "wire": "k", "type": "int", "enum": "$InputKey", "description": "Input key" },
+    "type": { "wire": "ty", "type": "int", "enum": "$InputType", "description": "Event type" }
   }
 }

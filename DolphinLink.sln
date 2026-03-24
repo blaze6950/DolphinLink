@@ -1,0 +1,102 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+#
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Client", "src\DolphinLink.Client\DolphinLink.Client.csproj", "{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{01B5A30A-9E98-4333-8196-597B05CC25F9}"
+	ProjectSection(SolutionItems) = preProject
+		AGENTS.md = AGENTS.md
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{AD51403D-DBA8-4663-8537-501BC0F303B6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C6C1FF92-29AD-40F0-8A50-497F03807EA5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Client.UnitTests", "tests\DolphinLink.Client.UnitTests\DolphinLink.Client.UnitTests.csproj", "{2894FC9A-4564-4C20-9BDB-FF8F39DCB337}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Tests.Infrastructure", "tests\DolphinLink.Tests.Infrastructure\DolphinLink.Tests.Infrastructure.csproj", "{D479A047-5B9E-4967-A21A-65E46993B711}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Client.HardwareTests", "tests\DolphinLink.Client.HardwareTests\DolphinLink.Client.HardwareTests.csproj", "{89604884-A430-4C7D-A750-A00D59D1D3BB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.ManualTests", "tests\DolphinLink.ManualTests\DolphinLink.ManualTests.csproj", "{64DC315E-544E-4CD2-9249-8D6267BFDE67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Bootstrapper", "src\DolphinLink.Bootstrapper\DolphinLink.Bootstrapper.csproj", "{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codegens", "codegens", "{C3BCFC60-5114-4C8A-A639-1F98FC59AA26}"
+	ProjectSection(SolutionItems) = preProject
+		codegens\c-codegen.csx = codegens\c-codegen.csx
+		codegens\codegen.csx = codegens\codegen.csx
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.SerialPort.WebSerial", "src\DolphinLink.SerialPort.WebSerial\DolphinLink.SerialPort.WebSerial.csproj", "{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cicd", "cicd", "{5DD27F4B-C1D2-420C-9DC0-5813DB5BC271}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+		.github\workflows\deploy-pages.yml = .github\workflows\deploy-pages.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{CB02C591-FDA5-428F-9AD5-13BCA95F243A}"
+	ProjectSection(SolutionItems) = preProject
+		ARCHITECTURE.md = ARCHITECTURE.md
+		DIAGNOSTICS.md = DIAGNOSTICS.md
+		PROTOCOL.md = PROTOCOL.md
+		SCHEMA.md = SCHEMA.md
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DolphinLink.Web", "src\DolphinLink.Web\DolphinLink.Web.csproj", "{1529A074-B4C1-4324-BFDA-4FFB8195EF16}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2894FC9A-4564-4C20-9BDB-FF8F39DCB337}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2894FC9A-4564-4C20-9BDB-FF8F39DCB337}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2894FC9A-4564-4C20-9BDB-FF8F39DCB337}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2894FC9A-4564-4C20-9BDB-FF8F39DCB337}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D479A047-5B9E-4967-A21A-65E46993B711}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D479A047-5B9E-4967-A21A-65E46993B711}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D479A047-5B9E-4967-A21A-65E46993B711}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D479A047-5B9E-4967-A21A-65E46993B711}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89604884-A430-4C7D-A750-A00D59D1D3BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89604884-A430-4C7D-A750-A00D59D1D3BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89604884-A430-4C7D-A750-A00D59D1D3BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89604884-A430-4C7D-A750-A00D59D1D3BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64DC315E-544E-4CD2-9249-8D6267BFDE67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64DC315E-544E-4CD2-9249-8D6267BFDE67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64DC315E-544E-4CD2-9249-8D6267BFDE67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64DC315E-544E-4CD2-9249-8D6267BFDE67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1529A074-B4C1-4324-BFDA-4FFB8195EF16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1529A074-B4C1-4324-BFDA-4FFB8195EF16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1529A074-B4C1-4324-BFDA-4FFB8195EF16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1529A074-B4C1-4324-BFDA-4FFB8195EF16}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{045D99FC-21BC-456E-AB58-1BCFBAFBEE6A} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+		{2894FC9A-4564-4C20-9BDB-FF8F39DCB337} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
+		{D479A047-5B9E-4967-A21A-65E46993B711} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
+		{89604884-A430-4C7D-A750-A00D59D1D3BB} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
+		{64DC315E-544E-4CD2-9249-8D6267BFDE67} = {AD51403D-DBA8-4663-8537-501BC0F303B6}
+		{16E8D7E6-05AA-40B4-B594-8B3DAB7327A3} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+		{C3BCFC60-5114-4C8A-A639-1F98FC59AA26} = {01B5A30A-9E98-4333-8196-597B05CC25F9}
+		{6571924B-FA25-4A09-BFF3-C7AC2758C0BF} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+		{5DD27F4B-C1D2-420C-9DC0-5813DB5BC271} = {01B5A30A-9E98-4333-8196-597B05CC25F9}
+		{CB02C591-FDA5-428F-9AD5-13BCA95F243A} = {01B5A30A-9E98-4333-8196-597B05CC25F9}
+		{1529A074-B4C1-4324-BFDA-4FFB8195EF16} = {C6C1FF92-29AD-40F0-8A50-497F03807EA5}
+	EndGlobalSection
+EndGlobal

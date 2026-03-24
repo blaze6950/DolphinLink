@@ -29,4 +29,4 @@ nul
 # Never committed; CI downloads the artifact and copies it here before building
 # the Bootstrapper. Local devs regenerate it via the BuildDaemon MSBuild target
 # or deploy-daemon.csx.
-src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap
+src/DolphinLink.Bootstrapper/Resources/dolphin_link_rpc_daemon.fap

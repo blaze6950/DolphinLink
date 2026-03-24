@@ -1,0 +1,13 @@
+{
+  "name": "InputKey",
+  "wireType": "int",
+  "baseType": "byte",
+  "values": [
+    { "name": "Up", "wire": 0 },
+    { "name": "Down", "wire": 1 },
+    { "name": "Right", "wire": 2 },
+    { "name": "Left", "wire": 3 },
+    { "name": "Ok", "wire": 4 },
+    { "name": "Back", "wire": 5 }
+  ]
+}

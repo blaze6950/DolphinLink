@@ -13,7 +13,7 @@ using System.Linq;
 // Script lives in codegens/ — go up one level to the repo root.
 var repoRoot = Path.GetDirectoryName(Path.GetDirectoryName(GetScriptPath()));
 var schemaDir = Path.Combine(repoRoot, "schema");
-var cOutDir = Path.Combine(repoRoot, "src", "FlipperZeroRpcDaemon", "generated");
+var cOutDir = Path.Combine(repoRoot, "src", "DolphinLinkRpcDaemon", "generated");
 
 Directory.CreateDirectory(cOutDir);
 

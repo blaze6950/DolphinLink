@@ -1,0 +1,462 @@
+@page "/demos/led"
+@using DolphinLink.Client.Extensions
+
+@inject ClientService Flipper
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
+
+<PageTitle>LED Color Picker — DolphinLink</PageTitle>
+
+<div class="demo-page">
+    <h1>LED Color Picker</h1>
+    <p class="demo-description">
+        Pick a color and watch it appear on your Flipper Zero's RGB LED in real time.
+        Drag the gradient or use the sliders — every change is sent immediately.
+    </p>
+
+    @if (!Flipper.IsConnected)
+    {
+        <p class="demo-disconnected">
+            Use the <strong>Connect to Flipper</strong> button above to connect first.
+        </p>
+    }
+    else
+    {
+        <div class="led-picker-layout">
+
+            <!-- Left: color picker area -->
+            <div class="led-picker-left">
+
+                <!-- HSV gradient area -->
+                <div class="led-canvas-wrap" style="width:220px; height:160px;">
+                    <canvas id="led-hsv-canvas" width="220" height="160"></canvas>
+                    <!-- Cursor dot -->
+                    <div class="led-hue-cursor"
+                         style="left:@(_saturation * 220)px; top:@((1 - _value) * 160)px;
+                                background-color: @HexColor;"></div>
+                </div>
+
+                <!-- Hue strip -->
+                <div class="led-canvas-wrap" style="width:220px; height:18px; cursor:ew-resize;">
+                    <canvas id="led-hue-canvas" width="220" height="18"></canvas>
+                </div>
+
+                <!-- Brightness (value) slider -->
+                <div>
+                    <div class="led-slider-label">
+                        <span>Brightness</span>
+                        <span>@Math.Round(_value * 100)%</span>
+                    </div>
+                    <input type="range" class="form-range led-slider-v" min="0" max="100"
+                           value="@Math.Round(_value * 100)"
+                           @oninput="OnBrightnessInput" />
+                </div>
+
+            </div>
+
+            <!-- Right: controls & preview -->
+            <div class="led-picker-right">
+
+                <!-- Color preview swatch -->
+                <div class="led-color-preview" style="background-color: @HexColor;"></div>
+
+                <!-- Hex input -->
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Hex</label>
+                    <input type="text" class="form-control form-control-sm led-hex-input"
+                           value="@HexColor"
+                           maxlength="7"
+                           @onchange="OnHexChange" />
+                </div>
+
+                <!-- RGB sliders -->
+                <div class="d-flex flex-column gap-2">
+                    <div>
+                        <div class="led-slider-label">
+                            <span>R</span><span>@_r</span>
+                        </div>
+                        <input type="range" class="form-range led-slider-r" min="0" max="255"
+                               value="@_r" @oninput='e => OnRgbSlider(e, "r")' />
+                    </div>
+                    <div>
+                        <div class="led-slider-label">
+                            <span>G</span><span>@_g</span>
+                        </div>
+                        <input type="range" class="form-range led-slider-g" min="0" max="255"
+                               value="@_g" @oninput='e => OnRgbSlider(e, "g")' />
+                    </div>
+                    <div>
+                        <div class="led-slider-label">
+                            <span>B</span><span>@_b</span>
+                        </div>
+                        <input type="range" class="form-range led-slider-b" min="0" max="255"
+                               value="@_b" @oninput='e => OnRgbSlider(e, "b")' />
+                    </div>
+                </div>
+
+                <!-- Preset palette -->
+                <div>
+                    <div class="led-slider-label mb-2"><span>Presets</span></div>
+                    <div class="led-presets">
+                        @foreach (var preset in _presets)
+                        {
+                            var p = preset; // capture
+                            <button class="led-preset-swatch"
+                                    style="background-color: #@p.color.ToString()[1..];"
+                                    title="@p.name"
+                                    @onclick="() => ApplyPreset(p.color)"></button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Turn off button -->
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="TurnOffAsync"
+                            disabled="@_busy">
+                        Turn LED Off
+                    </button>
+                </div>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="alert alert-danger py-2 mb-0">@_errorMessage</div>
+                }
+
+                <div class="led-note">
+                    Note: The Flipper's LED is a single multicolor LED. Complex or dark colors
+                    may look different in person due to LED physics and mixing.
+                </div>
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // ── Color state (HSV + derived RGB) ──────────────────────────────────────
+
+    // Initialised to .NET Purple (#512BD4) — the color we set on load and restore on leave.
+    private double _hue        = 253.5; // 0-360
+    private double _saturation = 0.798; // 0-1
+    private double _value      = 0.831; // 0-1
+
+    private byte _r = 0x51;  // 81
+    private byte _g = 0x2B;  // 43
+    private byte _b = 0xD4;  // 212
+
+    private string HexColor => $"#{_r:X2}{_g:X2}{_b:X2}";
+
+    // ── Presets ───────────────────────────────────────────────────────────────
+
+    private readonly (string name, RgbColor color)[] _presets =
+    [
+        ("Red",          RgbColor.Red),
+        ("Orange",       RgbColor.Orange),
+        ("Yellow",       RgbColor.Yellow),
+        ("Green",        RgbColor.Green),
+        ("Cyan",         RgbColor.Cyan),
+        ("Blue",         RgbColor.Blue),
+        ("Magenta",      RgbColor.Magenta),
+        (".NET Purple",  RgbColor.DotNetPurple),
+        ("White",        RgbColor.White),
+        ("Off",          RgbColor.Off),
+    ];
+
+    // ── JS interop ────────────────────────────────────────────────────────────
+
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<LedColorPicker>? _selfRef;
+    private bool _jsReady = false;
+
+    // ── Debounce ──────────────────────────────────────────────────────────────
+
+    private CancellationTokenSource? _debounceCts;
+    private bool _busy;
+    private string? _errorMessage;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        Flipper.StateChanged += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Flipper.IsConnected)
+        {
+            await InitJsAsync().ConfigureAwait(false);
+        }
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            if (Flipper.IsConnected && !_jsReady)
+            {
+                await InitJsAsync().ConfigureAwait(false);
+            }
+        });
+    }
+
+    private async Task InitJsAsync()
+    {
+        if (_jsReady) return;
+        _jsReady = true;
+
+        _module   = await JS.InvokeAsync<IJSObjectReference>("import", "./demos.js").ConfigureAwait(false);
+        _selfRef  = DotNetObjectReference.Create(this);
+
+        await _module.InvokeVoidAsync("renderHsvGradient", "led-hsv-canvas", _hue).ConfigureAwait(false);
+        await _module.InvokeVoidAsync("renderHueStrip",    "led-hue-canvas").ConfigureAwait(false);
+        await _module.InvokeVoidAsync("attachHsvPicker",   "led-hsv-canvas", _selfRef).ConfigureAwait(false);
+        await _module.InvokeVoidAsync("attachHuePicker",   "led-hue-canvas", _selfRef).ConfigureAwait(false);
+
+        // Set LED to .NET Purple on page load so the user sees the initial state
+        // and we have a known color to restore on leave.
+        await SendColorAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+
+    // ── JS callbacks ──────────────────────────────────────────────────────────
+
+    [JSInvokable]
+    public async Task OnHsvPick(double sx, double sy)
+    {
+        _saturation = sx;
+        _value      = 1.0 - sy;
+        RgbFromHsv();
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        ScheduleSend();
+    }
+
+    [JSInvokable]
+    public async Task OnHuePick(double ratio)
+    {
+        _hue = ratio * 360.0;
+        RgbFromHsv();
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("renderHsvGradient", "led-hsv-canvas", _hue).ConfigureAwait(false);
+        }
+
+        ScheduleSend();
+    }
+
+    // ── Blazor event handlers ─────────────────────────────────────────────────
+
+    private void OnBrightnessInput(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var v))
+        {
+            _value = v / 100.0;
+            RgbFromHsv();
+            ScheduleSend();
+        }
+    }
+
+    private void OnRgbSlider(ChangeEventArgs e, string channel)
+    {
+        if (!byte.TryParse(e.Value?.ToString(), out var val)) return;
+        switch (channel)
+        {
+            case "r": _r = val; break;
+            case "g": _g = val; break;
+            case "b": _b = val; break;
+        }
+        HsvFromRgb();
+        _ = RefreshHsvCanvas();
+        ScheduleSend();
+    }
+
+    private void OnHexChange(ChangeEventArgs e)
+    {
+        var hex = e.Value?.ToString()?.Trim().TrimStart('#');
+        if (hex?.Length == 6 && TryParseHex(hex, out var r, out var g, out var b))
+        {
+            _r = r; _g = g; _b = b;
+            HsvFromRgb();
+            _ = RefreshHsvCanvas();
+            ScheduleSend();
+        }
+    }
+
+    private void ApplyPreset(RgbColor c)
+    {
+        _r = c.R; _g = c.G; _b = c.B;
+        HsvFromRgb();
+        _ = RefreshHsvCanvas();
+        ScheduleSend();
+    }
+
+    private async Task TurnOffAsync()
+    {
+        _r = 0; _g = 0; _b = 0;
+        HsvFromRgb();
+        await SendColorAsync(CancellationToken.None).ConfigureAwait(false);
+        StateHasChanged();
+    }
+
+    // ── Debounced send ────────────────────────────────────────────────────────
+
+    private void ScheduleSend()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var ct = _debounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(50, ct).ConfigureAwait(false);
+                await SendColorAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { /* superseded */ }
+        }, ct);
+    }
+
+    private async Task SendColorAsync(CancellationToken ct)
+    {
+        if (Flipper.Client is null) return;
+        _busy = true;
+        _errorMessage = null;
+        try
+        {
+            await Flipper.Client.LedSetRgbAsync(new RgbColor(_r, _g, _b), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { /* debounced */ }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed: {ex.Message}";
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // ── Canvas refresh ────────────────────────────────────────────────────────
+
+    private async Task RefreshHsvCanvas()
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("renderHsvGradient", "led-hsv-canvas", _hue).ConfigureAwait(false);
+    }
+
+    // ── Color math ────────────────────────────────────────────────────────────
+
+    /// <summary>Converts current HSV to _r, _g, _b.</summary>
+    private void RgbFromHsv()
+    {
+        double h = _hue, s = _saturation, v = _value;
+        double r, g, b;
+
+        if (s <= 0)
+        {
+            r = g = b = v;
+        }
+        else
+        {
+            double hh = (h >= 360 ? 0 : h) / 60.0;
+            int i = (int)hh;
+            double ff = hh - i;
+            double p = v * (1.0 - s);
+            double q = v * (1.0 - (s * ff));
+            double t = v * (1.0 - (s * (1.0 - ff)));
+
+            (r, g, b) = i switch
+            {
+                0 => (v, t, p),
+                1 => (q, v, p),
+                2 => (p, v, t),
+                3 => (p, q, v),
+                4 => (t, p, v),
+                _ => (v, p, q),
+            };
+        }
+
+        _r = (byte)Math.Round(r * 255);
+        _g = (byte)Math.Round(g * 255);
+        _b = (byte)Math.Round(b * 255);
+    }
+
+    /// <summary>Converts current _r, _g, _b to HSV.</summary>
+    private void HsvFromRgb()
+    {
+        double r = _r / 255.0;
+        double g = _g / 255.0;
+        double b = _b / 255.0;
+
+        double max = Math.Max(r, Math.Max(g, b));
+        double min = Math.Min(r, Math.Min(g, b));
+        double delta = max - min;
+
+        _value = max;
+
+        if (max <= 0)
+        {
+            _saturation = 0;
+            _hue = 0;
+            return;
+        }
+
+        _saturation = delta / max;
+
+        if (delta <= 0)
+        {
+            _hue = 0;
+            return;
+        }
+
+        double h;
+        if (max == r)      h = (g - b) / delta + (g < b ? 6 : 0);
+        else if (max == g) h = (b - r) / delta + 2;
+        else               h = (r - g) / delta + 4;
+
+        _hue = h * 60.0;
+    }
+
+    private static bool TryParseHex(string hex, out byte r, out byte g, out byte b)
+    {
+        r = g = b = 0;
+        try
+        {
+            r = Convert.ToByte(hex[0..2], 16);
+            g = Convert.ToByte(hex[2..4], 16);
+            b = Convert.ToByte(hex[4..6], 16);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // ── IAsyncDisposable ──────────────────────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        Flipper.StateChanged -= OnStateChanged;
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
+
+        // Restore LED to .NET Purple when leaving — this is both the initial and
+        // the "no active session" state for the Flipper's LED indicator.
+        if (Flipper.Client is not null)
+        {
+            try { await Flipper.Client.LedSetRgbAsync(RgbColor.DotNetPurple).ConfigureAwait(false); }
+            catch { /* ignore */ }
+        }
+
+        _selfRef?.Dispose();
+
+        if (_module is not null)
+        {
+            try { await _module.DisposeAsync().ConfigureAwait(false); }
+            catch { /* ignore */ }
+        }
+    }
+}

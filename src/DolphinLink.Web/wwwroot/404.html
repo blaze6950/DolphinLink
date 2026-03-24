@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DolphinLink</title>
+  <script>
+    // GitHub Pages SPA redirect — Daniel Buchner technique.
+    //
+    // When GitHub Pages serves this 404.html (because the requested path is not
+    // a real file), we encode the full path + query + hash into a ?p= query
+    // string and redirect to the repo root (index.html).  The script in
+    // index.html then reads that query string and calls history.replaceState()
+    // to restore the original URL before Blazor's router initialises.
+    //
+    // The "1" below is the number of path segments to keep as the base.
+    // For a project-pages site at  /DolphinLink/  we keep 1 segment.
+    var segmentCount = 1;
+
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?p=/' +
+      l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+<body></body>
+</html>

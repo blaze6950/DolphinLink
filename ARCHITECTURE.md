@@ -1,4 +1,4 @@
-# FlipperZero.NET — Architecture
+# DolphinLink — Architecture
 
 ---
 
@@ -81,7 +81,7 @@ ISerialPort
   ├── SystemSerialPort             (System.IO.Ports.SerialPort — desktop/server)
   └── WebSerialPort                (browser WebSerial API — Blazor WASM only)
          ↓
-SerialPortTransport                (ISerialPort → IFlipperTransport adapter)
+SerialPortTransport                (ISerialPort → ITransport adapter)
          ↑
 PacketSerializationTransport       (optional — skipped when DisablePacketSerialization=true)
   single-writer via BoundedChannel<string>(32) + background WriterLoopAsync
@@ -89,13 +89,13 @@ PacketSerializationTransport       (optional — skipped when DisablePacketSeria
 HeartbeatTransport                 (optional — skipped when DisableHeartbeat=true)
   bidirectional keep-alive + RX timeout watchdog
          ↑
-FlipperRpcClient                   (RPC request/response and stream logic)
+RpcClient                   (RPC request/response and stream logic)
 ```
 
-Each layer implements `IFlipperTransport`:
+Each layer implements `ITransport`:
 
 ```csharp
-public interface IFlipperTransport : IAsyncDisposable
+public interface ITransport : IAsyncDisposable
 {
     ValueTask OpenAsync(CancellationToken ct = default);
     ValueTask SendAsync(string data, CancellationToken ct = default);
@@ -122,7 +122,7 @@ public interface IFlipperTransport : IAsyncDisposable
 
 - Sends a keep-alive (`string.Empty` → bare `\n` on wire) when TX has been idle for `heartbeatInterval` (default 3 s).
 - Tracks last-sent and last-seen timestamps using `Interlocked.Exchange` on `long` tick values.
-- Fires `event Action? Disconnected` exactly once (guarded by `Interlocked.CompareExchange`) when the RX timeout expires or a send fails. `FlipperRpcClient` wires this to `FaultAll(HeartbeatTimeout)`.
+- Fires `event Action? Disconnected` exactly once (guarded by `Interlocked.CompareExchange`) when the RX timeout expires or a send fails. `RpcClient` wires this to `FaultAll(HeartbeatTimeout)`.
 - `ReceiveAsync` updates `_lastSeenTicks` on every line including daemon keep-alives, then `continue`s on whitespace-only lines so they are invisible to the layer above.
 - The constraint `timeout > heartbeatInterval` is enforced in the constructor.
 - **Disabled in WASM** (`DisableHeartbeat = true`) — see [WASM transport options](#wasm-transport-options).
@@ -131,7 +131,7 @@ public interface IFlipperTransport : IAsyncDisposable
 
 ## WebSerial Transport (Blazor WASM)
 
-`FlipperZero.NET.WebSerial` provides a browser-native `ISerialPort` implementation that wraps the
+`DolphinLink.WebSerial` provides a browser-native `ISerialPort` implementation that wraps the
 [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API). It is only
 available in Chromium-based browsers (Chrome ≥ 89, Edge ≥ 89). Check
 `WebSerialHelpers.IsSupported()` before showing any port-picker UI.
@@ -204,14 +204,14 @@ is required by the bootstrapper flow where the system port is disposed before `F
 
 ```
 1. Button click → PickSystemPortAsync()     shows picker → CDC 0 (system/native RPC)
-2. FlipperBootstrapper.BootstrapAsync(...)
+2. Bootstrapper.BootstrapAsync(...)
 3. onBeforeDaemonConnect callback:
    a. ForgetSystemPortAsync(systemPort)     closes + forgets CDC 0, releases USB claim
    b. Task.Delay(reEnumerationDelay)        wait for Flipper to re-enumerate as dual-CDC
    c. show "Pick daemon port" button → UI button click → PickAnyPortAsync() → CDC 1
    d. SignalDaemonPortReady(tcs, daemonPort)
    e. WaitForDaemonPortAsync(tcs) returns   bootstrap resumes with daemon port
-4. FlipperBootstrapper returns FlipperBootstrapResult with connected FlipperRpcClient
+4. Bootstrapper returns BootstrapResult with connected RpcClient
 ```
 
 The `CreateDaemonPortWaiter()` / `WaitForDaemonPortAsync()` / `SignalDaemonPortReady()` trio
@@ -224,7 +224,7 @@ implements a `TaskCompletionSource` bridge between the bootstrap async flow (whi
 OnInitializedAsync → TryAutoConnectAsync()
   └─ GetPortsJs(vid, pid, baud)            navigator.serial.getPorts() — no gesture needed
   └─ for each portId: probe ConnectAsync with 3 s timeout
-       success → return FlipperRpcClient (daemon port CDC 1)
+       success → return RpcClient (daemon port CDC 1)
        failure → DisposeAsync client + port, try next
   └─ null → show normal "Connect" button
 ```
@@ -241,7 +241,7 @@ re-entrancy on the cooperative thread.
 **Always set both of these when using `WebSerialPort` in a Blazor WASM application:**
 
 ```csharp
-var options = new FlipperRpcClientOptions
+var options = new RpcClientOptions
 {
     DisablePacketSerialization = true,
     DisableHeartbeat           = true,
@@ -273,7 +273,7 @@ on a fixed interval. Two problems arise in a browser:
    (which backs `Task.Delay`) to intervals of ≥ 1 second, sometimes much longer. If throttling
    delays the heartbeat loop by more than the 10-second RX timeout, `TriggerDisconnect()` fires,
    which calls `FaultAll(HeartbeatTimeout)` — failing every in-flight request with
-   `FlipperDisconnectedException` and cancelling `client.Disconnected` on a perfectly healthy
+   `DisconnectedException` and cancelling `client.Disconnected` on a perfectly healthy
    connection.
 
 Setting `DisableHeartbeat = true` has three coordinated effects:
@@ -282,7 +282,7 @@ Setting `DisableHeartbeat = true` has three coordinated effects:
   event subscription.
 - `NegotiateAsync` sends a `configure` command with `heartbeatMs = 3,600,000` (1 h) and
   `timeoutMs = 7,200,000` (2 h), so the **daemon's own RX watchdog** never fires on the host side
-  either. (Requires daemon protocol version ≥ 4; throws `FlipperRpcException` otherwise.)
+  either. (Requires daemon protocol version ≥ 4; throws `RpcException` otherwise.)
 - `ReaderLoopAsync` filters out bare `\n` keep-alive frames that now reach the reader directly
   (since `HeartbeatTransport` is no longer in the chain to consume them).
 
@@ -341,11 +341,11 @@ SendStreamAsync<TCommand, TEvent>()
   4. Return RpcStream<TEvent>
 ```
 
-`RpcStream<TEvent>` is an `IAsyncEnumerable<TEvent>` backed by a `ChannelReader<JsonElement>`. Events are deserialized lazily during iteration. On disconnect, the stream surfaces `FlipperDisconnectedException` rather than `OperationCanceledException`.
+`RpcStream<TEvent>` is an `IAsyncEnumerable<TEvent>` backed by a `ChannelReader<JsonElement>`. Events are deserialized lazily during iteration. On disconnect, the stream surfaces `DisconnectedException` rather than `OperationCanceledException`.
 
 ### Disconnect and fault propagation
 
-`FaultAll(FlipperDisconnectedException)` is idempotent (Interlocked guard):
+`FaultAll(DisconnectedException)` is idempotent (Interlocked guard):
 1. Cancel `_cts` → stops reader loop.
 2. `_pending.FailAll(ex)` → fails all in-flight `SendAsync` tasks.
 3. `_streams.FaultAll(ex)` → faults all open stream channels.
@@ -366,7 +366,7 @@ SendStreamAsync<TCommand, TEvent>()
 
 ### JSON Normalizer
 
-`RpcJsonNormalizer` (namespace `FlipperZero.NET`) transforms compact wire-format JSON into
+`RpcJsonNormalizer` (namespace `DolphinLink`) transforms compact wire-format JSON into
 human-readable JSON for diagnostics and logging. It expands abbreviated wire keys to full names,
 resolves integer enum values to named constants, converts numeric booleans (1/0) to true/false,
 and maps command IDs to command names.
@@ -394,14 +394,14 @@ produced via `string.Create` for single-allocation rendering.
 
 ## Bootstrapper Flow
 
-`FlipperBootstrapper.BootstrapAsync` connects a physical Flipper Zero and ensures the daemon FAP is installed and running.
+`Bootstrapper.BootstrapAsync` connects a physical Flipper Zero and ensures the daemon FAP is installed and running.
 
 ```
 BootstrapAsync(systemPort, daemonPort)
   1. Fast path: TryConnectDaemonDirectAsync (5 s timeout)
      └─ success → return AlreadyRunning (daemon already running)
 
-  2. Open FlipperNativeRpcClient(systemPort) — native protobuf RPC (interface 0)
+  2. Open NativeRpcClient(systemPort) — native protobuf RPC (interface 0)
 
   3. DetermineActionAsync:
      StorageStatAsync(installPath)
@@ -409,7 +409,7 @@ BootstrapAsync(systemPort, daemonPort)
        MD5 differs   → action = Update
        MD5 matches   → action = Launch
 
-  4. If Install/Update and AutoInstall=false → throw FlipperBootstrapException
+  4. If Install/Update and AutoInstall=false → throw BootstrapException
 
   5. UploadFapAsync: StorageMkdirAsync + StorageWriteAsync (512-byte chunks, progress reported)
 
@@ -420,7 +420,7 @@ BootstrapAsync(systemPort, daemonPort)
   8. WaitForDaemonAsync: poll daemonPort every 500 ms (3 s per-attempt timeout)
      until daemon responds to daemon_info, up to DaemonStartTimeout (default 10 s)
 
-  9. Return FlipperBootstrapResult with connected FlipperRpcClient
+  9. Return BootstrapResult with connected RpcClient
 ```
 
 ### Bootstrap defaults
@@ -428,7 +428,7 @@ BootstrapAsync(systemPort, daemonPort)
 | Option                      | Default                                       |
 |-----------------------------|-----------------------------------------------|
 | `AutoInstall`               | `true`                                        |
-| `InstallPath`               | `/ext/apps/Tools/flipper_zero_rpc_daemon.fap` |
+| `InstallPath`               | `/ext/apps/Tools/dolphin_link_rpc_daemon.fap` |
 | `Timeout`                   | 60 s                                          |
 | `DaemonStartTimeout`        | 10 s                                          |
 | Daemon poll interval        | 500 ms                                        |

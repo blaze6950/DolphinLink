@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet-script
 // deploy-daemon.csx
 //
-// Builds the C daemon FAP then uses FlipperBootstrapper.BootstrapAsync to
+// Builds the C daemon FAP then uses Bootstrapper.BootstrapAsync to
 // upload and launch it on the Flipper Zero — no qFlipper needed.
 //
 // Prerequisites
@@ -29,15 +29,15 @@
 //       before the first run.  Run `dotnet build` once after cloning.
 #r "nuget: Google.Protobuf, 3.28.3"
 #r "nuget: System.IO.Ports, 8.0.0"
-#r "src/FlipperZero.NET.Client/bin/Debug/net8.0/FlipperZero.NET.Client.dll"
-#r "src/FlipperZero.NET.Bootstrapper/bin/Debug/net8.0/FlipperZero.NET.Bootstrapper.dll"
+#r "src/DolphinLink.Client/bin/Debug/net8.0/DolphinLink.Client.dll"
+#r "src/DolphinLink.Bootstrapper/bin/Debug/net8.0/DolphinLink.Bootstrapper.dll"
 
 #nullable enable
 
 using System.Diagnostics;
-using FlipperZero.NET;
-using FlipperZero.NET.Abstractions;
-using FlipperZero.NET.Bootstrapper;
+using DolphinLink.Client;
+using DolphinLink.Client.Abstractions;
+using DolphinLink.Bootstrapper;
 
 // ---------------------------------------------------------------------------
 // Diagnostics sink — prints every sent/received JSON line to stderr
@@ -82,8 +82,8 @@ string? OptionValue(string flag)
 // ---------------------------------------------------------------------------
 
 string repoRoot  = Directory.GetCurrentDirectory();
-string daemonSrc = Path.Combine(repoRoot, "src", "FlipperZeroRpcDaemon");
-string fapDist   = Path.Combine(daemonSrc, "dist", "flipper_zero_rpc_daemon.fap");
+string daemonSrc = Path.Combine(repoRoot, "src", "DolphinLinkRpcDaemon");
+string fapDist   = Path.Combine(daemonSrc, "dist", "dolphin_link_rpc_daemon.fap");
 
 // ---------------------------------------------------------------------------
 // Step 1 — (optionally) build the C daemon
@@ -123,7 +123,7 @@ Console.WriteLine($"==> FAP loaded from dist/  ({fapBytes.Length:N0} bytes)");
 Console.WriteLine();
 
 // ---------------------------------------------------------------------------
-// Step 3 — deploy via FlipperBootstrapper.BootstrapAsync
+// Step 3 — deploy via Bootstrapper.BootstrapAsync
 // ---------------------------------------------------------------------------
 
 Console.WriteLine("==> Deploying daemon...");
@@ -131,7 +131,7 @@ Console.WriteLine($"    System port : {system}");
 Console.WriteLine($"    Daemon port : {daemon}");
 Console.WriteLine();
 
-var options = new FlipperBootstrapOptions { AutoInstall = true };
+var options = new BootstrapOptions { AutoInstall = true };
 var diagnostics = new ConsoleDiagnostics();
 
 int lastPct = -1;
@@ -147,17 +147,17 @@ var progress = new Progress<(int Written, int Total)>(r =>
     }
 });
 
-FlipperBootstrapResult result;
+BootstrapResult result;
 try
 {
-    result = await FlipperBootstrapper.BootstrapAsync(
+    result = await Bootstrapper.BootstrapAsync(
         system, daemon,
         options:     options,
         diagnostics: diagnostics,
         progress:    progress,
         fapOverride: fapBytes);
 }
-catch (FlipperBootstrapException ex)
+catch (BootstrapException ex)
 {
     Console.Error.WriteLine();
     Console.Error.WriteLine($"Bootstrap failed: {ex.Message}");

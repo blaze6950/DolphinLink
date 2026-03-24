@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageId>DolphinLink.SerialPort.WebSerial</PackageId>
+        <Description>WebSerial-backed ISerialPort implementation for DolphinLink, enabling Flipper Zero connections from Blazor WebAssembly applications running in the browser.</Description>
+        <!--
+          [JSImport] and [JSExport] source generators emit unsafe code internally.
+          AllowUnsafeBlocks must be true even though no user-written code in this
+          project uses the 'unsafe' keyword.
+        -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\DolphinLink.Client\DolphinLink.Client.csproj" />
+        <ProjectReference Include="..\DolphinLink.Bootstrapper\DolphinLink.Bootstrapper.csproj" />
+    </ItemGroup>
+
+</Project>

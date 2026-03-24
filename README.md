@@ -1,8 +1,8 @@
-# FlipperZero.NET
+# DolphinLink
 
-[![CI](https://github.com/YOUR_ORG/FlipperZero.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/FlipperZero.NET/actions/workflows/ci.yml)
-[![NuGet](https://img.shields.io/nuget/v/FlipperZero.NET.Client)](https://www.nuget.org/packages/FlipperZero.NET.Client)
-[![NuGet](https://img.shields.io/nuget/v/FlipperZero.NET.Bootstrapper)](https://www.nuget.org/packages/FlipperZero.NET.Bootstrapper)
+[![CI](https://github.com/YOUR_ORG/DolphinLink/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/DolphinLink/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/DolphinLink.Client)](https://www.nuget.org/packages/DolphinLink.Client)
+[![NuGet](https://img.shields.io/nuget/v/DolphinLink.Bootstrapper)](https://www.nuget.org/packages/DolphinLink.Bootstrapper)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/en-us/)
 
 **Control your Flipper Zero from .NET (C#) — (or any language) — over USB, via a simple NDJSON RPC.**
@@ -24,7 +24,7 @@
 | **RPC Client**   | C# / .NET 8 | Async, strongly-typed API for all 46 commands. Code-generated from JSON schemas.                                                    |
 | **Bootstrapper** | C# / .NET 8 | Installs and launches the daemon FAP automatically via the Flipper's native protobuf RPC, then hands you a ready-to-use client.     |
 
-A **Blazor WASM** sample (`samples/FlipperZero.Web`) talks to the Flipper directly from a Chromium browser over the Web Serial API — no drivers, no install.
+A **Blazor WASM** sample (`src/DolphinLink.Web`) talks to the Flipper directly from a Chromium browser over the Web Serial API — no drivers, no install.
 
 ---
 
@@ -57,7 +57,7 @@ A **Blazor WASM** sample (`samples/FlipperZero.Web`) talks to the Flipper direct
 
 ## Interactive docs & playground
 
-> **[Try it live →](https://YOUR_ORG.github.io/FlipperZero.NET/)**  
+> **[Try it live →](https://YOUR_ORG.github.io/DolphinLink/)**  
 > Requires Chrome or Edge (Web Serial API). Connect your Flipper and everything runs in the browser — no install.
 
 A Blazor WASM app that serves as both a demo and an interactive API reference:
@@ -76,13 +76,13 @@ A Blazor WASM app that serves as both a demo and an interactive API reference:
 ### 1. Install
 
 ```
-dotnet add package FlipperZero.NET.Bootstrapper
+dotnet add package DolphinLink.Bootstrapper
 ```
 
 Or, if you just need the client without the auto-install flow:
 
 ```
-dotnet add package FlipperZero.NET.Client
+dotnet add package DolphinLink.Client
 ```
 
 ### 2. Connect with the Bootstrapper (recommended)
@@ -90,9 +90,9 @@ dotnet add package FlipperZero.NET.Client
 The Bootstrapper uploads the daemon FAP if it isn't already on the SD card, launches it, and returns a connected client — all in one call. `COM3` is the system port (native RPC / qFlipper), `COM4` is the daemon port (opens after the FAP starts).
 
 ```csharp
-using FlipperZero.NET.Bootstrapper;
+using DolphinLink.Bootstrapper;
 
-var result = await FlipperBootstrapper.BootstrapAsync("COM3", "COM4");
+var result = await Bootstrapper.BootstrapAsync("COM3", "COM4");
 await using var flipper = result.Client;
 ```
 
@@ -123,7 +123,7 @@ The wire protocol is plain **NDJSON over USB CDC** — one JSON object per line.
 
 1. Read [`PROTOCOL.md`](PROTOCOL.md) — the full wire format fits on one page.
 2. Browse [`schema/`](schema/) — every command, field type, and enum is machine-readable JSON.
-3. Use the C# client in [`src/FlipperZero.NET.Client/`](src/FlipperZero.NET.Client/) as a reference implementation.
+3. Use the C# client in [`src/DolphinLink.Client/`](src/DolphinLink.Client/) as a reference implementation.
 4. Ask an LLM to generate the host library. Point it at `PROTOCOL.md`, the schema files, and the C# source — it has everything it needs.
 
 ---

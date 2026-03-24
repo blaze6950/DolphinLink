@@ -1,12 +1,12 @@
 # Diagnostics
 
-FlipperZero.NET has two complementary diagnostics layers: client-side round-trip measurement (always active, zero wire overhead) and daemon-side per-request phase timing (opt-in, inlined into responses).
+DolphinLink has two complementary diagnostics layers: client-side round-trip measurement (always active, zero wire overhead) and daemon-side per-request phase timing (opt-in, inlined into responses).
 
 ---
 
 ## Client-Side Diagnostics (`IRpcDiagnostics`)
 
-The C# client logs every sent command and every received response/stream event without any additional protocol overhead. Implement `IRpcDiagnostics` and pass it to the `FlipperRpcClient` constructor to receive these entries:
+The C# client logs every sent command and every received response/stream event without any additional protocol overhead. Implement `IRpcDiagnostics` and pass it to the `RpcClient` constructor to receive these entries:
 
 ```csharp
 public interface IRpcDiagnostics
@@ -34,7 +34,7 @@ Each `RpcLogEntry` contains:
 ### Usage
 
 ```csharp
-var client = new FlipperRpcClient(transport, diagnostics: new MyDiagnostics());
+var client = new RpcClient(transport, diagnostics: new MyDiagnostics());
 ```
 
 ### Implementation contract
@@ -71,10 +71,10 @@ All values are in **milliseconds** (`furi_get_tick()` resolution, ~1 ms on Flipp
 
 ### Enabling daemon diagnostics
 
-Set `DaemonDiagnostics = true` in `FlipperRpcClientOptions`:
+Set `DaemonDiagnostics = true` in `RpcClientOptions`:
 
 ```csharp
-var client = new FlipperRpcClient(transport, new FlipperRpcClientOptions
+var client = new RpcClient(transport, new RpcClientOptions
 {
     DaemonDiagnostics = true,
 });
@@ -132,7 +132,7 @@ The `configure` response always echoes the effective `"dx"` value so the host ca
 
 ## Daemon-Side C Implementation
 
-The metrics infrastructure lives in `src/FlipperZeroRpcDaemon/core/`:
+The metrics infrastructure lives in `src/DolphinLinkRpcDaemon/core/`:
 
 | File                          | Role                                                                                   |
 |-------------------------------|----------------------------------------------------------------------------------------|

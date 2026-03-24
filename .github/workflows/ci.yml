@@ -36,7 +36,7 @@ jobs:
 
       - name: Build
         run: >
-          dotnet build src/FlipperZero.NET.Client
+          dotnet build src/DolphinLink.Client
           --configuration Release
           --no-incremental
           -warnaserror
@@ -59,7 +59,7 @@ jobs:
 
       - name: Pack
         run: >
-          dotnet pack src/FlipperZero.NET.Client
+          dotnet pack src/DolphinLink.Client
           --configuration Release
           --no-build
           --output ./artifacts
@@ -90,7 +90,7 @@ jobs:
           # Build against the release SDK so embedded firmware is stable.
           # Change to `dev` if you need to track bleeding-edge API changes.
           sdk-channel: release
-          app-dir: src/FlipperZeroRpcDaemon
+          app-dir: src/DolphinLinkRpcDaemon
 
       - name: Upload FAP artifact
         uses: actions/upload-artifact@v4
@@ -125,21 +125,21 @@ jobs:
           name: daemon-fap
           # Download directly into the Resources directory so the .csproj
           # EmbeddedResource picks it up without any copy step.
-          path: src/FlipperZero.NET.Bootstrapper/Resources
+          path: src/DolphinLink.Bootstrapper/Resources
 
       - name: Build
         # Do NOT pass /p:BuildDaemon=true — the FAP is already in Resources/.
         # Building only the Bootstrapper project resolves the Client via its
         # <ProjectReference>, so the Client is compiled as well.
         run: >
-          dotnet build src/FlipperZero.NET.Bootstrapper
+          dotnet build src/DolphinLink.Bootstrapper
           --configuration Release
           --no-incremental
           -warnaserror
 
       - name: Pack
         run: >
-          dotnet pack src/FlipperZero.NET.Bootstrapper
+          dotnet pack src/DolphinLink.Bootstrapper
           --configuration Release
           --no-build
           --output ./artifacts

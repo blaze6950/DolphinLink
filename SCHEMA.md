@@ -1,4 +1,4 @@
-# FlipperZero.NET — Schema Reference
+# DolphinLink — Schema Reference
 
 The `schema/` directory is the **single source of truth** for the entire protocol. Both the C
 daemon (dispatch table, `COMMAND_NAMES[]`) and the C# client (command/response/event structs,
@@ -150,7 +150,7 @@ for file organisation; the `"subsystem"` field inside the file controls C# names
 | Field               | Required | Description                                                                                                  |
 |---------------------|----------|--------------------------------------------------------------------------------------------------------------|
 | `"command"`         | yes      | Wire command name; must match the value in `command-registry.json`                                           |
-| `"subsystem"`       | yes      | PascalCase subsystem name; controls C# namespace (`FlipperZero.NET.Commands.<Subsystem>`) and directory hint |
+| `"subsystem"`       | yes      | PascalCase subsystem name; controls C# namespace (`DolphinLink.Client.Commands.<Subsystem>`) and directory hint |
 | `"description"`     | yes      | Human-readable description (used in generated XML docs)                                                      |
 | `"resource"`        | yes      | `null`, or a string from `resources.json` (e.g. `"RESOURCE_IR"`)                                             |
 | `"request"`         | yes      | Map of field name → field descriptor (may be `{}` for no args)                                               |
@@ -189,7 +189,7 @@ Every entry in `"request"` and `"response"` is a field descriptor:
 
 ### `"extensionReturn"`
 
-Controls the signature of the generated C# extension method on `FlipperRpcClient`:
+Controls the signature of the generated C# extension method on `RpcClient`:
 
 | Shape                                             | C# method signature                                                                 |
 |---------------------------------------------------|-------------------------------------------------------------------------------------|
@@ -213,7 +213,7 @@ Suppresses code generation for specific parts of a command when you need hand-wr
 | `"extension"` | Don't generate the extension method (`.g.cs`) |
 
 Omitting `"csharp"` entirely generates all three. Any combination is valid. The hand-written
-partial lives alongside the generated file in `src/FlipperZero.NET.Client/Commands/<Subsystem>/`.
+partial lives alongside the generated file in `src/DolphinLink.Client/Commands/<Subsystem>/`.
 
 ---
 
@@ -268,12 +268,12 @@ The command is always registered in `command-registry.json` with a `_start` suff
   "subsystem": "Input",
   "resource": null,
   "request": {
-    "exit_key":  { "wire": "ek", "type": "int", "enum": "$FlipperInputKey",  "optional": true, "description": "Key that auto-closes the stream" },
-    "exit_type": { "wire": "et", "type": "int", "enum": "$FlipperInputType", "optional": true, "description": "Event type that triggers auto-close" }
+    "exit_key":  { "wire": "ek", "type": "int", "enum": "$InputKey",  "optional": true, "description": "Key that auto-closes the stream" },
+    "exit_type": { "wire": "et", "type": "int", "enum": "$InputType", "optional": true, "description": "Event type that triggers auto-close" }
   },
   "event": {
-    "key":  { "wire": "k",  "type": "int", "enum": "$FlipperInputKey",  "description": "Input key" },
-    "type": { "wire": "ty", "type": "int", "enum": "$FlipperInputType", "description": "Event type" }
+    "key":  { "wire": "k",  "type": "int", "enum": "$InputKey",  "description": "Input key" },
+    "type": { "wire": "ty", "type": "int", "enum": "$InputType", "description": "Event type" }
   }
 }
 ```
@@ -362,12 +362,12 @@ dotnet script codegens/normalizer-codegen.csx   # C#: updates RpcJsonNormalizer.
 
 | Script                   | Output                                                        | Contents                                                                                                         |
 |--------------------------|---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| `c-codegen.csx`          | `src/FlipperZeroRpcDaemon/generated/rpc_dispatch_generated.h` | Dispatch table array (handler function pointers, resource bitmask, stream flag) + `COMMAND_NAMES[]` string array |
-| `codegen.csx`            | `src/FlipperZero.NET.Client/Generated/Commands/<Sub>/*.g.cs`  | Request and response `readonly struct` types with `[JsonPropertyName]` attributes                                |
-|                          | `src/FlipperZero.NET.Client/Generated/Streams/<Sub>/*.g.cs`   | Event `readonly struct` types                                                                                    |
-|                          | `src/FlipperZero.NET.Client/Generated/Enums/*.g.cs`           | C# `enum` types                                                                                                  |
-|                          | `src/FlipperZero.NET.Client/Generated/Extensions/*.g.cs`      | Extension methods on `FlipperRpcClient`                                                                          |
-| `normalizer-codegen.csx` | `src/FlipperZero.NET.Client/Generated/RpcJsonNormalizer.g.cs` | Switch expressions mapping wire keys ↔ full names, integer enums ↔ names, for diagnostics output                 |
+| `c-codegen.csx`          | `src/DolphinLinkRpcDaemon/generated/rpc_dispatch_generated.h` | Dispatch table array (handler function pointers, resource bitmask, stream flag) + `COMMAND_NAMES[]` string array |
+| `codegen.csx`            | `src/DolphinLink.Client/Generated/Commands/<Sub>/*.g.cs`  | Request and response `readonly struct` types with `[JsonPropertyName]` attributes                                |
+|                          | `src/DolphinLink.Client/Generated/Streams/<Sub>/*.g.cs`   | Event `readonly struct` types                                                                                    |
+|                          | `src/DolphinLink.Client/Generated/Enums/*.g.cs`           | C# `enum` types                                                                                                  |
+|                          | `src/DolphinLink.Client/Generated/Extensions/*.g.cs`      | Extension methods on `RpcClient`                                                                          |
+| `normalizer-codegen.csx` | `src/DolphinLink.Client/Generated/RpcJsonNormalizer.g.cs` | Switch expressions mapping wire keys ↔ full names, integer enums ↔ names, for diagnostics output                 |
 
 ---
 
@@ -381,7 +381,7 @@ dotnet script codegens/normalizer-codegen.csx   # C#: updates RpcJsonNormalizer.
 
 4. **Run codegen** (both scripts, then build) to verify the schema is valid and no compile errors are introduced.
 
-5. **Write the C handler** in `src/FlipperZeroRpcDaemon/handlers/<subsystem>/<cmd>.{h,c}` and register it in the generated dispatch table. See `AGENTS.md` for handler conventions.
+5. **Write the C handler** in `src/DolphinLinkRpcDaemon/handlers/<subsystem>/<cmd>.{h,c}` and register it in the generated dispatch table. See `AGENTS.md` for handler conventions.
 
 6. **Write C# overrides** if codegen is insufficient (`"csharp": { "skip": [...] }` in the schema + hand-written partial in `Commands/<Subsystem>/`).
 

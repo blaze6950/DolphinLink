@@ -1,4 +1,4 @@
-# FlipperZero.NET — Wire Protocol
+# DolphinLink — Wire Protocol
 
 The daemon and client communicate over **USB CDC** (interface 1) using **newline-delimited JSON** (NDJSON). Each message
 is a single UTF-8 JSON object terminated by `\n`. There are no binary framing layers.
@@ -221,7 +221,7 @@ supported command names:
 
 ```
 → {"c":3,"i":1}
-← {"t":0,"i":1,"p":{"n":"flipper_zero_rpc_daemon","v":1,"cmds":["ping","stream_close",...]}}
+← {"t":0,"i":1,"p":{"n":"dolphin_link_rpc_daemon","v":1,"cmds":["ping","stream_close",...]}}
 ```
 
 The host verifies `"n"` and `"v"` before proceeding. If `configure` appears in `"cmds"`, the host sends a `configure`

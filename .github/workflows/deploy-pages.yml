@@ -51,18 +51,18 @@ jobs:
       # The output lands in ./publish/wwwroot — that is the folder we upload.
       - name: Publish Blazor app
         run: >
-          dotnet publish samples/FlipperZero.Web
+          dotnet publish src/DolphinLink.Web
           --configuration Release
           --output ./publish
           -warnaserror
 
-      # Rewrite <base href="/"> to <base href="/FlipperZero.NET/"> so that all
+      # Rewrite <base href="/"> to <base href="/DolphinLink/"> so that all
       # relative asset and framework URLs resolve correctly under the sub-path
       # served by GitHub Pages (project site, not user/org site).
       - name: Fix base href for GitHub Pages sub-path
         run: >
           sed -i
-          's|<base href="/" />|<base href="/FlipperZero.NET/" />|g'
+          's|<base href="/" />|<base href="/DolphinLink/" />|g'
           ./publish/wwwroot/index.html
 
       # Disable Jekyll processing so GitHub Pages serves _framework/ and other

@@ -1,0 +1,118 @@
+using DolphinLink.Client.Transport;
+
+namespace DolphinLink.Client.HardwareTests.Core;
+
+/// <summary>
+/// xUnit collection for tests that open their own <see cref="RpcClient"/>
+/// instances.  These tests require exclusive access to the serial port so they
+/// CANNOT share the <see cref="DeviceCollection"/> fixture (which holds the
+/// port open for the duration of that collection).
+///
+/// xUnit runs collections sequentially, so <see cref="DeviceCollection"/>
+/// finishes (and the fixture disposes the port) before this collection starts.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class LifecycleCollection
+{
+    public const string Name = "Flipper lifecycle";
+}
+
+/// <summary>
+/// Integration tests verifying that <see cref="RpcClient"/> disposes
+/// cleanly under various conditions.
+///
+/// Run with a Flipper Zero connected:
+///   set FLIPPER_PORT=COM3
+///   dotnet test --filter "FullyQualifiedName~LifecycleTests"
+/// </summary>
+[Collection(LifecycleCollection.Name)]
+public sealed class LifecycleTests
+{
+    private readonly string _portName;
+
+    public LifecycleTests()
+    {
+        _portName = Environment.GetEnvironmentVariable(DeviceFixture.EnvVar)
+            ?? string.Empty;
+    }
+
+    /// <summary>
+    /// A freshly created and immediately disposed client must not throw.
+    /// Validates: dispose on a client that was never connected.
+    /// </summary>
+    [Trait("Category", "Hardware")]
+    [RequiresDeviceFact]
+    public async Task Dispose_BeforeConnect_DoesNotThrow()
+    {
+        var client = new RpcClient(new SerialPortTransport(_portName));
+        await client.DisposeAsync(); // Should be a no-op
+    }
+
+    /// <summary>
+    /// A client that is connected, sends a ping, then is disposed must not
+    /// throw during disposal.
+    /// Validates: graceful shutdown of both background loops.
+    /// </summary>
+    [Trait("Category", "Hardware")]
+    [RequiresDeviceFact]
+    public async Task Dispose_AfterSuccessfulPing_DoesNotThrow()
+    {
+        await using var client = new RpcClient(new SerialPortTransport(_portName));
+        await client.ConnectAsync();
+
+        var pong = await client.PingAsync();
+        Assert.True(pong);
+    }
+
+    /// <summary>
+    /// Disposing a client that has an open IR receive stream must close the
+    /// stream cleanly (the daemon releases the resource) and not throw.
+    /// Validates: <see cref="RpcClient.DisposeAsync"/> while an IR
+    /// stream is in-flight.
+    /// </summary>
+    [Trait("Category", "Hardware")]
+    [RequiresDeviceFact]
+    public async Task Dispose_WithOpenIrStream_DoesNotThrow()
+    {
+        await using var client = new RpcClient(new SerialPortTransport(_portName));
+        await client.ConnectAsync();
+
+        // Open an IR receive stream — do NOT dispose it; let the client do it.
+        var stream = await client.IrReceiveStartAsync();
+        _ = stream; // intentionally leaked to test client-side cleanup
+    }
+
+    /// <summary>
+    /// Disposing a client that has an open GPIO watch stream must close the
+    /// stream cleanly (the daemon releases the stream slot) and not throw.
+    /// Validates: <see cref="RpcClient.DisposeAsync"/> while a GPIO
+    /// stream is in-flight.
+    /// </summary>
+    [Trait("Category", "Hardware")]
+    [RequiresDeviceFact]
+    public async Task Dispose_WithOpenGpioStream_DoesNotThrow()
+    {
+        await using var client = new RpcClient(new SerialPortTransport(_portName));
+        await client.ConnectAsync();
+
+        // Open a GPIO watch stream — do NOT dispose it; let the client do it.
+        var stream = await client.GpioWatchStartAsync(GpioPin.Pin6);
+        _ = stream; // intentionally leaked to test client-side cleanup
+    }
+
+    /// <summary>
+    /// Calling <see cref="RpcClient.DisposeAsync"/> more than once must
+    /// be safe (idempotent).
+    /// </summary>
+    [Trait("Category", "Hardware")]
+    [RequiresDeviceFact]
+    public async Task Dispose_CalledTwice_DoesNotThrow()
+    {
+        var client = new RpcClient(new SerialPortTransport(_portName));
+        await client.ConnectAsync();
+        await client.PingAsync();
+
+        await client.DisposeAsync();
+        await client.DisposeAsync(); // second call must be harmless
+    }
+}

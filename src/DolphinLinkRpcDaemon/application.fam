@@ -1,0 +1,17 @@
+# For details & more options, see documentation/AppManifests.md in firmware repo
+
+App(
+    appid="dolphin_link_rpc_daemon",  # Must be unique
+    name="DolphinLink",  # Displayed in menus
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="dolphin_link_rpc_daemon_app",
+    stack_size=8 * 1024,
+    fap_category="Tools",
+    # Optional values
+    # fap_version="0.1",
+    fap_icon="dolphin_link_rpc_daemon.png",  # 10x10 1-bit PNG
+    # fap_description="A DolphinLink daemon for Flipper Zero",
+    # fap_author="blaze6950",
+    # fap_weburl="https://github.com/blaze6950/DolphinLink",
+    fap_icon_assets="images",  # Image assets to compile for this application
+)
