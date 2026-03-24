@@ -6,6 +6,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FlipperZero.NET</title>
     <base href="/" />
+    <!-- GitHub Pages SPA redirect restore.
+         If 404.html encoded a deep-link into ?p=, restore the real URL via
+         history.replaceState() before Blazor's router initialises so the
+         router sees the correct path rather than the root with a query string. -->
+    <script>
+        (function () {
+            var search = window.location.search;
+            if (search.slice(1, 3) === 'p=') {
+                var decoded = search.slice(1)
+                    .split('&')
+                    .reduce(function (prev, item) {
+                        return (item.slice(0, 2) === 'p=')
+                            ? prev + '/' + item.slice(2).replace(/~and~/g, '&')
+                            : prev + (item.slice(0, 2) === 'q='
+                                ? '?' + item.slice(2).replace(/~and~/g, '&')
+                                : '&' + item);
+                    }, '');
+                window.history.replaceState(null, null,
+                    window.location.pathname.slice(0, -1) + decoded + window.location.hash);
+            }
+        })();
+    </script>
     <!-- theme.js must run before any stylesheet so data-theme is set on <html>
          before CSS variables are evaluated — prevents a flash of wrong theme. -->
     <script src="theme.js"></script>

@@ -1,0 +1,82 @@
+name: Deploy to GitHub Pages
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Permissions required by actions/deploy-pages
+# ──────────────────────────────────────────────────────────────────────────────
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment; cancel in-flight runs so the latest
+# push always wins without leaving a stale deployment in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job — Publish Blazor WASM and deploy to GitHub Pages
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy Blazor Web App
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Configure the GitHub Pages environment so the action knows the base URL.
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # Publish the Blazor WASM app as a self-contained static bundle.
+      # The output lands in ./publish/wwwroot — that is the folder we upload.
+      - name: Publish Blazor app
+        run: >
+          dotnet publish samples/FlipperZero.Web
+          --configuration Release
+          --output ./publish
+          -warnaserror
+
+      # Rewrite <base href="/"> to <base href="/FlipperZero.NET/"> so that all
+      # relative asset and framework URLs resolve correctly under the sub-path
+      # served by GitHub Pages (project site, not user/org site).
+      - name: Fix base href for GitHub Pages sub-path
+        run: >
+          sed -i
+          's|<base href="/" />|<base href="/FlipperZero.NET/" />|g'
+          ./publish/wwwroot/index.html
+
+      # Disable Jekyll processing so GitHub Pages serves _framework/ and other
+      # underscore-prefixed directories that Blazor WASM requires.
+      - name: Add .nojekyll
+        run: touch ./publish/wwwroot/.nojekyll
+
+      # Upload the wwwroot folder as the Pages artifact.
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./publish/wwwroot
+
+      # Deploy the artifact to GitHub Pages.
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
