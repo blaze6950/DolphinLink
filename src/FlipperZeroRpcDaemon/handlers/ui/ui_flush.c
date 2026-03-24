@@ -34,8 +34,9 @@ void ui_flush_handler(uint32_t id, const char* json, size_t offset) {
      * clear the pending buffer, then signal a GUI redraw.
      * Committing before view_port_update() guarantees the draw callback always
      * sees a stable snapshot — clearing after the update would race the GUI
-     * thread and could wipe ops before the callback runs. */
-    ui_canvas_ops_commit();
+     * thread and could wipe ops before the callback runs.
+     * Pass true to clear the pending buffer so the next frame starts fresh. */
+    ui_canvas_ops_commit(true);
     view_port_update(g_canvas_session.viewport);
 
     rpc_send_ok(id, "ui_flush");

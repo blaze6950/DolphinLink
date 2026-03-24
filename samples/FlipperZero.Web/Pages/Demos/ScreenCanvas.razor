@@ -313,7 +313,7 @@
 
     /// <summary>
     /// Adds the shape to the local list, updates the browser canvas preview,
-    /// and — if a session is active — replays all shapes to the Flipper and flushes.
+    /// and — if a session is active — sends the new shape to the Flipper and renders.
     /// </summary>
     private async Task CommitShapeAsync(DrawShape shape)
     {
@@ -323,7 +323,77 @@
         await RenderCanvasAsync().ConfigureAwait(false);
 
         if (_sessionActive)
-            await SendAllShapesToFlipperAsync().ConfigureAwait(false);
+            await SendShapeToFlipperAsync(shape).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a single new shape to the Flipper's pending buffer, then calls
+    /// RenderAsync (which promotes pending→active without clearing pending).
+    /// Previously sent shapes remain in the pending buffer, so the Flipper
+    /// displays the full accumulated scene with only 2 round-trips per shape.
+    /// </summary>
+    private async Task SendShapeToFlipperAsync(DrawShape shape)
+    {
+        if (_screenSession is null) return;
+        _errorMessage = null;
+        try
+        {
+            switch (shape)
+            {
+                case DrawShape.LineShape l:
+                    await _screenSession.DrawLineAsync(l.X1, l.Y1, l.X2, l.Y2).ConfigureAwait(false);
+                    break;
+                case DrawShape.RectShape r:
+                    await _screenSession.DrawRectAsync(r.X, r.Y, r.W, r.H, r.Filled).ConfigureAwait(false);
+                    break;
+                case DrawShape.TextShape t:
+                    await _screenSession.DrawStrAsync(t.X, t.Y, t.Text, t.Font).ConfigureAwait(false);
+                    break;
+            }
+            await _screenSession.RenderAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Send failed: {ex.Message}";
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Replays all staged shapes to the Flipper in one burst, flushing at the end.
+    /// Used on session start to send shapes that were staged before the session began.
+    /// Uses Flush (not Render) so the pending buffer is clean after replay.
+    /// </summary>
+    private async Task ReplayAllShapesAsync()
+    {
+        if (_screenSession is null || _shapes.Count == 0) return;
+        _errorMessage = null;
+        try
+        {
+            foreach (var shape in _shapes)
+            {
+                switch (shape)
+                {
+                    case DrawShape.LineShape l:
+                        await _screenSession.DrawLineAsync(l.X1, l.Y1, l.X2, l.Y2).ConfigureAwait(false);
+                        break;
+                    case DrawShape.RectShape r:
+                        await _screenSession.DrawRectAsync(r.X, r.Y, r.W, r.H, r.Filled).ConfigureAwait(false);
+                        break;
+                    case DrawShape.TextShape t:
+                        await _screenSession.DrawStrAsync(t.X, t.Y, t.Text, t.Font).ConfigureAwait(false);
+                        break;
+                }
+            }
+            // Flush (not Render) so pending buffer is cleared — subsequent incremental
+            // Render calls will only carry new shapes from this point on.
+            await _screenSession.FlushAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Send failed: {ex.Message}";
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -375,7 +445,7 @@
 
             // Replay any shapes that were staged before the session started
             if (_shapes.Count > 0)
-                await SendAllShapesToFlipperAsync().ConfigureAwait(false);
+                await ReplayAllShapesAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

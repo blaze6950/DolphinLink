@@ -1,0 +1,10 @@
+{
+  "command": "ui_render",
+  "subsystem": "Ui",
+  "description": "Render the current draw buffer to the screen without clearing it",
+  "resource": null,
+  "request": {},
+  "response": {},
+  "errors": ["resource_busy"],
+  "extensionReturn": { "type": "void" }
+}

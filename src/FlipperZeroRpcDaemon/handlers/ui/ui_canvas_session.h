@@ -91,10 +91,13 @@ void ui_canvas_ops_clear(void);
 
 /**
  * Atomically promote pending ops → active ops (for the draw callback) and
- * clear the pending buffer.  Call this before view_port_update() so the
- * draw callback always sees a stable snapshot.
+ * optionally clear the pending buffer.
+ *
+ * Pass clear_pending = true  for ui_flush  (start a fresh frame).
+ * Pass clear_pending = false for ui_render (keep pending intact so subsequent
+ * draw commands append to the existing scene without resending every op).
  */
-void ui_canvas_ops_commit(void);
+void ui_canvas_ops_commit(bool clear_pending);
 
 /** Append a draw op (drops silently if buffer is full). */
 void ui_canvas_op_push(const UiDrawOp* op);

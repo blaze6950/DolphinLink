@@ -99,9 +99,11 @@ void ui_canvas_ops_clear(void) {
     g_canvas_session.op_count = 0;
 }
 
-void ui_canvas_ops_commit(void) {
-    /* Promote pending ops to the active buffer so the draw callback sees them,
-     * then clear the pending buffer for the next batch of draw commands. */
+void ui_canvas_ops_commit(bool clear_pending) {
+    /* Promote pending ops to the active buffer so the draw callback sees them.
+     * If clear_pending is true (ui_flush), wipe the pending buffer so the next
+     * frame starts clean.  If false (ui_render), leave pending intact so new
+     * draw commands can append to the existing scene without resending every op. */
     g_canvas_session.active_op_count = g_canvas_session.op_count;
     if(g_canvas_session.op_count > 0) {
         memcpy(
@@ -109,7 +111,9 @@ void ui_canvas_ops_commit(void) {
             g_canvas_session.ops,
             g_canvas_session.op_count * sizeof(UiDrawOp));
     }
-    g_canvas_session.op_count = 0;
+    if(clear_pending) {
+        g_canvas_session.op_count = 0;
+    }
 }
 
 void ui_canvas_op_push(const UiDrawOp* op) {

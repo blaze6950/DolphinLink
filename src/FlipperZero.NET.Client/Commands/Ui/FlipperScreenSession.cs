@@ -90,10 +90,31 @@ public sealed class FlipperScreenSession : IAsyncDisposable
     ///
     /// Calls <c>view_port_update()</c> on the daemon side, triggering a canvas
     /// redraw with all pending draw operations, then clears the operation queue.
+    /// Use <see cref="RenderAsync"/> instead when you want to keep the pending
+    /// buffer intact for incremental updates.
     /// </summary>
     /// <param name="ct">Optional cancellation token.</param>
     public Task<UiFlushResponse> FlushAsync(CancellationToken ct = default)
         => _client.SendAsync<UiFlushCommand, UiFlushResponse>(new UiFlushCommand(), ct);
+
+    /// <summary>
+    /// Renders the current draw buffer to the Flipper screen without clearing it.
+    ///
+    /// Like <see cref="FlushAsync"/> but leaves the pending op buffer intact, so
+    /// subsequent draw commands append to the existing scene. This avoids
+    /// re-sending the entire scene on every incremental update:
+    /// <code>
+    /// await screen.DrawLineAsync(...);
+    /// await screen.RenderAsync();   // line appears — 2 RTTs
+    /// await screen.DrawRectAsync(...);
+    /// await screen.RenderAsync();   // line + rect appear — 2 RTTs, not re-sent
+    /// </code>
+    /// Use <see cref="FlushAsync"/> when you want to clear the buffer and start
+    /// a fresh frame.
+    /// </summary>
+    /// <param name="ct">Optional cancellation token.</param>
+    public Task<UiRenderResponse> RenderAsync(CancellationToken ct = default)
+        => _client.SendAsync<UiRenderCommand, UiRenderResponse>(new UiRenderCommand(), ct);
 
     /// <summary>
     /// Releases exclusive control of the Flipper screen and restores the daemon's

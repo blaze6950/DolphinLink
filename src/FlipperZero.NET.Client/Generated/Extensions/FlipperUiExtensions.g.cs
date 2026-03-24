@@ -45,4 +45,10 @@ public static partial class FlipperUiExtensions
         CancellationToken ct = default)
         => client.SendAsync<UiFlushCommand, UiFlushResponse>(new UiFlushCommand(), ct);
 
+    /// <summary>Render the current draw buffer to the screen without clearing it</summary>
+    public static Task<UiRenderResponse> UiRenderAsync(
+        this FlipperRpcClient client,
+        CancellationToken ct = default)
+        => client.SendAsync<UiRenderCommand, UiRenderResponse>(new UiRenderCommand(), ct);
+
 }

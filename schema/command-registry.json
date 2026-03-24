@@ -44,5 +44,6 @@
   "42": "ui_draw_str",
   "43": "ui_draw_rect",
   "44": "ui_draw_line",
-  "45": "ui_flush"
+  "45": "ui_flush",
+  "46": "ui_render"
 }
