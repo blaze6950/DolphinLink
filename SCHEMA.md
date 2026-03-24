@@ -385,6 +385,4 @@ dotnet script codegens/normalizer-codegen.csx   # C#: updates RpcJsonNormalizer.
 
 6. **Write C# overrides** if codegen is insufficient (`"csharp": { "skip": [...] }` in the schema + hand-written partial in `Commands/<Subsystem>/`).
 
-7. **Update `COMMANDS.md`** to add the new row.
-
-8. **Bump `DAEMON_PROTOCOL_VERSION`** in `handlers/system/daemon_info.h` only for breaking wire-format changes.
+7. **Bump `DAEMON_PROTOCOL_VERSION`** in `handlers/system/daemon_info.h` only for breaking wire-format changes.

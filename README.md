@@ -139,7 +139,6 @@ Not every command has been tested end-to-end on real hardware. If you run into a
 |                          |                                      |
 |--------------------------|--------------------------------------|
 | Wire protocol            | [`PROTOCOL.md`](PROTOCOL.md)         |
-| All 46 commands          | [`COMMANDS.md`](COMMANDS.md)         |
 | Architecture & threading | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Schema format & codegen  | [`SCHEMA.md`](SCHEMA.md)             |
 | Command & enum schemas   | [`schema/`](schema/)                 |

@@ -18,4 +18,10 @@ builder.Services.AddSingleton<RpcConsoleService>();
 // Shared Flipper RPC client — singleton so all pages see the same connection.
 builder.Services.AddSingleton<FlipperClientService>();
 
+// Markdown documentation renderer — singleton so docs are parsed once and cached.
+builder.Services.AddSingleton<MarkdownService>();
+
+// Theme manager — singleton so the light/dark preference is shared across pages.
+builder.Services.AddSingleton<ThemeService>();
+
 await builder.Build().RunAsync();

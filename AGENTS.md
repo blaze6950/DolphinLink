@@ -124,7 +124,7 @@ python -m ufbt          # from src/FlipperZeroRpcDaemon/
 dotnet build            # from repo root; 0 warnings, 0 errors
 ```
 
-Bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h` only for **breaking wire-format changes**. Update `COMMANDS.md`.
+Bump `DAEMON_PROTOCOL_VERSION` in `handlers/system/daemon_info.h` only for **breaking wire-format changes**.
 
 ---
 
@@ -191,6 +191,5 @@ Key paths not obvious from the directory tree:
 - `src/FlipperZero.NET.Bootstrapper/Resources/flipper_zero_rpc_daemon.fap` — pre-built FAP embedded at compile time
 - `tests/FlipperZero.NET.Tests.Infrastructure/` — `FlipperFixture`, `FakeTransport`, skip attributes
 
-`COMMANDS.md` — cross-reference: command name → ID → wire keys → C handler → C# types → extension method.
 `PROTOCOL.md` — wire format, envelope fields, error codes, message examples.
 `ARCHITECTURE.md` — threading models, transport stack, bootstrapper flow.

@@ -175,7 +175,10 @@
 @code {
     // ── State ─────────────────────────────────────────────────────────────────
 
-    private bool _collapsed;
+    // Start collapsed. Auto-expands on the first log entry unless the user has
+    // manually collapsed the console at least once.
+    private bool _collapsed = true;
+    private bool _userHasCollapsed;
     private bool _pendingScroll;
     private IJSObjectReference? _jsModule;
 
@@ -222,6 +225,20 @@
 
     private void OnStateChanged()
     {
+        // Auto-expand when the first log entry arrives, but only if the user
+        // has never manually collapsed the console.
+        if (_collapsed && !_userHasCollapsed && Console.Entries.Count > 0)
+        {
+            _collapsed = false;
+            InvokeAsync(async () =>
+            {
+                StateHasChanged();
+                await Task.Yield();
+                await InitResizeAsync().ConfigureAwait(false);
+                await SyncPaddingAsync().ConfigureAwait(false);
+            });
+        }
+
         _pendingScroll = true;
         InvokeAsync(StateHasChanged);
     }
@@ -251,7 +268,13 @@
     private async Task ToggleCollapsed()
     {
         _collapsed = !_collapsed;
-        if (!_collapsed)
+        if (_collapsed)
+        {
+            // User explicitly collapsed — remember this so we never auto-expand again.
+            _userHasCollapsed = true;
+            await SyncPaddingAsync().ConfigureAwait(false);
+        }
+        else
         {
             _pendingScroll = true;
             // After expand renders, re-init resize (handle is now in DOM).
@@ -262,10 +285,6 @@
                 await InitResizeAsync().ConfigureAwait(false);
                 await SyncPaddingAsync().ConfigureAwait(false);
             }).ConfigureAwait(false);
-        }
-        else
-        {
-            await SyncPaddingAsync().ConfigureAwait(false);
         }
     }
 

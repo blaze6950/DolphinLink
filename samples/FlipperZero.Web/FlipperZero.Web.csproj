@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.25" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.25" PrivateAssets="all" />
   </ItemGroup>
@@ -19,6 +20,18 @@
 
   <ItemGroup>
     <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json" />
+  </ItemGroup>
+
+  <!-- Embed markdown documentation files from the repo root so they can be
+       rendered as pages in the Blazor app without any extra HTTP requests.
+       Link places them under a docs\ virtual folder in the project tree;
+       LogicalName gives them stable, predictable assembly resource names. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\README.md"       Link="docs\README.md"       LogicalName="Docs.README.md" />
+    <EmbeddedResource Include="..\..\ARCHITECTURE.md" Link="docs\ARCHITECTURE.md" LogicalName="Docs.ARCHITECTURE.md" />
+    <EmbeddedResource Include="..\..\PROTOCOL.md"     Link="docs\PROTOCOL.md"     LogicalName="Docs.PROTOCOL.md" />
+    <EmbeddedResource Include="..\..\SCHEMA.md"       Link="docs\SCHEMA.md"       LogicalName="Docs.SCHEMA.md" />
+    <EmbeddedResource Include="..\..\DIAGNOSTICS.md"  Link="docs\DIAGNOSTICS.md"  LogicalName="Docs.DIAGNOSTICS.md" />
   </ItemGroup>
 
   <!-- Embed schema JSON files directly from the repo schema/ directory so the

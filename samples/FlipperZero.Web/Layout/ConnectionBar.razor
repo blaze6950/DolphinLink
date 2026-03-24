@@ -16,7 +16,7 @@ else if (Flipper.IsConnected)
     @* Show the Flipper's name when known *@
     @if (Flipper.DeviceInfo is { Name: { Length: > 0 } name } && name != "unknown")
     {
-        <span class="text-light small me-1 fw-semibold">@name</span>
+        <span class="small me-1 fw-semibold" style="color: var(--body-color)">@name</span>
     }
     <span class="badge bg-success me-2">Connected</span>
     <button class="btn btn-outline-secondary btn-sm"
