@@ -2,7 +2,7 @@
   "command": "ui_screen_release",
   "subsystem": "Ui",
   "description": "Release exclusive GUI screen access",
-  "resource": "RESOURCE_GUI",
+  "resource": null,
   "request": {},
   "response": {},
   "errors": [],

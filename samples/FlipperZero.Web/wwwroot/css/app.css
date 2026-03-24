@@ -591,3 +591,408 @@ body:has(.rpc-console-footer--collapsed) .content {
     padding-bottom: 60px;
 }
 
+/* ── Demo pages: shared ─────────────────────────────────────────────────── */
+
+.demo-page h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.demo-page .demo-description {
+    color: #6c757d;
+    font-size: 0.92rem;
+    margin-bottom: 1.5rem;
+}
+
+.demo-disconnected {
+    color: #6c757d;
+}
+
+/* ── LED Color Picker demo ──────────────────────────────────────────────── */
+
+.led-picker-layout {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.led-picker-left {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.led-picker-right {
+    flex: 1 1 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 200px;
+}
+
+.led-color-preview {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: background-color 0.05s;
+}
+
+.led-canvas-wrap {
+    position: relative;
+    cursor: crosshair;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.led-canvas-wrap canvas {
+    display: block;
+}
+
+.led-hue-cursor {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.15);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.led-slider-label {
+    font-size: 0.8rem;
+    color: #495057;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+}
+
+.led-slider-r { accent-color: #dc3545; }
+.led-slider-g { accent-color: #198754; }
+.led-slider-b { accent-color: #0d6efd; }
+.led-slider-v { accent-color: #6c757d; }
+
+.led-hex-input {
+    font-family: monospace;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.led-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.led-preset-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 2px solid rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    padding: 0;
+}
+
+.led-preset-swatch:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.led-preset-swatch:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.led-note {
+    font-size: 0.78rem;
+    color: #6c757d;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+}
+
+/* ── Screen Canvas demo ─────────────────────────────────────────────────── */
+
+.canvas-demo-layout {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.canvas-demo-left {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.canvas-demo-right {
+    flex: 1 1 220px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.canvas-toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.canvas-tool-btn {
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    white-space: nowrap;
+}
+
+.canvas-tool-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.canvas-tool-btn--active {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+.canvas-wrap {
+    cursor: crosshair;
+    border: 2px solid #212529;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    display: inline-block;
+    background: white;
+}
+
+.canvas-wrap canvas {
+    display: block;
+    image-rendering: pixelated;
+}
+
+.canvas-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.canvas-shape-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+
+.canvas-shape-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 4px;
+}
+
+.canvas-shape-item:last-child {
+    border-bottom: none;
+}
+
+.canvas-shape-item code {
+    font-size: 0.75rem;
+    color: #495057;
+}
+
+.canvas-op-counter {
+    font-size: 0.78rem;
+}
+
+.canvas-op-counter--warn {
+    color: #856404;
+    font-weight: 600;
+}
+
+.canvas-op-counter--danger {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+.canvas-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.canvas-status-badge--idle {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.canvas-status-badge--acquired {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.canvas-status-badge--sending {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+/* ── Flipper Gamepad (Snake) demo ───────────────────────────────────────── */
+
+.gamepad-layout {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.gamepad-left {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+}
+
+.gamepad-right {
+    flex: 1 1 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.snake-canvas-wrap {
+    border: 2px solid #212529;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+
+.snake-canvas-wrap canvas {
+    display: block;
+}
+
+.gamepad-viz {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+    gap: 4px;
+}
+
+.gamepad-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #adb5bd;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #495057;
+    transition: background 0.08s, border-color 0.08s, color 0.08s, box-shadow 0.08s;
+    user-select: none;
+}
+
+.gamepad-btn--pressed {
+    background: #212529;
+    border-color: #212529;
+    color: white;
+    box-shadow: 0 0 0 3px rgba(33,37,41,0.25);
+}
+
+.gamepad-btn--ok.gamepad-btn--pressed {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.3);
+}
+
+.gamepad-btn--back.gamepad-btn--pressed {
+    background: #dc3545;
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220,53,69,0.3);
+}
+
+.gamepad-btn--empty {
+    visibility: hidden;
+}
+
+.gamepad-score-panel {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+}
+
+.gamepad-score {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #212529;
+}
+
+.gamepad-score-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.gamepad-state-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.gamepad-state-badge--idle {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.gamepad-state-badge--playing {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.gamepad-state-badge--gameover {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.gamepad-controls-hint {
+    font-size: 0.78rem;
+    color: #6c757d;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    line-height: 1.6;
+}
+

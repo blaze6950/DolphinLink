@@ -2,7 +2,7 @@
   "command": "ui_draw_line",
   "subsystem": "Ui",
   "description": "Draw a line on the screen",
-  "resource": "RESOURCE_GUI",
+  "resource": null,
   "request": {
     "x1": { "wire": "x1", "type": "int", "description": "Start X coordinate" },
     "y1": { "wire": "y1", "type": "int", "description": "Start Y coordinate" },

@@ -1,0 +1,472 @@
+@page "/demos/gamepad"
+
+@using FlipperZero.NET
+@using FlipperZero.NET.Commands.Input
+@using FlipperZero.NET.Extensions
+@using FlipperZero.Web.Services
+@using Microsoft.JSInterop
+
+@inject FlipperClientService Flipper
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
+
+<PageTitle>Flipper Gamepad — FlipperZero.NET</PageTitle>
+
+<div class="demo-page">
+    <h1>Flipper Gamepad</h1>
+    <p class="demo-description">
+        Use your Flipper Zero as a gamepad to play Snake. Start the stream, then use the
+        D-pad to control the snake.
+    </p>
+
+    @if (!Flipper.IsConnected)
+    {
+        <p class="demo-disconnected">
+            Use the <strong>Connect to Flipper</strong> button above to connect first.
+        </p>
+    }
+    else
+    {
+        <div class="gamepad-layout">
+
+            <!-- Left: game canvas + Flipper button visualization -->
+            <div class="gamepad-left">
+
+                <!-- Snake game canvas -->
+                <div class="snake-canvas-wrap">
+                    <canvas id="snake-canvas" width="@CanvasSize" height="@CanvasSize"></canvas>
+                </div>
+
+                <!-- Flipper D-pad visualization -->
+                <div>
+                    <div class="text-muted mb-1" style="font-size:0.75rem; text-align:center;">
+                        Flipper inputs
+                    </div>
+                    <div class="gamepad-viz">
+                        <!-- Row 0: Up -->
+                        <div class="gamepad-btn gamepad-btn--empty"></div>
+                        <div class="gamepad-btn @BtnClass(FlipperInputKey.Up)">▲</div>
+                        <div class="gamepad-btn gamepad-btn--empty"></div>
+
+                        <!-- Row 1: Left, OK, Right -->
+                        <div class="gamepad-btn @BtnClass(FlipperInputKey.Left)">◀</div>
+                        <div class="gamepad-btn gamepad-btn--ok @BtnClass(FlipperInputKey.Ok)">OK</div>
+                        <div class="gamepad-btn @BtnClass(FlipperInputKey.Right)">▶</div>
+
+                        <!-- Row 2: Down (center) + Back (right) -->
+                        <div class="gamepad-btn gamepad-btn--empty"></div>
+                        <div class="gamepad-btn @BtnClass(FlipperInputKey.Down)">▼</div>
+                        <div class="gamepad-btn gamepad-btn--back @BtnClass(FlipperInputKey.Back)">↩</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right: score, state, controls -->
+            <div class="gamepad-right">
+
+                <!-- Score -->
+                <div class="gamepad-score-panel">
+                    <div>
+                        <div class="gamepad-score">@_score</div>
+                        <div class="gamepad-score-label">Score</div>
+                    </div>
+                    <div>
+                        <div class="gamepad-score" style="color:#6c757d; font-size:1.2rem;">@_highScore</div>
+                        <div class="gamepad-score-label">Best</div>
+                    </div>
+                    <div>
+                        <span class="gamepad-state-badge @StateBadgeClass">@StateText</span>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="d-flex gap-2 flex-wrap">
+                    @if (_gameState == GameState.Idle || _gameState == GameState.GameOver)
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="StartGameAsync"
+                                disabled="@_startBusy">
+                            @if (_startBusy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            @(_gameState == GameState.GameOver ? "Restart" : "Start Game")
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="StopGameAsync">
+                            Stop
+                        </button>
+                    }
+                </div>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="alert alert-danger py-2 mb-0">@_errorMessage</div>
+                }
+
+                <!-- Controls hint -->
+                <div class="gamepad-controls-hint">
+                    <strong>D-pad:</strong> change direction<br/>
+                    <strong>OK:</strong> start / restart<br/>
+                    <strong>Back:</strong> stop stream
+                </div>
+
+                <!-- Speed info -->
+                @if (_gameState == GameState.Playing)
+                {
+                    <div class="text-muted" style="font-size:0.78rem;">
+                        Speed: @_tickMs ms/step
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // ── Game constants ────────────────────────────────────────────────────────
+
+    private const int GridCols  = 20;
+    private const int GridRows  = 20;
+    private const int CanvasSize = 400;
+    private const int InitialTickMs = 200;
+    private const int MinTickMs     = 80;
+
+    // ── Game state ────────────────────────────────────────────────────────────
+
+    private enum GameState { Idle, Playing, GameOver }
+    private GameState _gameState = GameState.Idle;
+
+    private readonly List<(int x, int y)> _snake = [];
+    private (int x, int y) _food;
+    private (int dx, int dy) _dir    = (1, 0);
+    private (int dx, int dy) _nextDir = (1, 0);
+
+    private int _score;
+    private int _highScore;
+    private int _tickMs = InitialTickMs;
+
+    // ── Input stream ──────────────────────────────────────────────────────────
+
+    private RpcStream<InputListenEvent>? _inputStream;
+    private CancellationTokenSource?    _streamCts;
+
+    // ── Game tick timer ───────────────────────────────────────────────────────
+
+    private PeriodicTimer? _ticker;
+    private Task?          _tickerTask;
+
+    // ── Button visualization ──────────────────────────────────────────────────
+
+    private readonly Dictionary<FlipperInputKey, bool> _pressed = new()
+    {
+        { FlipperInputKey.Up,    false },
+        { FlipperInputKey.Down,  false },
+        { FlipperInputKey.Left,  false },
+        { FlipperInputKey.Right, false },
+        { FlipperInputKey.Ok,    false },
+        { FlipperInputKey.Back,  false },
+    };
+
+    // ── JS interop ────────────────────────────────────────────────────────────
+
+    private IJSObjectReference? _module;
+    private bool _jsReady;
+
+    // ── UI state ──────────────────────────────────────────────────────────────
+
+    private bool    _startBusy;
+    private string? _errorMessage;
+
+    private string StateText => _gameState switch
+    {
+        GameState.Playing  => "Playing",
+        GameState.GameOver => "Game Over",
+        _                  => "Ready",
+    };
+
+    private string StateBadgeClass => _gameState switch
+    {
+        GameState.Playing  => "gamepad-state-badge--playing",
+        GameState.GameOver => "gamepad-state-badge--gameover",
+        _                  => "gamepad-state-badge--idle",
+    };
+
+    private string BtnClass(FlipperInputKey key) =>
+        _pressed.TryGetValue(key, out var p) && p ? "gamepad-btn--pressed" : "";
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        Flipper.StateChanged += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await InitJsAsync().ConfigureAwait(false);
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            if (!_jsReady)
+                await InitJsAsync().ConfigureAwait(false);
+        });
+    }
+
+    private async Task InitJsAsync()
+    {
+        if (_jsReady) return;
+        _jsReady = true;
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./demos.js").ConfigureAwait(false);
+        await RenderGameAsync().ConfigureAwait(false);
+    }
+
+    // ── Game control ──────────────────────────────────────────────────────────
+
+    private async Task StartGameAsync()
+    {
+        if (Flipper.Client is null) return;
+        _startBusy = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await StopGameInternalAsync().ConfigureAwait(false);
+
+            // Start input stream (Back+Short closes it)
+            _streamCts  = new CancellationTokenSource();
+            _inputStream = await Flipper.Client.InputListenStartAsync(ct: _streamCts.Token).ConfigureAwait(false);
+
+            InitSnake();
+            _gameState = GameState.Playing;
+            _score     = 0;
+            _tickMs    = InitialTickMs;
+
+            StateHasChanged();
+            await RenderGameAsync().ConfigureAwait(false);
+
+            // Start the event reader loop
+            _ = Task.Run(ReadInputLoopAsync, _streamCts.Token);
+
+            // Start the game tick timer
+            _ticker     = new PeriodicTimer(TimeSpan.FromMilliseconds(_tickMs));
+            _tickerTask = RunTickerAsync(_ticker);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to start: {ex.Message}";
+            _gameState    = GameState.Idle;
+        }
+        finally
+        {
+            _startBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopGameAsync()
+    {
+        await StopGameInternalAsync().ConfigureAwait(false);
+        _gameState = GameState.Idle;
+        StateHasChanged();
+        await RenderGameAsync().ConfigureAwait(false);
+    }
+
+    private async Task StopGameInternalAsync()
+    {
+        _streamCts?.Cancel();
+        _streamCts?.Dispose();
+        _streamCts = null;
+
+        if (_ticker is not null)
+        {
+            _ticker.Dispose();
+            _ticker = null;
+            try { if (_tickerTask is not null) await _tickerTask.ConfigureAwait(false); }
+            catch { /* ignore */ }
+            _tickerTask = null;
+        }
+
+        if (_inputStream is not null)
+        {
+            try { await _inputStream.DisposeAsync().ConfigureAwait(false); }
+            catch { /* ignore */ }
+            _inputStream = null;
+        }
+
+        foreach (var k in _pressed.Keys.ToList())
+            _pressed[k] = false;
+    }
+
+    // ── Input reader loop ─────────────────────────────────────────────────────
+
+    private async Task ReadInputLoopAsync()
+    {
+        if (_inputStream is null) return;
+        try
+        {
+            await foreach (var evt in _inputStream.WithCancellation(_streamCts?.Token ?? CancellationToken.None).ConfigureAwait(false))
+            {
+                // Update button viz for all event types
+                if (evt.Type == FlipperInputType.Press)
+                    _pressed[evt.Key] = true;
+                else if (evt.Type == FlipperInputType.Release)
+                    _pressed[evt.Key] = false;
+
+                // Direction: act on Short or Press
+                if (evt.Type is FlipperInputType.Short or FlipperInputType.Press)
+                {
+                    switch (evt.Key)
+                    {
+                        case FlipperInputKey.Up    when _dir != (0,  1): _nextDir = (0, -1); break;
+                        case FlipperInputKey.Down  when _dir != (0, -1): _nextDir = (0,  1); break;
+                        case FlipperInputKey.Left  when _dir != (1,  0): _nextDir = (-1, 0); break;
+                        case FlipperInputKey.Right when _dir != (-1, 0): _nextDir = (1,  0); break;
+                        case FlipperInputKey.Ok when _gameState == GameState.GameOver:
+                            await InvokeAsync(StartGameAsync).ConfigureAwait(false);
+                            break;
+                        case FlipperInputKey.Back:
+                            await InvokeAsync(StopGameAsync).ConfigureAwait(false);
+                            return;
+                    }
+                }
+
+                await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { /* stream stopped */ }
+        catch (Exception ex)
+        {
+            await InvokeAsync(() =>
+            {
+                _errorMessage = $"Input stream error: {ex.Message}";
+                _gameState    = GameState.Idle;
+                StateHasChanged();
+            }).ConfigureAwait(false);
+        }
+    }
+
+    // ── Game tick ─────────────────────────────────────────────────────────────
+
+    private async Task RunTickerAsync(PeriodicTimer timer)
+    {
+        try
+        {
+            while (await timer.WaitForNextTickAsync().ConfigureAwait(false))
+            {
+                if (_gameState != GameState.Playing) continue;
+                await InvokeAsync(TickGameAsync).ConfigureAwait(false);
+            }
+        }
+        catch (ObjectDisposedException) { /* timer stopped */ }
+        catch (OperationCanceledException) { /* stopped */ }
+    }
+
+    private async Task TickGameAsync()
+    {
+        if (_gameState != GameState.Playing || _snake.Count == 0) return;
+
+        _dir = _nextDir;
+
+        var head = _snake[0];
+        var newHead = ((head.x + _dir.dx + GridCols) % GridCols,
+                       (head.y + _dir.dy + GridRows) % GridRows);
+
+        // Self-collision
+        if (_snake.Any(s => s == newHead))
+        {
+            _gameState = GameState.GameOver;
+            if (_score > _highScore) _highScore = _score;
+            await RenderGameAsync().ConfigureAwait(false);
+            StateHasChanged();
+            return;
+        }
+
+        _snake.Insert(0, newHead);
+
+        if (newHead == _food)
+        {
+            _score++;
+            SpawnFood();
+            // Speed up every 5 points
+            _tickMs = Math.Max(MinTickMs, InitialTickMs - (_score / 5) * 20);
+            if (_ticker is not null)
+            {
+                _ticker.Dispose();
+                _ticker = new PeriodicTimer(TimeSpan.FromMilliseconds(_tickMs));
+                _tickerTask = RunTickerAsync(_ticker);
+            }
+        }
+        else
+        {
+            _snake.RemoveAt(_snake.Count - 1);
+        }
+
+        await RenderGameAsync().ConfigureAwait(false);
+        StateHasChanged();
+    }
+
+    // ── Game logic ────────────────────────────────────────────────────────────
+
+    private void InitSnake()
+    {
+        _snake.Clear();
+        _snake.Add((GridCols / 2,     GridRows / 2));
+        _snake.Add((GridCols / 2 - 1, GridRows / 2));
+        _snake.Add((GridCols / 2 - 2, GridRows / 2));
+        _dir     = (1, 0);
+        _nextDir = (1, 0);
+        SpawnFood();
+    }
+
+    private void SpawnFood()
+    {
+        var rng = Random.Shared;
+        (int x, int y) pos;
+        do { pos = (rng.Next(GridCols), rng.Next(GridRows)); }
+        while (_snake.Contains(pos));
+        _food = pos;
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+
+    private async Task RenderGameAsync()
+    {
+        if (_module is null) return;
+
+        var snakeArr = _snake.Select(s => new { x = s.x, y = s.y }).ToArray<object>();
+        var state = new
+        {
+            snake    = _snake.Select(s => new { x = s.x, y = s.y }).ToArray(),
+            food     = new { x = _food.x, y = _food.y },
+            cols     = GridCols,
+            rows     = GridRows,
+            gameOver = _gameState == GameState.GameOver,
+        };
+
+        await _module.InvokeVoidAsync("renderSnake", "snake-canvas", state).ConfigureAwait(false);
+    }
+
+    // ── IAsyncDisposable ──────────────────────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        Flipper.StateChanged -= OnStateChanged;
+        await StopGameInternalAsync().ConfigureAwait(false);
+
+        if (_module is not null)
+        {
+            try { await _module.DisposeAsync().ConfigureAwait(false); }
+            catch { /* ignore */ }
+        }
+    }
+}

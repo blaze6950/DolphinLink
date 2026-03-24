@@ -7,6 +7,9 @@
  * Wire format (request):
  *   {"c":N,"i":M,"x":10,"y":20,"tx":"Hello","fn":1}
  *
+ * Field parse order must match C# serialization order (forward-only JSON scan):
+ *   x, y, tx, fn
+ *
  *   font: 0 = FontPrimary, 1 = FontSecondary (default), 2 = FontBigNumbers
  *
  * Wire format (response – ok):
@@ -33,15 +36,9 @@ void ui_draw_str_handler(uint32_t id, const char* json, size_t offset) {
     }
 
     JsonValue val;
-    char text[UI_STR_MAX] = {0};
-    if(!json_find(json, "tx", offset, &val) || val.len == 0) {
-        rpc_send_error(id, "missing_text", "ui_draw_str");
-        return;
-    }
-    json_value_string(&val, text, sizeof(text));
-    offset = val.offset;
-
     uint32_t x = 0, y = 0, font = 1;
+
+    /* Parse in wire order (x, y, tx, fn) — forward-only scanner requires this */
     if(json_find(json, "x", offset, &val)) {
         json_value_uint32(&val, &x);
         offset = val.offset;
@@ -50,6 +47,15 @@ void ui_draw_str_handler(uint32_t id, const char* json, size_t offset) {
         json_value_uint32(&val, &y);
         offset = val.offset;
     }
+
+    char text[UI_STR_MAX] = {0};
+    if(!json_find(json, "tx", offset, &val) || val.len == 0) {
+        rpc_send_error(id, "missing_text", "ui_draw_str");
+        return;
+    }
+    json_value_string(&val, text, sizeof(text));
+    offset = val.offset;
+
     if(json_find(json, "fn", offset, &val)) {
         json_value_uint32(&val, &font);
     }

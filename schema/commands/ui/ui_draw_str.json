@@ -2,7 +2,7 @@
   "command": "ui_draw_str",
   "subsystem": "Ui",
   "description": "Draw a text string at a position on the screen",
-  "resource": "RESOURCE_GUI",
+  "resource": null,
   "request": {
     "x": { "wire": "x", "type": "int", "description": "X coordinate" },
     "y": { "wire": "y", "type": "int", "description": "Y coordinate" },

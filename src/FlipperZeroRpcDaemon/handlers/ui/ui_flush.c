@@ -30,11 +30,13 @@ void ui_flush_handler(uint32_t id, const char* json, size_t offset) {
         return;
     }
 
-    /* Trigger a redraw — the draw callback will replay g_canvas_session.ops */
+    /* Promote pending ops → active buffer (draw callback reads from there),
+     * clear the pending buffer, then signal a GUI redraw.
+     * Committing before view_port_update() guarantees the draw callback always
+     * sees a stable snapshot — clearing after the update would race the GUI
+     * thread and could wipe ops before the callback runs. */
+    ui_canvas_ops_commit();
     view_port_update(g_canvas_session.viewport);
-
-    /* Clear the op buffer so the next flush starts clean */
-    ui_canvas_ops_clear();
 
     rpc_send_ok(id, "ui_flush");
 }

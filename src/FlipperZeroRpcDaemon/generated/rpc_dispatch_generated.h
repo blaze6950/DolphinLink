@@ -196,11 +196,11 @@ static const RpcCommand commands[CMD_COUNT] = {
     /* 38 */ {"ibutton_read_start", RESOURCE_IBUTTON, ibutton_read_start_handler},
     /* 39 */ {"input_listen_start", 0, input_listen_start_handler},
     /* 40 */ {"ui_screen_acquire", RESOURCE_GUI, ui_screen_acquire_handler},
-    /* 41 */ {"ui_screen_release", RESOURCE_GUI, ui_screen_release_handler},
-    /* 42 */ {"ui_draw_str", RESOURCE_GUI, ui_draw_str_handler},
-    /* 43 */ {"ui_draw_rect", RESOURCE_GUI, ui_draw_rect_handler},
-    /* 44 */ {"ui_draw_line", RESOURCE_GUI, ui_draw_line_handler},
-    /* 45 */ {"ui_flush", RESOURCE_GUI, ui_flush_handler}
+    /* 41 */ {"ui_screen_release", 0, ui_screen_release_handler},
+    /* 42 */ {"ui_draw_str", 0, ui_draw_str_handler},
+    /* 43 */ {"ui_draw_rect", 0, ui_draw_rect_handler},
+    /* 44 */ {"ui_draw_line", 0, ui_draw_line_handler},
+    /* 45 */ {"ui_flush", 0, ui_flush_handler}
 };
 
 _Static_assert(sizeof(commands) / sizeof(commands[0]) == CMD_COUNT,

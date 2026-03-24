@@ -1,0 +1,545 @@
+@page "/demos/canvas"
+
+@using FlipperZero.NET
+@using FlipperZero.NET.Commands.Ui
+@using FlipperZero.NET.Extensions
+@using FlipperZero.Web.Services
+@using Microsoft.JSInterop
+
+@inject FlipperClientService Flipper
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
+
+<PageTitle>Screen Canvas — FlipperZero.NET</PageTitle>
+
+<div class="demo-page">
+    <h1>Screen Canvas</h1>
+    <p class="demo-description">
+        Draw shapes on the Flipper Zero's 128×64 display in real time.
+        Start a drawing session to acquire the screen, then draw — each shape is
+        sent and flushed to the Flipper immediately as you finish it.
+    </p>
+
+    @if (!Flipper.IsConnected)
+    {
+        <p class="demo-disconnected">
+            Use the <strong>Connect to Flipper</strong> button above to connect first.
+        </p>
+    }
+    else
+    {
+        <!-- Toolbar -->
+        <div class="canvas-toolbar mb-2">
+            @foreach (var tool in _tools)
+            {
+                var t = tool;
+                <button class="canvas-tool-btn @(_activeTool == t ? "canvas-tool-btn--active" : "")"
+                        @onclick="() => _activeTool = t"
+                        disabled="@(_busy)">
+                    @t
+                </button>
+            }
+        </div>
+
+        <!-- Text input (shown when Text tool is active) -->
+        @if (_activeTool == "Text")
+        {
+            <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                <input type="text" class="form-control form-control-sm" style="max-width:200px;"
+                       placeholder="Text to draw..."
+                       @bind="_pendingText" @bind:event="oninput" maxlength="63" />
+                <select class="form-select form-select-sm" style="max-width:140px;"
+                        @bind="_pendingFont">
+                    <option value="@((int)UiFont.Secondary)">Secondary (small)</option>
+                    <option value="@((int)UiFont.Primary)">Primary (large)</option>
+                    <option value="@((int)UiFont.Keyboard)">Keyboard (numbers)</option>
+                </select>
+                <span class="text-muted small">Click on canvas to place text</span>
+            </div>
+        }
+
+        <div class="canvas-demo-layout">
+            <!-- Left: canvas -->
+            <div class="canvas-demo-left">
+                <div class="canvas-wrap">
+                    <canvas id="screen-canvas"
+                            width="@(FlipperW * Scale)" height="@(FlipperH * Scale)">
+                    </canvas>
+                </div>
+                <div class="text-muted" style="font-size:0.75rem;">
+                    128 × 64 pixels &mdash; @Scale× scale
+                </div>
+            </div>
+
+            <!-- Right: shape log + actions -->
+            <div class="canvas-demo-right">
+
+                <!-- Status badge -->
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="canvas-status-badge @ScreenStatusClass">@ScreenStatusText</span>
+                    @if (_sessionActive)
+                    {
+                        <span class="canvas-op-counter">@_shapes.Count drawn</span>
+                    }
+                </div>
+
+                <!-- Session actions -->
+                <div class="canvas-actions">
+                    @if (!_sessionActive)
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="StartSessionAsync"
+                                disabled="@_busy">
+                            @if (_busy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Start Session
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ClearCanvasAsync"
+                                disabled="@(_busy || _shapes.Count == 0)">
+                            Clear Log
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="StopSessionAsync"
+                                disabled="@_busy">
+                            Stop Session
+                        </button>
+                    }
+                </div>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="alert alert-danger py-2 mb-0">@_errorMessage</div>
+                }
+
+                <!-- Shape log -->
+                @if (_shapes.Count > 0)
+                {
+                    <div class="canvas-shape-list">
+                        @foreach (var (shape, idx) in _shapes.Select((s, i) => (s, i)))
+                        {
+                            var i = idx;
+                            <div class="canvas-shape-item">
+                                <code>@shape.Describe()</code>
+                                @if (!_sessionActive)
+                                {
+                                    <button class="btn btn-sm btn-link text-danger p-0 ms-1"
+                                            title="Remove"
+                                            @onclick="() => RemoveShape(i)">✕</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted small">
+                        @if (_sessionActive)
+                        {
+                            <span>Draw on the canvas — shapes appear here as they are sent.</span>
+                        }
+                        else
+                        {
+                            <span>Start a session, then draw on the canvas.</span>
+                        }
+                    </div>
+                }
+
+                <!-- Help text -->
+                <div class="led-note mt-1">
+                    @if (_sessionActive)
+                    {
+                        <span>
+                            <strong>Session active.</strong> Each shape is sent and flushed to the Flipper immediately.<br/>
+                            <strong>Line / Rect / Filled Rect:</strong> click and drag.<br/>
+                            <strong>Text:</strong> type text above, then click to place.
+                        </span>
+                    }
+                    else
+                    {
+                        <span>
+                            Click <strong>Start Session</strong> to acquire the Flipper screen.<br/>
+                            You can stage shapes before starting — they will be sent when the session begins.
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // ── Constants ─────────────────────────────────────────────────────────────
+
+    private const int FlipperW = 128;
+    private const int FlipperH = 64;
+    private const int Scale    = 4;
+
+    // ── Tool state ────────────────────────────────────────────────────────────
+
+    private static readonly string[] _tools = ["Line", "Rect", "Filled Rect", "Text"];
+    private string _activeTool = "Line";
+
+    // Text tool
+    private string _pendingText = "";
+    private UiFont _pendingFont = UiFont.Secondary;
+
+    // Drag state
+    private bool   _dragging;
+    private int    _dragX1, _dragY1;
+
+    // ── Shape list & pixel buffer ─────────────────────────────────────────────
+
+    private readonly List<DrawShape> _shapes = [];
+
+    /// <summary>1-bit pixel buffer (0=white, 1=black), indexed [y * FlipperW + x].</summary>
+    private readonly byte[] _pixels = new byte[FlipperW * FlipperH];
+
+    // ── Screen session ────────────────────────────────────────────────────────
+
+    private FlipperScreenSession? _screenSession;
+    private bool _sessionActive => _screenSession is not null;
+
+    // ── UI state ──────────────────────────────────────────────────────────────
+
+    private bool    _busy;
+    private string? _errorMessage;
+
+    private string ScreenStatusText => _sessionActive
+        ? "Session active"
+        : (_busy ? "Connecting..." : "Idle");
+
+    private string ScreenStatusClass => _sessionActive
+        ? "canvas-status-badge--acquired"
+        : (_busy ? "canvas-status-badge--sending" : "canvas-status-badge--idle");
+
+    // ── JS interop ────────────────────────────────────────────────────────────
+
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<ScreenCanvas>? _selfRef;
+    private bool _jsReady;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        Flipper.StateChanged += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Flipper.IsConnected)
+            await InitJsAsync().ConfigureAwait(false);
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            if (Flipper.IsConnected && !_jsReady)
+                await InitJsAsync().ConfigureAwait(false);
+        });
+    }
+
+    private async Task InitJsAsync()
+    {
+        if (_jsReady) return;
+        _jsReady = true;
+
+        _module  = await JS.InvokeAsync<IJSObjectReference>("import", "./demos.js").ConfigureAwait(false);
+        _selfRef = DotNetObjectReference.Create(this);
+
+        await RenderCanvasAsync().ConfigureAwait(false);
+        await _module.InvokeVoidAsync("attachScreenCanvas", "screen-canvas", Scale, _selfRef).ConfigureAwait(false);
+    }
+
+    // ── JS callbacks ──────────────────────────────────────────────────────────
+
+    [JSInvokable]
+    public async Task OnCanvasMouseDown(int gx, int gy)
+    {
+        if (gx < 0 || _busy) return;
+        if (_activeTool == "Text")
+        {
+            var text = _pendingText.Trim();
+            if (text.Length > 0)
+            {
+                var shape = new DrawShape.TextShape((byte)gx, (byte)gy, text, _pendingFont);
+                await CommitShapeAsync(shape).ConfigureAwait(false);
+            }
+            return;
+        }
+        _dragging = true;
+        _dragX1   = gx;
+        _dragY1   = gy;
+    }
+
+    [JSInvokable]
+    public async Task OnCanvasMouseMove(int gx, int gy)
+    {
+        if (!_dragging || _module is null) return;
+        var toolJs = _activeTool.ToLowerInvariant().Replace(" ", "");
+        await _module.InvokeVoidAsync(
+            "renderScreenCanvasWithPreview", "screen-canvas",
+            _pixels, Scale, toolJs,
+            _dragX1, _dragY1, gx, gy).ConfigureAwait(false);
+    }
+
+    [JSInvokable]
+    public async Task OnCanvasMouseUp(int gx, int gy)
+    {
+        if (!_dragging) return;
+        _dragging = false;
+
+        var x2 = gx < 0 ? _dragX1 : gx;
+        var y2 = gy < 0 ? _dragY1 : gy;
+
+        DrawShape shape = _activeTool switch
+        {
+            "Line"        => new DrawShape.LineShape((byte)_dragX1, (byte)_dragY1, (byte)x2, (byte)y2),
+            "Rect"        => RectShape(_dragX1, _dragY1, x2, y2, false),
+            "Filled Rect" => RectShape(_dragX1, _dragY1, x2, y2, true),
+            _             => new DrawShape.LineShape((byte)_dragX1, (byte)_dragY1, (byte)x2, (byte)y2),
+        };
+
+        await CommitShapeAsync(shape).ConfigureAwait(false);
+    }
+
+    // ── Shape commit ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Adds the shape to the local list, updates the browser canvas preview,
+    /// and — if a session is active — replays all shapes to the Flipper and flushes.
+    /// </summary>
+    private async Task CommitShapeAsync(DrawShape shape)
+    {
+        _shapes.Add(shape);
+        RenderShapesToPixels();
+        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        await RenderCanvasAsync().ConfigureAwait(false);
+
+        if (_sessionActive)
+            await SendAllShapesToFlipperAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends every shape in the current list as draw commands, then calls flush once.
+    /// Each flush represents a complete frame — the daemon replaces its active buffer
+    /// with all pending ops atomically, so every shape is visible after the single flush.
+    /// </summary>
+    private async Task SendAllShapesToFlipperAsync()
+    {
+        if (_screenSession is null) return;
+        _errorMessage = null;
+        try
+        {
+            foreach (var shape in _shapes)
+            {
+                switch (shape)
+                {
+                    case DrawShape.LineShape l:
+                        await _screenSession.DrawLineAsync(l.X1, l.Y1, l.X2, l.Y2).ConfigureAwait(false);
+                        break;
+                    case DrawShape.RectShape r:
+                        await _screenSession.DrawRectAsync(r.X, r.Y, r.W, r.H, r.Filled).ConfigureAwait(false);
+                        break;
+                    case DrawShape.TextShape t:
+                        await _screenSession.DrawStrAsync(t.X, t.Y, t.Text, t.Font).ConfigureAwait(false);
+                        break;
+                }
+            }
+            await _screenSession.FlushAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Send failed: {ex.Message}";
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+    }
+
+    // ── Session management ────────────────────────────────────────────────────
+
+    private async Task StartSessionAsync()
+    {
+        if (Flipper.Client is null || _sessionActive) return;
+        _busy = true;
+        _errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            _screenSession = await Flipper.Client.UiScreenAcquireAsync().ConfigureAwait(false);
+
+            // Replay any shapes that were staged before the session started
+            if (_shapes.Count > 0)
+                await SendAllShapesToFlipperAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to start session: {ex.Message}";
+            _screenSession = null;
+        }
+        finally
+        {
+            _busy = false;
+            await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+        }
+    }
+
+    private async Task StopSessionAsync()
+    {
+        if (_screenSession is null) return;
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            await _screenSession.DisposeAsync().ConfigureAwait(false);
+        }
+        catch { /* ignore */ }
+        finally
+        {
+            _screenSession = null;
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Shape helpers ─────────────────────────────────────────────────────────
+
+    private static DrawShape.RectShape RectShape(int x1, int y1, int x2, int y2, bool filled)
+    {
+        byte rx = (byte)Math.Min(x1, x2);
+        byte ry = (byte)Math.Min(y1, y2);
+        byte rw = (byte)(Math.Abs(x2 - x1) + 1);
+        byte rh = (byte)(Math.Abs(y2 - y1) + 1);
+        return new DrawShape.RectShape(rx, ry, rw, rh, filled);
+    }
+
+    private void RemoveShape(int idx)
+    {
+        if (idx < 0 || idx >= _shapes.Count) return;
+        _shapes.RemoveAt(idx);
+        RenderShapesToPixels();
+        _ = RenderCanvasAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Rasterises all shapes into _pixels for canvas preview.</summary>
+    private void RenderShapesToPixels()
+    {
+        Array.Clear(_pixels, 0, _pixels.Length);
+        foreach (var shape in _shapes)
+        {
+            switch (shape)
+            {
+                case DrawShape.LineShape l:
+                    DrawLine(_pixels, l.X1, l.Y1, l.X2, l.Y2);
+                    break;
+                case DrawShape.RectShape r when r.Filled:
+                    for (int y = r.Y; y < r.Y + r.H && y < FlipperH; y++)
+                        for (int x = r.X; x < r.X + r.W && x < FlipperW; x++)
+                            _pixels[y * FlipperW + x] = 1;
+                    break;
+                case DrawShape.RectShape r:
+                    for (int x = r.X; x < r.X + r.W && x < FlipperW; x++)
+                    {
+                        if (r.Y < FlipperH)                 _pixels[r.Y * FlipperW + x] = 1;
+                        if (r.Y + r.H - 1 < FlipperH)      _pixels[(r.Y + r.H - 1) * FlipperW + x] = 1;
+                    }
+                    for (int y = r.Y; y < r.Y + r.H && y < FlipperH; y++)
+                    {
+                        if (r.X < FlipperW)                 _pixels[y * FlipperW + r.X] = 1;
+                        if (r.X + r.W - 1 < FlipperW)      _pixels[y * FlipperW + r.X + r.W - 1] = 1;
+                    }
+                    break;
+                case DrawShape.TextShape t:
+                    // Mark a small indicator dot for text placement (full font rendering not feasible in WASM preview)
+                    int tx = Math.Min((int)t.X, FlipperW - 1);
+                    int ty = Math.Min((int)t.Y, FlipperH - 1);
+                    for (int dx = 0; dx < 3 && tx + dx < FlipperW; dx++)
+                        for (int dy = 0; dy < 3 && ty + dy < FlipperH; dy++)
+                            _pixels[(ty + dy) * FlipperW + tx + dx] = 1;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Bresenham's line algorithm.</summary>
+    private static void DrawLine(byte[] pixels, int x0, int y0, int x1, int y1)
+    {
+        int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy;
+        while (true)
+        {
+            if (x0 >= 0 && x0 < FlipperW && y0 >= 0 && y0 < FlipperH)
+                pixels[y0 * FlipperW + x0] = 1;
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+    }
+
+    private async Task ClearCanvasAsync()
+    {
+        _shapes.Clear();
+        Array.Clear(_pixels, 0, _pixels.Length);
+        await RenderCanvasAsync().ConfigureAwait(false);
+        StateHasChanged();
+    }
+
+    private async Task RenderCanvasAsync()
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("renderScreenCanvas", "screen-canvas", _pixels, Scale).ConfigureAwait(false);
+    }
+
+    // ── IAsyncDisposable ──────────────────────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        Flipper.StateChanged -= OnStateChanged;
+
+        if (_screenSession is not null)
+        {
+            try { await _screenSession.DisposeAsync().ConfigureAwait(false); }
+            catch { /* ignore */ }
+            _screenSession = null;
+        }
+
+        _selfRef?.Dispose();
+
+        if (_module is not null)
+        {
+            try { await _module.DisposeAsync().ConfigureAwait(false); }
+            catch { /* ignore */ }
+        }
+    }
+
+    // ── DrawShape discriminated union ─────────────────────────────────────────
+
+    private abstract record DrawShape
+    {
+        public abstract string Describe();
+
+        public sealed record LineShape(byte X1, byte Y1, byte X2, byte Y2) : DrawShape
+        {
+            public override string Describe() => $"Line ({X1},{Y1}) → ({X2},{Y2})";
+        }
+
+        public sealed record RectShape(byte X, byte Y, byte W, byte H, bool Filled) : DrawShape
+        {
+            public override string Describe() =>
+                $"{(Filled ? "Filled Rect" : "Rect")} ({X},{Y}) {W}×{H}";
+        }
+
+        public sealed record TextShape(byte X, byte Y, string Text, UiFont Font) : DrawShape
+        {
+            public override string Describe() => $"Text \"{Text}\" ({X},{Y}) [{Font}]";
+        }
+    }
+}

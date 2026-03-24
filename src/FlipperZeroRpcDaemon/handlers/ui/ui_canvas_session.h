@@ -67,8 +67,10 @@ typedef struct {
 typedef struct {
     ViewPort* viewport; /**< Secondary ViewPort (fullscreen layer) */
     Gui* gui; /**< GUI record — needed to remove the viewport on release */
-    UiDrawOp ops[UI_OPS_MAX]; /**< Draw operation ring buffer */
-    size_t op_count; /**< Number of valid ops in the buffer */
+    UiDrawOp ops[UI_OPS_MAX]; /**< Pending draw ops (written by handlers) */
+    size_t op_count; /**< Number of valid ops in the pending buffer */
+    UiDrawOp active_ops[UI_OPS_MAX]; /**< Active draw ops (read by draw callback) */
+    size_t active_op_count; /**< Number of valid ops in the active buffer */
 } UiCanvasSession;
 
 /** Module-level singleton — valid only while RESOURCE_GUI is held. */
@@ -86,6 +88,13 @@ void ui_canvas_session_deinit(void);
 
 /** Clear the draw op buffer. */
 void ui_canvas_ops_clear(void);
+
+/**
+ * Atomically promote pending ops → active ops (for the draw callback) and
+ * clear the pending buffer.  Call this before view_port_update() so the
+ * draw callback always sees a stable snapshot.
+ */
+void ui_canvas_ops_commit(void);
 
 /** Append a draw op (drops silently if buffer is full). */
 void ui_canvas_op_push(const UiDrawOp* op);

@@ -72,7 +72,7 @@ dotnet script codegens/c-codegen.csx    # C  → src/FlipperZeroRpcDaemon/genera
 dotnet build
 ```
 
-Schema layout: `schema/command-registry.json` (ID → name, append-only), `schema/commands/<subsystem>/<cmd>.json`, `schema/streams/<name>.json`, `schema/enums/<Name>.json`, `schema/resources.json`.
+Schema layout: `schema/command-registry.json` (ID → name, append-only), `schema/commands/<subsystem>/<cmd>.json`, `schema/streams/<name>.json`, `schema/enums/<Name>.json`, `schema/resources.json`. See `SCHEMA.md` for the full field-by-field format reference.
 
 Some C# types use **partial structs** — a generated `.g.cs` alongside a hand-written `.cs` (e.g. `DaemonInfoResponse.Supports()`, `ConfigureCommand`). Add custom logic in the hand-written partial; never modify the `.g.cs`.
 

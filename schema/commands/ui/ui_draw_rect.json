@@ -2,7 +2,7 @@
   "command": "ui_draw_rect",
   "subsystem": "Ui",
   "description": "Draw a rectangle on the screen",
-  "resource": "RESOURCE_GUI",
+  "resource": null,
   "request": {
     "x": { "wire": "x", "type": "int", "description": "X coordinate of top-left corner" },
     "y": { "wire": "y", "type": "int", "description": "Y coordinate of top-left corner" },

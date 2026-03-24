@@ -24,8 +24,8 @@ static void canvas_draw_callback(Canvas* canvas, void* ctx) {
 
     canvas_clear(canvas);
 
-    for(size_t i = 0; i < s->op_count; i++) {
-        const UiDrawOp* op = &s->ops[i];
+    for(size_t i = 0; i < s->active_op_count; i++) {
+        const UiDrawOp* op = &s->active_ops[i];
         switch(op->type) {
         case UI_OP_CLEAR:
             canvas_clear(canvas);
@@ -74,6 +74,7 @@ static void canvas_draw_callback(Canvas* canvas, void* ctx) {
 void ui_canvas_session_init(Gui* gui) {
     g_canvas_session.gui = gui;
     g_canvas_session.op_count = 0;
+    g_canvas_session.active_op_count = 0;
 
     g_canvas_session.viewport = view_port_alloc();
     view_port_draw_callback_set(g_canvas_session.viewport, canvas_draw_callback, NULL);
@@ -91,9 +92,23 @@ void ui_canvas_session_deinit(void) {
     }
     g_canvas_session.gui = NULL;
     g_canvas_session.op_count = 0;
+    g_canvas_session.active_op_count = 0;
 }
 
 void ui_canvas_ops_clear(void) {
+    g_canvas_session.op_count = 0;
+}
+
+void ui_canvas_ops_commit(void) {
+    /* Promote pending ops to the active buffer so the draw callback sees them,
+     * then clear the pending buffer for the next batch of draw commands. */
+    g_canvas_session.active_op_count = g_canvas_session.op_count;
+    if(g_canvas_session.op_count > 0) {
+        memcpy(
+            g_canvas_session.active_ops,
+            g_canvas_session.ops,
+            g_canvas_session.op_count * sizeof(UiDrawOp));
+    }
     g_canvas_session.op_count = 0;
 }
 
