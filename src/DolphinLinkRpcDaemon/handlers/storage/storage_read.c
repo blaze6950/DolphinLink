@@ -35,7 +35,7 @@
 
 /** Maximum file read chunk per call. */
 #define STORAGE_READ_MAX 4096
-#define PATH_MAX_LEN     256
+#include "storage_common.h"
 
 void storage_read_handler(uint32_t id, const char* json, size_t offset) {
     JsonValue val;

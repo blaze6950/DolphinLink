@@ -14,8 +14,8 @@
  * Error codes:
  *   resource_busy — RESOURCE_SUBGHZ is held by another stream
  *
- * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler,
- *            released before returning)
+ * Resources: RESOURCE_SUBGHZ (dispatcher pre-checks; handler acquires and
+ *            releases before returning)
  *
  * The radio is powered up for ~5 ms to allow AGC to settle, then RSSI
  * is sampled and the radio is put back to sleep.

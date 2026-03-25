@@ -87,33 +87,34 @@ ignore received keep-alives.
 ## Command IDs
 
 Commands are numbered sequentially from 0. The authoritative mapping is `schema/command-registry.json`. Current
-commands (IDs 0–45):
+commands (IDs 0–46):
 
 | ID | Name                   | ID | Name                 |
 |----|------------------------|----|----------------------|
-| 0  | `ping`                 | 23 | `nfc_scan_start`     |
-| 1  | `stream_close`         | 24 | `led_set`            |
-| 2  | `configure`            | 25 | `led_set_rgb`        |
-| 3  | `daemon_info`          | 26 | `vibro`              |
-| 4  | `daemon_stop`          | 27 | `speaker_start`      |
-| 5  | `device_info`          | 28 | `speaker_stop`       |
-| 6  | `power_info`           | 29 | `backlight`          |
-| 7  | `datetime_get`         | 30 | `storage_info`       |
-| 8  | `datetime_set`         | 31 | `storage_list`       |
-| 9  | `region_info`          | 32 | `storage_read`       |
-| 10 | `frequency_is_allowed` | 33 | `storage_write`      |
-| 11 | `reboot`               | 34 | `storage_mkdir`      |
-| 12 | `gpio_read`            | 35 | `storage_remove`     |
-| 13 | `gpio_write`           | 36 | `storage_stat`       |
-| 14 | `adc_read`             | 37 | `lfrfid_read_start`  |
-| 15 | `gpio_set_5v`          | 38 | `ibutton_read_start` |
-| 16 | `gpio_watch_start`     | 39 | `input_listen_start` |
-| 17 | `ir_tx`                | 40 | `ui_screen_acquire`  |
-| 18 | `ir_tx_raw`            | 41 | `ui_screen_release`  |
-| 19 | `ir_receive_start`     | 42 | `ui_draw_str`        |
-| 20 | `subghz_tx`            | 43 | `ui_draw_rect`       |
-| 21 | `subghz_get_rssi`      | 44 | `ui_draw_line`       |
-| 22 | `subghz_rx_start`      | 45 | `ui_flush`           |
+| 0  | `ping`                 | 24 | `led_set`            |
+| 1  | `stream_close`         | 25 | `led_set_rgb`        |
+| 2  | `configure`            | 26 | `vibro`              |
+| 3  | `daemon_info`          | 27 | `speaker_start`      |
+| 4  | `daemon_stop`          | 28 | `speaker_stop`       |
+| 5  | `device_info`          | 29 | `backlight`          |
+| 6  | `power_info`           | 30 | `storage_info`       |
+| 7  | `datetime_get`         | 31 | `storage_list`       |
+| 8  | `datetime_set`         | 32 | `storage_read`       |
+| 9  | `region_info`          | 33 | `storage_write`      |
+| 10 | `frequency_is_allowed` | 34 | `storage_mkdir`      |
+| 11 | `reboot`               | 35 | `storage_remove`     |
+| 12 | `gpio_read`            | 36 | `storage_stat`       |
+| 13 | `gpio_write`           | 37 | `lfrfid_read_start`  |
+| 14 | `adc_read`             | 38 | `ibutton_read_start` |
+| 15 | `gpio_set_5v`          | 39 | `input_listen_start` |
+| 16 | `gpio_watch_start`     | 40 | `ui_screen_acquire`  |
+| 17 | `ir_tx`                | 41 | `ui_screen_release`  |
+| 18 | `ir_tx_raw`            | 42 | `ui_draw_str`        |
+| 19 | `ir_receive_start`     | 43 | `ui_draw_rect`       |
+| 20 | `subghz_tx`            | 44 | `ui_draw_line`       |
+| 21 | `subghz_get_rssi`      | 45 | `ui_flush`           |
+| 22 | `subghz_rx_start`      | 46 | `ui_render`          |
+| 23 | `nfc_scan_start`       |    |                      |
 
 ---
 

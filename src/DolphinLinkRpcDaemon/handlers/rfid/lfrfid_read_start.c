@@ -30,6 +30,7 @@
 #include "../../core/rpc_resource.h"
 #include "../../core/rpc_json.h"
 #include "../../core/rpc_cmd_log.h"
+#include "../../core/rpc_hex.h"
 
 #include <furi.h>
 #include <lib/lfrfid/lfrfid_worker.h>
@@ -69,11 +70,7 @@ static void lfrfid_read_callback(LFRFIDWorkerReadResult result, ProtocolId proto
 
         /* Build hex string */
         char hex[64] = {0};
-        size_t hex_len = 0;
-        for(size_t i = 0; i < data_size && hex_len + 2 < sizeof(hex); i++) {
-            snprintf(hex + hex_len, sizeof(hex) - hex_len, "%02X", data[i]);
-            hex_len += 2;
-        }
+        hex_format(hex, sizeof(hex), data, data_size);
 
         const char* proto_name = protocol_dict_get_name(dict, (size_t)protocol);
 

@@ -3,7 +3,7 @@
  *
  * Wire protocol:
  *   Request:  {"c":0,"i":N}
- *   Response: {"t":0,"i":N,"p":{"pg":true}}
+ *   Response: {"t":0,"i":N,"p":{"pg":1}}
  *
  * The ping command is a simple round-trip health-check with no arguments
  * and no resource requirements.

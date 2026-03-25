@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#define PATH_MAX_LEN 256
+#include "storage_common.h"
 
 void storage_info_handler(uint32_t id, const char* json, size_t offset) {
     JsonValue val;

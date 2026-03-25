@@ -30,6 +30,7 @@
 #include "../../core/rpc_resource.h"
 #include "../../core/rpc_json.h"
 #include "../../core/rpc_cmd_log.h"
+#include "../../core/rpc_hex.h"
 
 #include <furi.h>
 #include <lib/ibutton/ibutton_worker.h>
@@ -69,12 +70,8 @@ static void ibutton_worker_callback(void* ctx) {
         ibutton_protocols_get_editable_data(protocols, key, &editable);
 
         char hex[64] = {0};
-        size_t hex_len = 0;
         if(editable.ptr && editable.size) {
-            for(size_t i = 0; i < editable.size && hex_len + 2 < sizeof(hex); i++) {
-                snprintf(hex + hex_len, sizeof(hex) - hex_len, "%02X", editable.ptr[i]);
-                hex_len += 2;
-            }
+            hex_format(hex, sizeof(hex), editable.ptr, editable.size);
         }
 
         snprintf(

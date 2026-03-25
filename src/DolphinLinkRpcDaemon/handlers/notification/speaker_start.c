@@ -1,8 +1,9 @@
 ﻿/**
  * speaker_start.c — RPC handler implementation for the "speaker_start" command
  *
- * Starts a continuous tone on the piezo speaker.  The dispatcher has already
- * acquired RESOURCE_SPEAKER before this handler is called.  If the HAL-level
+ * Starts a continuous tone on the piezo speaker.  The dispatcher pre-checks
+ * RESOURCE_SPEAKER availability before calling this handler.  The handler
+ * acquires the resource, then calls the HAL-level acquire.  If the HAL-level
  * acquire fails (should not normally happen), the handler releases the resource
  * and returns a "resource_busy" error.
  *
@@ -17,7 +18,8 @@
  * Wire format (response — error):
  *   {"t":0,"i":N,"e":"resource_busy"}  — HAL-level acquire failed
  *
- * Resources: RESOURCE_SPEAKER (acquired by dispatcher before call).
+ * Resources: RESOURCE_SPEAKER (dispatcher pre-checks; handler acquires and
+ *            releases on success path via speaker_stop, or on error path here).
  * Thread: main (FuriEventLoop).
  */
 
@@ -47,10 +49,10 @@ void speaker_start_handler(uint32_t id, const char* json, size_t offset) {
 
     float volume = (float)volume_raw / 255.0f;
 
-    /* resource_acquire already called by dispatcher */
+    resource_acquire(RESOURCE_SPEAKER);
     if(!furi_hal_speaker_acquire(1000)) {
-        rpc_send_error(id, "resource_busy", "speaker_start");
         resource_release(RESOURCE_SPEAKER);
+        rpc_send_error(id, "resource_busy", "speaker_start");
         return;
     }
 

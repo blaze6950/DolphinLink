@@ -16,6 +16,7 @@
  *   {"t":0,"i":N,"e":"missing_data"}   — "data" field absent
  *   {"t":0,"i":N,"e":"out_of_memory"}  — heap allocation failed
  *   {"t":0,"i":N,"e":"open_failed"}    — file could not be opened for writing
+ *   {"t":0,"i":N,"e":"write_failed"}  — write did not complete (disk full or I/O error)
  *
  * Resources: none (0).
  * Thread: main (FuriEventLoop).
@@ -34,7 +35,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#define PATH_MAX_LEN 256
+#include "storage_common.h"
 
 void storage_write_handler(uint32_t id, const char* json, size_t offset) {
     JsonValue val;
@@ -81,10 +82,15 @@ void storage_write_handler(uint32_t id, const char* json, size_t offset) {
         return;
     }
 
-    storage_file_write(f, raw, decoded);
+    size_t written = storage_file_write(f, raw, decoded);
     storage_file_close(f);
     storage_file_free(f);
     free(raw);
+
+    if(written != decoded) {
+        rpc_send_error(id, "write_failed", "storage_write");
+        return;
+    }
 
     rpc_send_ok(id, "storage_write");
     FURI_LOG_I("RPC", "storage_write %s (%zu B)", path, decoded);

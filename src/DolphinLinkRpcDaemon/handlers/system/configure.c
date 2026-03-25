@@ -39,9 +39,7 @@ void configure_handler(uint32_t id, const char* json, size_t offset) {
     if(json_find(json, "to", offset, &val)) { json_value_uint32(&val, &to_ms); offset = val.offset; }
 
     if(!heartbeat_apply_config(hb_ms, to_ms)) {
-        char log_entry[CMD_LOG_LINE_LEN];
-        snprintf(log_entry, sizeof(log_entry), "#%" PRIu32 " cfg:invalid_config", id);
-        rpc_send_error(id, "invalid_config", log_entry);
+        rpc_send_error(id, "invalid_config", "configure");
         return;
     }
 

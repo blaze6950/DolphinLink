@@ -33,7 +33,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#define PATH_MAX_LEN     256
+#include "storage_common.h"
 #define STORAGE_LIST_MAX 64
 
 void storage_list_handler(uint32_t id, const char* json, size_t offset) {

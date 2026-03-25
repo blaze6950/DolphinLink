@@ -8,10 +8,10 @@
  *   {"c":N,"i":M,"fr":433920000}
  *
  * Wire format (response):
- *   {"t":0,"i":N,"p":{"rssi_dbm10":-750}}
+ *   {"t":0,"i":N,"p":{"rs":-750}}
  *
- * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler,
- *            released before returning)
+ * Resources: RESOURCE_SUBGHZ (dispatcher pre-checks; handler acquires and
+ *            releases before returning)
  */
 
 #include "subghz_get_rssi.h"
@@ -26,11 +26,6 @@
 #include <inttypes.h>
 
 void subghz_get_rssi_handler(uint32_t id, const char* json, size_t offset) {
-    if(!resource_can_acquire(RESOURCE_SUBGHZ)) {
-        rpc_send_error(id, "resource_busy", "subghz_get_rssi");
-        return;
-    }
-
     uint32_t freq = 433920000;
     JsonValue val;
     if(json_find(json, "fr", offset, &val)) { json_value_uint32(&val, &freq); }

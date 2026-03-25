@@ -115,7 +115,7 @@ if(slot < 0) return;  // stream_open already sent the error
 
 ### Step 4 — C# (if codegen is insufficient)
 
-Add a hand-written extension in `Extensions/Flipper<Subsystem>Extensions.cs` using `client.SendAsync<TCmd, TResp>(...)`. Follow existing hand-written extensions as templates.
+Add a hand-written extension in `Extensions/<Subsystem>Extensions.cs` using `client.SendAsync<TCmd, TResp>(...)`. Follow existing hand-written extensions as templates.
 
 ### Step 5 — Build & verify
 
@@ -175,7 +175,7 @@ if(json_find(json, "a", val.offset, &val)) json_value_uint32(&val, &address);
 - C# 12, .NET 8, `<Nullable>enable</Nullable>`. `ConfigureAwait(false)` on every `await`.
 - `sealed` classes. `readonly struct` for command/response/event types. `IAsyncDisposable` for resource owners.
 - Generic pattern: `SendAsync<TCommand, TResponse>()` where `TCommand : struct, IRpcCommand<TResponse>`.
-- Public API: extension methods in `Extensions/Flipper<Subsystem>Extensions.cs`.
+- Public API: extension methods in `Extensions/<Subsystem>Extensions.cs`.
 - Namespaces: `DolphinLink.Client.Commands`, stream events in `DolphinLink.Client.Commands.<Subsystem>`.
 - `RpcClientOptions`: `default` is safe (`HeartbeatInterval=3s`, `Timeout=10s`).
 - Exceptions: `RpcException` → `DisconnectedException`.

@@ -10,9 +10,8 @@
  * Wire format (response):
  *   {"t":0,"i":N}
  *
- * Resources: RESOURCE_SUBGHZ (checked and acquired inside the handler;
- *            dispatcher pre-check is skipped for subghz_tx because the
- *            handler also needs to acquire it without holding it open)
+ * Resources: RESOURCE_SUBGHZ (dispatcher pre-checks; handler acquires before
+ *            TX and releases after)
  */
 
 #include "subghz_tx.h"
@@ -45,11 +44,6 @@ static LevelDuration subghz_tx_yield_callback(void* ctx) {
 }
 
 void subghz_tx_handler(uint32_t id, const char* json, size_t offset) {
-    if(!resource_can_acquire(RESOURCE_SUBGHZ)) {
-        rpc_send_error(id, "resource_busy", "subghz_tx");
-        return;
-    }
-
     tx_count = 0;
     tx_pos = 0;
 

@@ -9,7 +9,12 @@
     "led": { "wire": "led", "type": "object", "optional": true, "description": "RGB LED color object" },
     "diagnostics": { "wire": "dx", "type": "bool", "optional": true, "description": "Enable per-request timing metrics (_m field) in responses" }
   },
-  "response": {},
+  "response": {
+    "heartbeat_ms": { "wire": "hb", "type": "uint", "optional": true, "description": "Effective heartbeat interval in ms" },
+    "timeout_ms":   { "wire": "to", "type": "uint", "optional": true, "description": "Effective timeout in ms" },
+    "led":          { "wire": "led", "type": "object", "optional": true, "description": "Acknowledged LED color object" },
+    "diagnostics":  { "wire": "dx", "type": "bool", "optional": true, "description": "Whether per-request timing metrics are enabled" }
+  },
   "errors": [],
   "extensionReturn": { "type": "void" },
   "csharp": { "skip": ["command", "response", "extension"] }

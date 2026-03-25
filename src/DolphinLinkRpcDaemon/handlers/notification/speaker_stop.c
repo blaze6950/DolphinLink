@@ -10,7 +10,8 @@
  * Wire format (response — success):
  *   {"t":0,"i":N}
  *
- * Resources: none claimed by dispatcher, but handler releases RESOURCE_SPEAKER.
+ * Resources: RESOURCE_SPEAKER (no dispatcher pre-check; handler guards with
+ *            resource_is_held before releasing, tolerating a spurious stop).
  * Thread: main (FuriEventLoop).
  */
 
@@ -24,6 +25,11 @@
 void speaker_stop_handler(uint32_t id, const char* json, size_t offset) {
     (void)json;
     (void)offset;
+
+    if(!resource_is_held(RESOURCE_SPEAKER)) {
+        rpc_send_ok(id, "speaker_stop");
+        return;
+    }
 
     furi_hal_speaker_stop();
     furi_hal_speaker_release();

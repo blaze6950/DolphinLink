@@ -578,8 +578,6 @@ foreach (var subsystem in allSubsystems.OrderBy(s => s))
     sb.AppendLine($"public static partial class {subsystem}Extensions");
     sb.AppendLine("{");
 
-    var wroteAny = false;
-
     // Commands for this subsystem
     foreach (var kv in allCommandSchemas.Where(kv => kv.Value["subsystem"]!.GetValue<string>() == subsystem))
     {
@@ -635,11 +633,6 @@ foreach (var subsystem in allSubsystems.OrderBy(s => s))
             returnType = $"Task<{responseName}>";
             returnExpr = $"client.SendAsync<{className}, {responseName}>({newCmd}, ct)";
         }
-        else if (extReturnType == "void")
-        {
-            returnType = $"Task<{responseName}>";
-            returnExpr = $"client.SendAsync<{className}, {responseName}>({newCmd}, ct)";
-        }
         else if (extReturnField != null)
         {
             var fieldPropName = PascalCase(extReturnField);
@@ -654,7 +647,6 @@ foreach (var subsystem in allSubsystems.OrderBy(s => s))
             sb.AppendLine($"        return r.{fieldPropName}!;");
             sb.AppendLine("    }");
             sb.AppendLine();
-            wroteAny = true;
             continue;
         }
         else
@@ -670,7 +662,6 @@ foreach (var subsystem in allSubsystems.OrderBy(s => s))
         sb.AppendLine($"        {paramList})");
         sb.AppendLine($"        => {returnExpr};");
         sb.AppendLine();
-        wroteAny = true;
     }
 
     // Streams for this subsystem
@@ -719,12 +710,11 @@ foreach (var subsystem in allSubsystems.OrderBy(s => s))
         sb.AppendLine($"        {paramList})");
         sb.AppendLine($"        => client.SendStreamAsync<{startClassName}, {eventName}>({newCmd}, ct);");
         sb.AppendLine();
-        wroteAny = true;
     }
 
     sb.AppendLine("}");
 
-    if (wroteAny || true) // always emit the partial class even if empty
+    // always emit the partial class even if empty
     {
         var outPath = Path.Combine(csExtOutDir, $"{subsystem}Extensions.g.cs");
         File.WriteAllText(outPath, sb.ToString());
