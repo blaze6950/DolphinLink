@@ -125,6 +125,7 @@ public sealed class ClientService : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DolphinLink] WebSerial interop load failed: {ex}");
             WebSerialSupported = false;
             ErrorMessage = $"Failed to load WebSerial interop: {ex.Message}";
             NotifyStateChanged();

@@ -89,7 +89,7 @@ public sealed class WebSerialPort : ISerialPort
         ct.ThrowIfCancellationRequested();
 
         // Load the JS interop module on first use.
-        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.ModuleUrl, ct)
+        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.GetModuleUrl(), ct)
                     .ConfigureAwait(false);
 
         // Resolve the [JSExport] OnData entry point so the JS pump can call back into .NET.

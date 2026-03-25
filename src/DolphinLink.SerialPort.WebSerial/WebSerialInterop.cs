@@ -38,12 +38,33 @@ internal static partial class WebSerialInterop
     internal const string ModuleName = "_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
 
     /// <summary>
-    /// The relative URL the browser fetches when loading the module.
-    /// Resolved against <c>document.baseURI</c> (set from <c>&lt;base href&gt;</c>) by the
-    /// WASM runtime, so it works correctly regardless of the deployment sub-path
-    /// (e.g. <c>/DolphinLink/</c> on GitHub Pages or <c>/</c> in local dev).
+    /// The relative path appended to <c>document.baseURI</c> to form the absolute URL
+    /// the browser fetches when loading the module.
     /// </summary>
-    internal const string ModuleUrl = "_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
+    private const string ModuleRelativePath = "_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
+
+    /// <summary>
+    /// Returns the absolute URL for the JS interop module, computed from
+    /// <c>document.baseURI</c> at call time.
+    ///
+    /// <para>
+    /// A bare relative path like <c>_content/...</c> is treated by the browser as a
+    /// bare module specifier (rejected on static hosts such as GitHub Pages).
+    /// A <c>./</c>-prefixed path resolves relative to the calling script's location
+    /// (inside <c>_framework/</c>), producing the wrong path.  Building an absolute URL
+    /// from <c>document.baseURI</c> avoids both problems and works correctly for any
+    /// deployment sub-path (e.g. <c>/DolphinLink/</c> on GitHub Pages or <c>/</c>
+    /// in local dev).
+    /// </para>
+    /// </summary>
+    internal static string GetModuleUrl()
+    {
+        using var document = JSHost.GlobalThis.GetPropertyAsJSObject("document")
+            ?? throw new InvalidOperationException("document is not available");
+        string baseUri = document.GetPropertyAsString("baseURI")
+            ?? throw new InvalidOperationException("document.baseURI is not available");
+        return baseUri.TrimEnd('/') + "/" + ModuleRelativePath;
+    }
 
     // -------------------------------------------------------------------------
     // JS → .NET data delivery dispatch table

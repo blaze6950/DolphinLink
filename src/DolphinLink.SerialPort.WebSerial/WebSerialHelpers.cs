@@ -63,7 +63,7 @@ public static class WebSerialHelpers
             return false;
         }
 
-        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.ModuleUrl);
+        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.GetModuleUrl());
         return WebSerialInterop.IsSupported();
     }
 }

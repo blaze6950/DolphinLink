@@ -251,7 +251,7 @@ public static class WebSerialPortPicker
         var timeout = probeTimeout ?? TimeSpan.FromSeconds(3);
 
         // Load the JS module so GetPortsJs is available.
-        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.ModuleUrl, ct)
+        await JSHost.ImportAsync(WebSerialInterop.ModuleName, WebSerialInterop.GetModuleUrl(), ct)
                     .ConfigureAwait(false);
         await WebSerialInterop.InitModuleJs("DolphinLink.SerialPort.WebSerial.dll")
                                .ConfigureAwait(false);

@@ -8,6 +8,12 @@
 @if (!Flipper.WebSerialSupported)
 {
     <span class="badge bg-warning text-dark">WebSerial not supported</span>
+    @if (Flipper.ErrorMessage is not null)
+    {
+        <span class="text-danger small ms-2" title="@Flipper.ErrorMessage">
+            (@Flipper.ErrorMessage)
+        </span>
+    }
 }
 else if (Flipper.IsConnected)
 {
