@@ -6,10 +6,10 @@
     Bump <Version> here when releasing a new version.
   -->
   <PropertyGroup>
-    <Version>0.0.1</Version>
+    <Version>0.1.0</Version>
     <Authors>blaze6950</Authors>
     <Copyright>Copyright © blaze6950</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/blaze6950/DolphinLink</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/blaze6950/DolphinLink</PackageProjectUrl>

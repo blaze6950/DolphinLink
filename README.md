@@ -1,6 +1,6 @@
 # DolphinLink
 
-[![CI](https://github.com/YOUR_ORG/DolphinLink/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/DolphinLink/actions/workflows/ci.yml)
+[![CI](https://github.com/blaze6950/DolphinLink/actions/workflows/ci.yml/badge.svg)](https://github.com/blaze6950/DolphinLink/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/DolphinLink.Client)](https://www.nuget.org/packages/DolphinLink.Client)
 [![NuGet](https://img.shields.io/nuget/v/DolphinLink.Bootstrapper)](https://www.nuget.org/packages/DolphinLink.Bootstrapper)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/en-us/)
@@ -91,7 +91,7 @@ A **Blazor WASM** app (`src/DolphinLink.Web`) talks to the Flipper directly from
 
 ## Interactive docs & playground
 
-> **[Try it live →](https://YOUR_ORG.github.io/DolphinLink/)**
+> **[Try it live →](https://blaze6950.github.io/DolphinLink/)**
 > Requires Chrome or Edge (Web Serial API). Connect your Flipper and everything runs in the browser — no install.
 
 > **Reading this inside the web app?** Use the sidebar to jump directly to the Playground, Docs, and Demos pages.
@@ -168,7 +168,7 @@ The wire protocol is plain **NDJSON over USB CDC** — one JSON object per line.
 
 ## Testing caveat
 
-Not every command has been tested end-to-end on real hardware. If you run into a bug or unexpected behavior, please **[open an issue](../../issues)** — reports are very welcome.
+Not every command has been tested end-to-end on real hardware. If you run into a bug or unexpected behavior, please **[open an issue](https://github.com/blaze6950/DolphinLink/issues)** — reports are very welcome.
 
 ---
 

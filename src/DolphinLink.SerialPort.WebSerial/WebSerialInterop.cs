@@ -38,11 +38,12 @@ internal static partial class WebSerialInterop
     internal const string ModuleName = "_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
 
     /// <summary>
-    /// The absolute URL the browser fetches when loading the module.
-    /// A leading <c>/</c> ensures resolution from the site root regardless of the
-    /// document <c>&lt;base href&gt;</c> or the WASM runtime's internal base URL.
+    /// The relative URL the browser fetches when loading the module.
+    /// Resolved against <c>document.baseURI</c> (set from <c>&lt;base href&gt;</c>) by the
+    /// WASM runtime, so it works correctly regardless of the deployment sub-path
+    /// (e.g. <c>/DolphinLink/</c> on GitHub Pages or <c>/</c> in local dev).
     /// </summary>
-    internal const string ModuleUrl = "/_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
+    internal const string ModuleUrl = "_content/DolphinLink.SerialPort.WebSerial/webserial-interop.js";
 
     // -------------------------------------------------------------------------
     // JS → .NET data delivery dispatch table

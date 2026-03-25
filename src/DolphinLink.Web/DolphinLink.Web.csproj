@@ -18,10 +18,6 @@
     <ProjectReference Include="..\..\src\DolphinLink.SerialPort.WebSerial\DolphinLink.SerialPort.WebSerial.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json" />
-  </ItemGroup>
-
   <!-- Embed markdown documentation files from the repo root so they can be
        rendered as pages in the Blazor app without any extra HTTP requests.
        Link places them under a docs\ virtual folder in the project tree;
